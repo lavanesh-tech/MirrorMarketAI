@@ -43,8 +43,16 @@ typecheck: ## Strict mypy
 	cd $(BACKEND) && $(UV) run mypy
 
 .PHONY: test
-test: ## Run the test suite
+test: ## Run the full test suite (DB tests start a Postgres container; Docker must be running)
 	cd $(BACKEND) && $(UV) run pytest
+
+.PHONY: test-unit
+test-unit: ## Run tests that need no database (fast, no Docker)
+	cd $(BACKEND) && $(UV) run pytest -m "not db"
+
+.PHONY: test-db
+test-db: ## Run only database, migration and readiness tests
+	cd $(BACKEND) && $(UV) run pytest -m db
 
 .PHONY: cov
 cov: ## Run tests with branch coverage report
@@ -52,6 +60,34 @@ cov: ## Run tests with branch coverage report
 
 .PHONY: check
 check: lint typecheck cov ## Everything CI runs for the backend
+
+# --------------------------------------------------------------------------- #
+# Database migrations (host -> Compose Postgres on 127.0.0.1:5433)
+# --------------------------------------------------------------------------- #
+.PHONY: migrate
+migrate: ## Apply all migrations to the local database
+	cd $(BACKEND) && $(UV) run $(ENV_FILE_FLAG) alembic upgrade head
+
+.PHONY: migration
+migration: ## Create a migration from model changes: make migration m="add users table"
+	@test -n "$(m)" || (echo 'usage: make migration m="describe the change"' && exit 1)
+	cd $(BACKEND) && $(UV) run $(ENV_FILE_FLAG) alembic revision --autogenerate -m "$(m)"
+
+.PHONY: db-current
+db-current: ## Show the migration revision the local database is at
+	cd $(BACKEND) && $(UV) run $(ENV_FILE_FLAG) alembic current
+
+.PHONY: db-history
+db-history: ## List all migrations
+	cd $(BACKEND) && $(UV) run alembic history --verbose
+
+.PHONY: db-downgrade
+db-downgrade: ## Roll back the most recent migration on the local database
+	cd $(BACKEND) && $(UV) run $(ENV_FILE_FLAG) alembic downgrade -1
+
+.PHONY: db-shell
+db-shell: ## Open psql inside the Postgres container
+	$(COMPOSE) exec postgres sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
 # --------------------------------------------------------------------------- #
 # Run
@@ -72,11 +108,11 @@ build: ## Build the API image
 	$(COMPOSE) build api
 
 .PHONY: up
-up: ## Start postgres, redis and api; wait until all are healthy
+up: ## Start postgres + redis, run migrations, start api; wait until healthy
 	$(COMPOSE) up -d --build --wait --wait-timeout 180
 
 .PHONY: infra
-infra: ## Start only postgres + redis (for `make run` on the host)
+infra: ## Start only postgres + redis (then `make migrate` and `make run` on the host)
 	$(COMPOSE) up -d --wait --wait-timeout 120 postgres redis
 
 .PHONY: down
@@ -96,8 +132,12 @@ logs: ## Follow logs from all services
 	$(COMPOSE) logs -f
 
 .PHONY: health
-health: ## Call the health endpoint
+health: ## Call the liveness endpoint
 	@curl -fsS -i $(API_URL)/api/v1/health; echo
+
+.PHONY: ready
+ready: ## Call the readiness endpoint (checks database + migration state)
+	@curl -sS -i $(API_URL)/api/v1/ready; echo
 
 .PHONY: verify-pgvector
 verify-pgvector: ## Confirm the pgvector extension is installed in the local database

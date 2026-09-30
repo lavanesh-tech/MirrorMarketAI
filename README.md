@@ -8,9 +8,9 @@ the request into structured requirements, gathers evidence about candidate produ
 runs specialised AI agents over that evidence, and returns comparisons in which
 every factual claim cites its source. Collaborators see the research happen live.
 
-> **Status: Phase 1 of 35, repository foundation.** Only the backend skeleton,
-> local infrastructure and quality tooling exist so far. There is no RAG, no agents,
-> no auth and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: Phase 2 of 35 complete.** Done so far: the backend foundation, async
+> PostgreSQL + pgvector access, Alembic migrations, and readiness checks. There is
+> no RAG, no agents, no auth and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Principles
 
@@ -47,7 +47,9 @@ MirrorMarketAI/
 │   │   └── ...               domain, models, repositories, services, ingestion,
 │   │                         retrieval, agents, providers, events, workers,
 │   │                         realtime, security, telemetry (filled in later phases)
-│   ├── tests/                unit/ and api/ tests
+│   ├── migrations/           Alembic environment + versioned migrations
+│   ├── tests/                unit/, api/ and db/ (real PostgreSQL) tests
+│   ├── alembic.ini
 │   ├── Dockerfile
 │   ├── pyproject.toml        dependencies + ruff/mypy/pytest configuration
 │   └── uv.lock               exact, reproducible dependency versions
@@ -70,9 +72,10 @@ Command Line Tools). uv installs Python 3.12 for you if it's missing.
 ```bash
 make env        # create .env from .env.example
 make install    # install locked backend dependencies into backend/.venv
-make check      # ruff + mypy + pytest with coverage
-make up         # build the API image, start postgres/redis/api, wait until healthy
-make health     # GET http://127.0.0.1:8000/api/v1/health
+make check      # ruff + mypy + pytest with coverage (DB tests need Docker running)
+make up         # build image, start postgres/redis, run migrations, start api
+make health     # liveness:  GET /api/v1/health
+make ready      # readiness: GET /api/v1/ready (database + schema revision)
 make verify-pgvector
 ```
 
@@ -82,6 +85,7 @@ To run the API on your Mac with auto-reload instead of in a container:
 
 ```bash
 make infra      # just postgres + redis
+make migrate    # alembic upgrade head against 127.0.0.1:5433
 make run        # uvicorn --reload on 127.0.0.1:8000
 ```
 
@@ -100,6 +104,7 @@ Run `make help` for every command.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/v1/health` | Liveness: the process is up. Does not check dependencies. |
+| GET | `/api/v1/ready` | Readiness: 200 only if PostgreSQL is reachable and migrated to the revision this build expects; otherwise 503. |
 | GET | `/api/v1/openapi.json` | OpenAPI schema |
 | GET | `/api/v1/docs` | Swagger UI |
 
@@ -111,3 +116,5 @@ from `A-Z a-z 0-9 . _ -`) to correlate across services; otherwise one is generat
 - [Architecture](docs/ARCHITECTURE.md)
 - [Decisions (ADR log)](docs/DECISIONS.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Data model](docs/DATA_MODEL.md)
+- [Testing](docs/TESTING.md)

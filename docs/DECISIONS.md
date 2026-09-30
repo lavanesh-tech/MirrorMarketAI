@@ -94,3 +94,52 @@ Newest at the bottom. A superseded decision is marked, not deleted.
 - **Consequences:** Adding strictness later is much harder than starting with
   it. Where code needs an exception, it gets a narrowly scoped
   `# type: ignore[code]` or a per-file ignore with a comment explaining why.
+
+## ADR-009: Session per request; the service layer owns commits
+
+- **Status:** Accepted (Phase 2)
+- **Decision:** `get_db_session` yields one `AsyncSession` per request, closes
+  it, and rolls back on error, but never commits. Repositories add, flush and
+  query only. Services call `commit()` once a use-case has fully succeeded.
+  `expire_on_commit=False`, because async code cannot lazily reload attributes.
+- **Consequences:** Several repository calls form one atomic unit of work.
+  Nothing is persisted just because a handler returned. Tests bind sessions to
+  an outer transaction with `join_transaction_mode="create_savepoint"`, so code
+  that commits still leaves no trace in the database.
+
+## ADR-010: Migrations ship in the API image and run as a one-shot job
+
+- **Status:** Accepted (Phase 2)
+- **Decision:** `alembic.ini` and `migrations/` are copied into the API image.
+  Compose runs a `migrate` service (`alembic upgrade head`) that must exit 0
+  before `api` starts. On AWS (Phase 31) the same image runs as a one-off
+  ECS task before the service is deployed.
+- **Alternatives:** Migrating on API startup. Rejected: with N replicas, N
+  processes race to migrate, and a failed migration crash-loops the API.
+- **Consequences:** The schema version and code version always travel together.
+  Migrations must stay backward compatible with the previous release while
+  rolling deploys overlap.
+- **Note:** The folder is named `migrations/` rather than `alembic/` so it can
+  never shadow the `alembic` library on `sys.path`.
+
+## ADR-011: Readiness verifies the schema revision, not just connectivity
+
+- **Status:** Accepted (Phase 2)
+- **Decision:** `/api/v1/ready` returns 200 only when `SELECT 1` succeeds within
+  a time budget *and* `alembic_version` matches the head revision bundled
+  with the code. Failures return 503 with reasons from a fixed vocabulary.
+- **Consequences:** A load balancer won't route traffic to an instance whose
+  code expects tables that don't exist yet. `/health` stays dependency-free
+  (ADR-006).
+
+## ADR-012: Real PostgreSQL in tests (Testcontainers), never SQLite
+
+- **Status:** Accepted (Phase 2)
+- **Decision:** DB tests run against `pgvector/pgvector:0.8.6-pg17-trixie`,
+  started by Testcontainers. Setting `TEST_DATABASE_URL` points them at an
+  existing server instead. Migration tests each get a brand-new database; all
+  other DB tests share one migrated database and roll back after every test.
+- **Consequences:** Tests exercise the real SQL dialect, constraints,
+  transactional DDL and pgvector. `make test-unit` runs only the tests that
+  don't need Docker. A schema-drift test fails whenever a model changes
+  without a matching migration.

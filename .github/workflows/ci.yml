@@ -44,6 +44,8 @@ jobs:
       - name: mypy (strict)
         run: uv run mypy
 
+      # Includes database/migration tests: Testcontainers starts a pgvector
+      # container using the runner's Docker daemon.
       - name: pytest
         run: uv run pytest --cov --cov-report=term-missing
 
@@ -61,10 +63,15 @@ jobs:
       - name: Build and start stack
         run: docker compose up -d --build --wait --wait-timeout 180
 
-      - name: Smoke test health endpoint
+      - name: Smoke test health and readiness endpoints
         run: |
           curl -fsS -i http://127.0.0.1:8000/api/v1/health
           curl -fsS http://127.0.0.1:8000/api/v1/health | grep -q '"status":"ok"'
+          curl -fsS -i http://127.0.0.1:8000/api/v1/ready
+          curl -fsS http://127.0.0.1:8000/api/v1/ready | grep -q '"status":"ready"'
+
+      - name: Verify migrations ran
+        run: docker compose logs migrate | grep -q "Running upgrade"
 
       - name: Verify pgvector extension
         run: |

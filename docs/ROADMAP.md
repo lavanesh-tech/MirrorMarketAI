@@ -11,8 +11,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | # | Phase | Status |
 | --- | --- | --- |
 | 1 | Repository foundation: FastAPI, settings, logging, request IDs, health, Docker, Compose (Postgres+pgvector, Redis), Ruff, mypy, pytest, Makefile, CI skeleton | ✅ |
-| 2 | Async PostgreSQL, SQLAlchemy 2.x, Alembic, readiness endpoint, repository base, database tests (Testcontainers) | 🔜 |
-| 3 | Users, organizations/workspaces, memberships, authentication foundation | ⬜ |
+| 2 | Async PostgreSQL, SQLAlchemy 2.x, Alembic, readiness endpoint, repository base, database tests (Testcontainers) | ✅ |
+| 3 | Users, organizations/workspaces, memberships, authentication foundation | 🔜 |
 
 ## Product data and RAG
 
@@ -81,3 +81,15 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Docker Compose config valid; Postgres (pgvector) and Redis have health checks
 - [x] `make up` verified on the developer Mac (image build + healthy stack)
 - [x] CI green on GitHub after first push
+
+## Phase 2 exit criteria
+
+- [x] Async SQLAlchemy engine/session lifecycle is owned by the app lifespan
+- [x] Alembic (async env) with baseline migration `0001` enabling pgvector
+- [x] Compose `migrate` one-shot runs before `api`
+- [x] `GET /api/v1/ready` checks DB connectivity and schema revision (503 otherwise)
+- [x] Generic repository + pagination; `Base` naming convention, UUID and timestamp mixins
+- [x] DB tests: repository, constraints, transactions, readiness, session dependency
+- [x] Migration tests: fresh upgrade, downgrade/re-upgrade round trip, no model drift, single head
+- [ ] Verified on the developer Mac (`make check`, `make up`, `make ready`)
+- [ ] CI green

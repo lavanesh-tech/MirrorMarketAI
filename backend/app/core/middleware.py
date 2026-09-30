@@ -25,7 +25,7 @@ logger = logging.getLogger("app.access")
 
 # Probe endpoints are hit every few seconds by Docker/ALB health checks.
 # Log them at DEBUG so they don't drown out real traffic at INFO.
-_QUIET_PATHS = frozenset({"/api/v1/health"})
+_QUIET_PATHS = frozenset({"/api/v1/health", "/api/v1/ready"})
 
 
 class RequestContextMiddleware:

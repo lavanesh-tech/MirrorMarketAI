@@ -5,8 +5,8 @@ All runtime configuration comes from environment variables (optionally a local
 
 Rules:
 - Secrets are `SecretStr` so they never appear in `repr()`, logs or tracebacks.
-- Nothing here opens a connection. Phase 1 only *declares* PostgreSQL, Redis,
-  OpenAI and Kafka settings; later phases consume them.
+- Nothing here opens a connection. Connections are created in the app lifespan
+  (PostgreSQL since Phase 2); Redis, OpenAI and Kafka settings are consumed later.
 - Unsafe combinations (e.g. debug in production) fail fast at startup instead of
   silently running in a weaker mode.
 """
@@ -55,10 +55,20 @@ class Settings(BaseSettings):
     # a plain comma-separated list instead of JSON.
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
-    # --- PostgreSQL (primary system of record; wired up in Phase 2) ----------
+    # --- PostgreSQL (primary system of record) -------------------------------
     database_url: SecretStr = SecretStr(
         "postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket"
     )
+    db_pool_size: int = Field(default=5, ge=1, le=100)
+    db_max_overflow: int = Field(default=5, ge=0, le=100)
+    db_pool_timeout_seconds: float = Field(default=10.0, gt=0)
+    db_pool_recycle_seconds: int = Field(default=1800, ge=60)
+    db_connect_timeout_seconds: float = Field(default=5.0, gt=0)
+    # Server-side cap on any single statement; protects the pool from runaway queries.
+    db_statement_timeout_ms: int = Field(default=15_000, ge=100)
+    db_echo: bool = False
+    # Readiness probe budget for the database check.
+    readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
     # --- Redis (cache/coordination; wired up in Phase 19) --------------------
     redis_url: SecretStr = SecretStr("redis://localhost:6380/0")
@@ -89,6 +99,14 @@ class Settings(BaseSettings):
         # later phases) and is never what we want for a multi-tenant app.
         if "*" in value:
             raise ValueError("wildcard CORS origin '*' is not allowed; list origins explicitly")
+        return value
+
+    @field_validator("database_url")
+    @classmethod
+    def _require_asyncpg_driver(cls, value: SecretStr) -> SecretStr:
+        # The whole data layer is async; a sync driver URL would fail at first query.
+        if not value.get_secret_value().startswith("postgresql+asyncpg://"):
+            raise ValueError("database_url must use the 'postgresql+asyncpg://' scheme")
         return value
 
     @model_validator(mode="after")

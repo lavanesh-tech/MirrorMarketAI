@@ -42,11 +42,15 @@ WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
+# Migrations ship in the same image, so the schema version always matches the code
+# (the Compose `migrate` service and, later, the ECS migration task run them).
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 # Source is owned by root and the process runs as `app`: the running service
 # cannot modify its own code. Normalise permissions so the image works no matter
 # what file modes the build context had (e.g. 0600 files from a restrictive umask).
-RUN chmod -R a+rX,go-w /app/app
+RUN chmod -R a+rX,go-w /app/app /app/migrations /app/alembic.ini
 
 USER app
 

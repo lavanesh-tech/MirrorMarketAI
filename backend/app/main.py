@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
+from app.core.database import Database
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 
@@ -30,14 +31,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Startup/shutdown hook.
+    """Startup/shutdown hook: owns every long-lived resource.
 
-    Phase 1 has no external connections to open. Later phases create the
-    SQLAlchemy engine, Redis client and HTTP clients here and close them after
-    `yield`, so resources are tied to the application's lifetime rather than
-    to import time.
+    The database pool is created here (not at import time) and disposed after
+    `yield`, so connections are tied to the application's lifetime. Creating the
+    pool does not connect; `/api/v1/ready` reports whether PostgreSQL is usable.
     """
     settings: Settings = app.state.settings
+    database = Database.from_settings(settings)
+    app.state.database = database
     logger.info(
         "application startup",
         extra={
@@ -50,6 +52,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await database.dispose()
         logger.info("application shutdown")
 
 

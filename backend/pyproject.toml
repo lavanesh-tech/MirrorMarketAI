@@ -11,6 +11,9 @@ dependencies = [
     "pydantic>=2.13",
     "pydantic-settings>=2.15",
     "httpx>=0.28",
+    "sqlalchemy[asyncio]>=2.1.1",
+    "asyncpg>=0.31.0",
+    "alembic>=1.20.0",
 ]
 
 [dependency-groups]
@@ -20,6 +23,7 @@ dev = [
     "pytest>=9.1",
     "pytest-asyncio>=1.4",
     "pytest-cov>=7.1",
+    "testcontainers[postgres]>=4.15.0",
 ]
 
 [tool.uv]
@@ -84,7 +88,12 @@ strict = true
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-files = ["app", "tests"]
+files = ["app", "tests", "migrations"]
+
+[[tool.mypy.overrides]]
+# asyncpg ships no type information; it is only used directly in test setup.
+module = ["asyncpg", "asyncpg.*"]
+ignore_missing_imports = true
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -101,10 +110,16 @@ pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = ["-ra", "--strict-markers", "--strict-config"]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # Third-party noise from the Testcontainers/Docker SDK, not from our code.
+    "ignore::DeprecationWarning:testcontainers.*",
+    "ignore:unclosed <socket.socket:ResourceWarning",
+]
 markers = [
     "unit: fast tests with no I/O",
     "api: HTTP-level tests against the ASGI app (in-process, no network)",
+    "db: needs PostgreSQL (Testcontainers, or TEST_DATABASE_URL if set)",
 ]
 
 [tool.coverage.run]

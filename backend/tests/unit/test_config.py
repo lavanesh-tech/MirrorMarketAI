@@ -112,3 +112,15 @@ def test_get_settings_is_cached() -> None:
         assert get_settings() is get_settings()
     finally:
         get_settings.cache_clear()
+
+
+def test_database_url_must_use_asyncpg_driver() -> None:
+    with pytest.raises(ValidationError, match=r"postgresql\+asyncpg"):
+        _settings(database_url="postgresql://user:pw@localhost/db")
+
+
+def test_pool_settings_are_bounded() -> None:
+    with pytest.raises(ValidationError):
+        _settings(db_pool_size=0)
+    with pytest.raises(ValidationError):
+        _settings(readiness_timeout_seconds=0)

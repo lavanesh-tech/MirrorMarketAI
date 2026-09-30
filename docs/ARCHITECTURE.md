@@ -3,20 +3,21 @@
 This document describes the architecture **as built**, followed by the target
 design it is growing toward. Sections are updated at the end of each phase.
 
-## 1. Current state (Phase 1)
+## 1. Current state (Phase 2)
 
 ```
-                 ┌────────────────────────── docker compose (127.0.0.1 only) ─┐
-  client ──HTTP──▶  api  (FastAPI / uvicorn, non-root, read-only FS)         │
-  X-Request-ID   │   │                                                        │
-                 │   ├── postgres  pgvector/pgvector:0.8.6-pg17  (volume)     │
-                 │   └── redis     redis:7.4-alpine  (no persistence)         │
-                 └────────────────────────────────────────────────────────────┘
+                 ┌──────────────────────────── docker compose (127.0.0.1 only) ─┐
+                 │  postgres (pgvector 0.8.6, PG17) ◀── healthy ──┐              │
+                 │        ▲                                       │              │
+                 │        │ alembic upgrade head   migrate (one-shot, exits 0)   │
+                 │        │ asyncpg pool                          │ completed    │
+  client ──HTTP──▶  api (FastAPI / uvicorn, non-root, read-only FS) ◀────────────┘
+  X-Request-ID   │   └── redis 7.4 (started; not used by the API until Phase 19) │
+                 └───────────────────────────────────────────────────────────────┘
 ```
 
-In Phase 1 the API **does not connect** to PostgreSQL or Redis yet. Compose
-starts them (healthy, pgvector enabled) so Phase 2 can wire in the database
-without touching infrastructure.
+Startup order: `postgres` healthy → `migrate` applies migrations and exits 0 →
+`api` starts. The API never serves traffic against an old schema.
 
 ### Request lifecycle
 
@@ -32,6 +33,40 @@ uvicorn
        6. emit one structured "request completed" log line (method, path, status, ms)
 ```
 
+### Database access (Phase 2)
+
+- **Engine:** `app/core/database.py`. SQLAlchemy 2.x `AsyncEngine` on asyncpg,
+  created in the lifespan and disposed on shutdown. The pool connects lazily.
+  Settings:
+  - `pool_pre_ping`, `pool_recycle`, and a connect timeout.
+  - A server-side `statement_timeout`, 15 s by default.
+  - `application_name=mirrormarket-api`, which shows up in `pg_stat_activity`.
+- **Sessions:** one `AsyncSession` per request (`get_db_session`), with
+  `expire_on_commit=False` and `autoflush=False`. The dependency closes the session
+  and rolls back on error. It never commits.
+- **Transactions:** repositories only add, flush and query. The service layer
+  owns the transaction boundary and calls `commit()`.
+- **Models:** `app/models/base.py` holds `Base` with a constraint naming
+  convention, plus two mixins: `UUIDPrimaryKeyMixin` (app-generated UUIDv4) and
+  `TimestampMixin` (timestamptz `created_at`/`updated_at` with server defaults).
+- **Repositories:** `app/repositories/base.py` has a generic `Repository[Model]`
+  (`get`, `add`, `delete`, paginated `list`) and `PageRequest`, whose page size is
+  capped at 100. Workspace filters will live in domain repository methods.
+- **Migrations:** Alembic lives in `backend/migrations/`, with an async `env.py`
+  that reads the URL from Settings. `0001` enables pgvector, which is needed on
+  RDS, where the init script doesn't run.
+
+### Probes
+
+| Endpoint | Checks | Fails with |
+| --- | --- | --- |
+| `/api/v1/health` | process is up | never checks dependencies |
+| `/api/v1/ready` | `SELECT 1` within 2 s; `alembic_version` equals the code's head revision | 503 with `reason` of `unreachable`, `timeout`, `not_migrated` or `schema_mismatch` |
+
+Readiness reasons come from a fixed vocabulary, so raw exception text, which could
+include hosts or credentials, never reaches clients. The details are logged
+server-side.
+
 ### Backend module layout
 
 | Package | Responsibility | Introduced |
@@ -41,9 +76,12 @@ uvicorn
 | `app/core/logging.py` | JSON/console formatters, single stdout handler for all loggers | 1 |
 | `app/core/request_context.py` | request-ID contextvar and validation | 1 |
 | `app/core/middleware.py` | correlation, access logging, safe 500s (pure ASGI) | 1 |
+| `app/core/database.py` | async engine, session factory, ping, current revision | 2 |
+| `app/core/migrations.py` | Alembic config and expected head revision | 2 |
+| `migrations/` | Alembic env + versioned migrations | 2 |
 | `app/api/` | routers, shared dependencies (`deps.py`) | 1 |
 | `app/schemas/` | Pydantic API contracts, separate from ORM models | 1 |
-| `app/models/`, `app/repositories/` | SQLAlchemy models and the only code that runs SQL | 2 |
+| `app/models/`, `app/repositories/` | `Base` + mixins; generic repository (domain tables from Phase 3) | 2 |
 | `app/domain/`, `app/services/` | business rules (pure) and use-cases (orchestration) | 3+ |
 | `app/security/` | auth, RBAC, SSRF and prompt-injection defences | 3, 22 |
 | `app/ingestion/`, `app/retrieval/` | source snapshots → chunks → embeddings → hybrid search | 5-7 |

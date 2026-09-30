@@ -4,10 +4,11 @@ Read this file first when resuming the project in a new session.
 
 ## Status
 
-- **Completed phase:** 1 (repository foundation)
-- **Next phase:** 2. Async PostgreSQL (SQLAlchemy 2.x + asyncpg), Alembic (first migration runs
-  `CREATE EXTENSION IF NOT EXISTS vector`), `GET /api/v1/ready` readiness endpoint that checks
-  the DB, repository base class, and database tests using Testcontainers.
+- **Completed phases:** 1 (repository foundation), 2 (async PostgreSQL, Alembic, readiness,
+  repository base, DB tests)
+- **Next phase:** 3. Users, organizations/workspaces, memberships, and the authentication
+  foundation. This adds the first domain tables and migrations, plus workspace-scoped
+  repositories.
 - **Last updated:** 2026-09-30
 
 ## Working rules (from the owner)
@@ -17,6 +18,9 @@ Read this file first when resuming the project in a new session.
   attribution (no Co-authored-by, no Generated-by).
 - Deliver complete files plus copy-paste macOS commands. Keep explanations short and don't
   regenerate files that haven't changed.
+- zsh: don't put inline `#` comments in pasted command blocks, and use `git --no-pager diff`.
+- Remote tools cannot write `Makefile` or `.github/workflows/*` into the owner's folder.
+  Deliver those as downloadable files and give the owner an `mv` command to place them.
 - Never commit secrets. Only `.env.example` is tracked.
 - Never invent metrics. Benchmarks must record date, commit SHA, dataset, hardware and config.
 - A final teaching and interview-prep phase happens only after the whole project is done.
@@ -38,13 +42,20 @@ Read this file first when resuming the project in a new session.
 | `backend/app/core/logging.py` | JSON and console formatters; one stdout handler for every logger |
 | `backend/app/core/request_context.py` | request-ID contextvar and validation |
 | `backend/app/core/middleware.py` | pure-ASGI request-ID, access-log and safe-500 middleware |
-| `backend/app/api/deps.py` | `get_app_settings` dependency (reads `app.state.settings`) |
+| `backend/app/api/deps.py` | `get_app_settings`, `get_database`, `get_db_session` (per-request session, never commits) |
+| `backend/app/core/database.py` | `Database`: async engine and pool settings, session factory, `ping()`, `current_revision()` |
+| `backend/app/core/migrations.py` | `alembic_config()`, `expected_head_revision()` |
+| `backend/app/models/base.py` | `Base` (naming convention), `UUIDPrimaryKeyMixin`, `TimestampMixin` |
+| `backend/app/repositories/base.py` | generic `Repository[Model]`, `PageRequest` (max 100), `Page` |
+| `backend/migrations/` | Alembic async `env.py` and `versions/` |
+| `backend/tests/db/conftest.py` | Testcontainers or `TEST_DATABASE_URL`; fresh and migrated DBs; rollback-per-test session |
 | `backend/app/api/v1/router.py` | includes all v1 routers |
 | `backend/tests/conftest.py` | `make_settings`, `app` and `client` fixtures (ignore `.env`) |
 | `docker-compose.yml` | postgres (pgvector 0.8.6, PG17) :5433, redis 7.4 :6380, api :8000, all bound to 127.0.0.1 |
 | `Makefile` | `make help`; `make check` runs everything CI runs for the backend |
 | `.github/workflows/ci.yml` | backend job (ruff, mypy, pytest) and docker job (build, up, smoke test, pgvector check) |
-| `docs/DECISIONS.md` | ADR-001 to ADR-008 |
+| `docs/DECISIONS.md` | ADR-001 to ADR-012 |
+| `docs/DATA_MODEL.md`, `docs/TESTING.md` | schema conventions and test strategy |
 
 ## Architecture decisions (details in docs/DECISIONS.md)
 
@@ -57,22 +68,33 @@ Read this file first when resuming the project in a new session.
 6. `/health` is liveness only. Readiness (DB check) comes in Phase 2.
 7. Pinned infrastructure images; host ports 5433/6380 bound to 127.0.0.1.
 8. Strict mypy on app and tests; Ruff with bandit and bugbear rules; pytest treats warnings as errors.
+9. Session per request. Repositories never commit; the service layer owns transactions.
+10. Migrations ship in the image and run as the Compose `migrate` one-shot before `api` starts
+    (the folder is named `migrations/`, not `alembic/`).
+11. `/ready` checks DB connectivity and that `alembic_version` equals the code's head revision.
+12. DB tests use real PostgreSQL through Testcontainers, never SQLite.
 
 ## Migrations
 
-None yet (Alembic arrives in Phase 2). The local DB gets pgvector from
-`infrastructure/docker/postgres/initdb/01-extensions.sql`.
+| Revision | File | Change |
+| --- | --- | --- |
+| `0001` (head) | `20260930_1700_0001_enable_pgvector.py` | `CREATE EXTENSION IF NOT EXISTS vector` |
 
 ## Endpoints
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/v1/health` | liveness: `{status, service, version, environment}` |
+| GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
 | GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
 
 ## Tests
 
-- 48 tests (unit and in-process API), 97% line+branch coverage. Run with `make check`.
+- Phase 2: 88 tests, 97% line+branch coverage in the cloud workspace, which used PostgreSQL 16
+  and pgvector 0.6 through `TEST_DATABASE_URL`. They include 27 DB tests (repository, migrations,
+  readiness and session tests). On the Mac and in CI they run through Testcontainers.
+- Run with `make check`, or `make test-unit` if Docker isn't running.
+- Phase 1 (historical): 48 tests.
 - Verified on the owner's Mac (Python 3.12.14): ruff, mypy and pytest all pass.
 - Verified on the owner's Mac: `make up` brings the stack up healthy, `/api/v1/health` returns 200
   with `x-request-id`, and pgvector 0.8.6 is installed.
@@ -84,7 +106,10 @@ None yet.
 
 ## Known limitations / open items
 
-- The API does not connect to Postgres or Redis yet (Phase 2 and Phase 19).
+- Phase 2 still needs verifying on the Mac and in CI (Testcontainers path, Compose `migrate`
+  service, `make ready`).
+- Redis is not used by the API yet (Phase 19).
+- No domain tables yet (Phase 3).
 - No auth, rate limiting or security headers yet (Phase 3 and Phase 22). Swagger docs are
   publicly exposed.
 - `gpt-4.1-mini` / `text-embedding-3-small` are placeholder defaults set in `.env`.
