@@ -4,7 +4,7 @@ PostgreSQL is the system of record. This document lists every table that exists
 **now**, and the conventions all tables follow. Domain tables are added phase by
 phase (see [ROADMAP.md](ROADMAP.md)).
 
-## Current schema (migration head: `0002`)
+## Current schema (migration head: `0003`)
 
 | Object | Migration | Purpose |
 | --- | --- | --- |
@@ -14,6 +14,11 @@ phase (see [ROADMAP.md](ROADMAP.md)).
 | `organization_members` | `0002` | user ↔ org with `role` ∈ OWNER/ADMIN/MEMBER; unique (org, user) |
 | `comparison_workspaces` | `0002` | purchase-research workspaces: `organization_id` (CASCADE), `created_by_id`, `name`, `description` |
 | `workspace_members` | `0002` | user ↔ workspace with `role` ∈ OWNER/EDITOR/MEMBER/VIEWER; unique (workspace, user) |
+| `products` | `0003` | global catalog: `brand`, `name`, `category` (CHECK list), `description`, unique `canonical_key`, `created_by_id` |
+| `product_variants` | `0003` | configurations (e.g. "16 GB / 512 GB"), JSONB `attributes`; unique (product, name) |
+| `product_identifiers` | `0003` | `scheme` ∈ GTIN/MPN/ASIN/SKU, normalized `value`; unique (scheme, value) catalog-wide; optional `variant_id` |
+| `product_specifications` | `0003` | `key` (snake_case), `value_number` NUMERIC(18,6) XOR `value_text`, `unit`; unique (product, variant, key) NULLS NOT DISTINCT |
+| `workspace_products` | `0003` | tenant link: workspace ↔ product (+ optional variant, notes, `added_by_id`); unique (workspace, product); product FK RESTRICT |
 | `alembic_version` | Alembic | the migration revision currently applied |
 
 Foreign keys are indexed. Deleting a workspace cascades to its members.

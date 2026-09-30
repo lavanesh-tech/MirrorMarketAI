@@ -18,8 +18,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 4 | Products, variants, identifiers, specifications | 🔜 |
-| 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | ⬜ |
+| 4 | Products, variants, identifiers, specifications | ✅ |
+| 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | 🔜 |
 | 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ⬜ |
 | 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ⬜ |
 | 8 | Purchase requirements, structured extraction, requirement versions | ⬜ |
@@ -102,3 +102,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] 404 for non-members, 403 for insufficient role; standard error envelope
 - [x] Tests: tokens (expiry, alg=none, wrong key/aud/iss), passwords, role matrix, auth API, workspace isolation/RBAC, constraints
 - [x] Verified on the developer Mac and CI green (run 36777813805, commit 4de24b4)
+
+## Phase 4 exit criteria
+
+- [x] Tables: products, product_variants, product_identifiers, product_specifications, workspace_products (migration `0003`)
+- [x] Catalog API: create, search (text/category, paginated), get, lookup by identifier, variants, identifiers, spec upsert
+- [x] Deterministic identity: canonical key, GTIN check digit + GTIN-14 normalization, global identifier uniqueness
+- [x] Workspace products: add/list/remove with role enforcement and tenant isolation
+- [x] Tests: identifier/key unit tests, catalog API, workspace-product RBAC/isolation, constraint tests
+- [ ] Verified on the developer Mac and CI green

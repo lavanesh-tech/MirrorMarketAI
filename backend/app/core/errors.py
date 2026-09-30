@@ -71,6 +71,51 @@ class EmailAlreadyRegisteredError(ConflictError):
     message = "An account with this email already exists."
 
 
+class ProductNotFoundError(NotFoundError):
+    code = "product_not_found"
+    message = "Product not found."
+
+
+class VariantNotFoundError(NotFoundError):
+    code = "variant_not_found"
+    message = "Variant not found for this product."
+
+
+class WorkspaceProductNotFoundError(NotFoundError):
+    code = "workspace_product_not_found"
+    message = "This product is not in the workspace."
+
+
+class ProductAlreadyExistsError(ConflictError):
+    code = "product_already_exists"
+    message = "A product with this brand and name already exists."
+
+
+class VariantAlreadyExistsError(ConflictError):
+    code = "variant_already_exists"
+    message = "This product already has a variant with that name."
+
+
+class IdentifierAlreadyExistsError(ConflictError):
+    code = "identifier_already_exists"
+    message = "This identifier is already assigned to a product."
+
+
+class ProductAlreadyInWorkspaceError(ConflictError):
+    code = "product_already_in_workspace"
+    message = "This product is already in the workspace."
+
+
+class UnprocessableError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    code = "unprocessable"
+    message = "The request is well-formed but semantically invalid."
+
+
+class InvalidIdentifierValueError(UnprocessableError):
+    code = "invalid_identifier"
+
+
 def error_body(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "request_id": get_request_id(), **extra}}
 

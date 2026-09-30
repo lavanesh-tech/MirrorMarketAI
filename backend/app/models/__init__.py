@@ -5,6 +5,13 @@ autogenerate and the schema-drift test.
 """
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.catalog import (
+    Product,
+    ProductIdentifier,
+    ProductSpecification,
+    ProductVariant,
+    WorkspaceProduct,
+)
 from app.models.identity import (
     ComparisonWorkspace,
     Organization,
@@ -18,8 +25,13 @@ __all__ = [
     "ComparisonWorkspace",
     "Organization",
     "OrganizationMember",
+    "Product",
+    "ProductIdentifier",
+    "ProductSpecification",
+    "ProductVariant",
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",
     "User",
     "WorkspaceMember",
+    "WorkspaceProduct",
 ]

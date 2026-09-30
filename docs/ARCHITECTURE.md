@@ -93,6 +93,30 @@ Organization          1──* OrganizationMember  *──1 User
   them into the standard envelope, along with validation errors (422, which
   never echo submitted values) and 404/405 responses.
 
+### Product catalog (Phase 4)
+
+```
+Product 1──* ProductVariant
+   │    1──* ProductIdentifier (scheme, value) — globally unique
+   │    1──* ProductSpecification (key, number XOR text, unit)
+   └──* WorkspaceProduct *──1 ComparisonWorkspace   (tenant-scoped link)
+```
+
+- **The catalog is global.** The same laptop can be compared in many workspaces,
+  and each workspace's own data (notes, and later votes and comments) sits on
+  `workspace_products`.
+- **Deterministic identity:** `canonical_key = casefold(NFKC(brand))::casefold(NFKC(name))`
+  is unique, which blocks "Apple / MacBook  Air" duplicates. GTINs are
+  check-digit validated and stored as GTIN-14, so UPC-A and EAN-13 forms of the
+  same code match. ASIN, MPN and SKU are normalized, and every identifier is
+  unique catalog-wide.
+- **Typed specs:** each spec has either `value_number NUMERIC(18,6)` or
+  `value_text` (never both, enforced by a CHECK), plus a unit. The comparison
+  engine (Phase 16) can compare numbers without parsing text or asking an LLM.
+- **Edit policy:** any signed-in user can create a product, and only its creator
+  can add variants, identifiers or specs. Moderation and source-backed specs
+  come in Phase 5.
+
 ### Backend module layout
 
 | Package | Responsibility | Introduced |

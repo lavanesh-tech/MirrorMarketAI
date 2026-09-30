@@ -8,10 +8,11 @@ the request into structured requirements, gathers evidence about candidate produ
 runs specialised AI agents over that evidence, and returns comparisons in which
 every factual claim cites its source. Collaborators see the research happen live.
 
-> **Status: Phase 3 of 35 complete.** Done so far: the backend foundation, async
-> PostgreSQL + pgvector, Alembic migrations, readiness checks, and user accounts
-> with JWT login and role-based comparison workspaces. There is no RAG, no agents
-> and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: Phase 4 of 35 complete.** Done so far: the backend foundation, async
+> PostgreSQL + pgvector, migrations, readiness checks, JWT auth, role-based
+> comparison workspaces, and a product catalog (variants, validated identifiers,
+> typed specifications) that products can be added to workspaces from. There is
+> no RAG, no agents and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Principles
 
@@ -114,6 +115,16 @@ Run `make help` for every command.
 | GET | `/api/v1/workspaces/{id}` | Workspace details (members only) 🔒 |
 | PATCH | `/api/v1/workspaces/{id}` | Update name/description (OWNER or EDITOR) 🔒 |
 | GET | `/api/v1/workspaces/{id}/members` | Members and roles (members only) 🔒 |
+| POST | `/api/v1/products` | Create a catalog product (409 if brand + name already exists) 🔒 |
+| GET | `/api/v1/products?q=&category=&limit=&offset=` | Search the catalog 🔒 |
+| GET | `/api/v1/products/by-identifier?scheme=GTIN&value=` | Look up by GTIN/UPC/EAN, MPN, ASIN or SKU 🔒 |
+| GET | `/api/v1/products/{id}` | Product with variants, identifiers, specifications 🔒 |
+| POST | `/api/v1/products/{id}/variants` | Add a variant (creator only) 🔒 |
+| POST | `/api/v1/products/{id}/identifiers` | Add a validated identifier (creator only) 🔒 |
+| PUT | `/api/v1/products/{id}/specifications` | Upsert typed spec values (creator only) 🔒 |
+| POST | `/api/v1/workspaces/{id}/products` | Add a product to a workspace (OWNER/EDITOR) 🔒 |
+| GET | `/api/v1/workspaces/{id}/products` | Products in the workspace (members) 🔒 |
+| DELETE | `/api/v1/workspaces/{id}/products/{product_id}` | Remove it from the workspace (OWNER/EDITOR) 🔒 |
 
 🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape
 `{"error": {"code", "message", "request_id"}}`.

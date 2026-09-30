@@ -5,9 +5,10 @@ Read this file first when resuming the project in a new session.
 ## Status
 
 - **Completed phases:** 1 (foundation), 2 (async PostgreSQL, Alembic, readiness), 3 (users,
-  organizations, workspaces, memberships, JWT auth, RBAC)
-- **Next phase:** 4. Products, variants, identifiers, specifications. Products are global
-  catalog entries, and workspaces link to them through a workspace-scoped join table.
+  organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products)
+- **Next phase:** 5. Product sources, snapshots, document ingestion (upload plus safe URL
+  ingestion with SSRF defense), parsing and normalization. Store raw snapshots in PostgreSQL
+  for now (S3 comes in Phase 31).
 - **Last updated:** 2026-09-30
 
 ## Working rules (from the owner)
@@ -62,7 +63,11 @@ Read this file first when resuming the project in a new session.
 | `backend/app/services/auth.py`, `workspaces.py` | register/login; workspace CRUD and `authorize()` (404 for non-members, 403 for low role) |
 | `backend/app/api/deps.py` | also `get_current_user`, plus the `CurrentUser`, `SessionDep` and `SettingsDep` aliases |
 | `backend/tests/db/conftest.py` | also an `api` client fixture (requests share the rolled-back session) and `register_user()` |
-| `docs/DECISIONS.md` | ADR-001 to ADR-016 |
+| `backend/app/domain/products.py` | `IdentifierScheme`, GTIN check digit and GTIN-14 normalization, `canonical_product_key`, spec-key rule |
+| `backend/app/models/catalog.py` | Product, ProductVariant, ProductIdentifier, ProductSpecification, WorkspaceProduct, `PRODUCT_CATEGORIES` |
+| `backend/app/repositories/catalog.py`, `services/catalog.py` | catalog search and lookup; `CatalogService` (creator-only edits); `WorkspaceProductService` (EDITOR+ add/remove) |
+| `backend/app/api/v1/endpoints/products.py`, `workspace_products.py` | catalog routes and `/workspaces/{id}/products` routes |
+| `docs/DECISIONS.md` | ADR-001 to ADR-018 |
 | `docs/DATA_MODEL.md`, `docs/TESTING.md` | schema conventions and test strategy |
 
 ## Architecture decisions (details in docs/DECISIONS.md)
@@ -85,13 +90,16 @@ Read this file first when resuming the project in a new session.
 14. Non-members get 404 and members with too low a role get 403.
 15. One error envelope for every error.
 16. Roles are stored as VARCHAR with a CHECK constraint, not native enums.
+17. The product catalog is global; workspace data lives on `workspace_products`.
+18. Specs are typed: NUMERIC xor text, plus a unit, never floats.
 
 ## Migrations
 
 | Revision | File | Change |
 | --- | --- | --- |
 | `0001` | `20260930_1700_0001_enable_pgvector.py` | `CREATE EXTENSION IF NOT EXISTS vector` |
-| `0002` (head) | `20260930_2105_0002_identity_and_workspaces.py` | users, organizations, organization_members, comparison_workspaces, workspace_members |
+| `0002` | `20260930_2105_0002_identity_and_workspaces.py` | users, organizations, organization_members, comparison_workspaces, workspace_members |
+| `0003` (head) | `20260930_2120_0003_product_catalog.py` | products, product_variants, product_identifiers, product_specifications, workspace_products |
 
 ## Endpoints
 
@@ -103,11 +111,16 @@ Read this file first when resuming the project in a new session.
 | POST/GET | `/api/v1/workspaces` | create (caller becomes OWNER) / paginated list of your workspaces |
 | GET/PATCH | `/api/v1/workspaces/{id}` | members only; PATCH needs OWNER or EDITOR |
 | GET | `/api/v1/workspaces/{id}/members` | members only |
+| POST/GET | `/api/v1/products` | create / search (`q`, `category`, pagination) |
+| GET | `/api/v1/products/by-identifier`, `/api/v1/products/{id}` | lookup / detail |
+| POST/PUT | `/api/v1/products/{id}/variants`, `/identifiers`, `/specifications` | creator-only edits |
+| POST/GET/DELETE | `/api/v1/workspaces/{id}/products[/{product_id}]` | EDITOR+ modifies, members read |
 | GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
 | GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
 
 ## Tests
 
+- Phase 4: 218 tests, 97% coverage in the cloud workspace.
 - Phase 3: 166 tests, 98% line+branch coverage in the cloud workspace (PostgreSQL 16 through
   `TEST_DATABASE_URL`). Coverage runs with `concurrency = ["greenlet", "thread"]`.
 - Phase 2: 88 tests, 97% line+branch coverage in the cloud workspace, which used PostgreSQL 16
@@ -130,6 +143,9 @@ None yet.
   0001, pgvector 0.8.6) and in CI (run 36775232625, commit 2860cd4, Testcontainers DB tests included).
 - Redis is not used by the API yet (Phase 19).
 - Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
+- Phase 4 still needs verifying on the Mac and in CI.
+- Catalog has no moderation yet (only the creator can edit) and specs have no source links
+  (Phase 5 adds sources and evidence).
 - No invitations endpoint yet: members are added only through `WorkspaceService.add_member`
   (used by tests). Invitations come with collaboration (Phase 20).
 - No refresh tokens, logout, rate limiting or account lockout yet (Phases 19 and 22).

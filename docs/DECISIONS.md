@@ -184,3 +184,26 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   (`ck_<table>_role_valid`), mapped to Python `StrEnum`s.
 - **Consequences:** Adding a role is an ordinary migration that replaces the
   constraint, with no `ALTER TYPE`. The database still rejects unknown values.
+
+## ADR-017: Global product catalog, workspace-scoped usage
+
+- **Status:** Accepted (Phase 4)
+- **Decision:** `products` and their variants, identifiers and specs form one
+  shared catalog. A workspace references products through `workspace_products`,
+  which is where tenant data such as notes lives. A product that any workspace
+  uses can't be hard-deleted (FK `RESTRICT`).
+- **Alternatives:** A private copy of each product per workspace. Rejected: it
+  would duplicate evidence and embeddings (Phases 5–7) for every workspace.
+- **Consequences:** Retrieval and evidence can be shared across workspaces,
+  while collaboration data stays isolated. Catalog edits are limited to the
+  product's creator until sources and moderation exist.
+
+## ADR-018: Specifications are typed values, never free text only
+
+- **Status:** Accepted (Phase 4)
+- **Decision:** `product_specifications` stores `value_number NUMERIC(18,6)`
+  **xor** `value_text`, plus a `unit`. Keys are snake_case and unique per
+  (product, variant); `NULLS NOT DISTINCT` makes product-level keys unique too.
+  The API uses decimals (no floats) and rejects NaN and Infinity.
+- **Consequences:** Hard constraints and scoring ("RAM ≥ 16 GB") are exact SQL
+  or Python comparisons. The LLM never does arithmetic on specs.
