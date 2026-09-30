@@ -1,0 +1,69 @@
+# ---------------------------------------------------------------------------
+# Secrets - never commit these. .env.example is the only env file tracked.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa*
+id_ed25519*
+credentials
+credentials.json
+service-account*.json
+.aws/
+*.tfvars
+!*.tfvars.example
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+.terraform.lock.hcl.bak
+postman/*.postman_environment.json
+!postman/*.example.postman_environment.json
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.python-cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# ---------------------------------------------------------------------------
+# Node / frontend (Phase 24+)
+# ---------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+playwright-report/
+test-results/
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# ---------------------------------------------------------------------------
+# Local data / logs
+# ---------------------------------------------------------------------------
+*.log
+*.dump
+*.sql.gz

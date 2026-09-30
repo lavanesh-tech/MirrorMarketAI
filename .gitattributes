@@ -1,0 +1,6 @@
+# Normalise line endings so shell scripts, SQL and Dockerfiles behave the same
+# on macOS, Linux CI and inside containers.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
