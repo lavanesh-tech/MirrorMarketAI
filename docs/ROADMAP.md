@@ -133,3 +133,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Tests: chunking, providers, embed API, idempotency, cosine nearest-neighbour, retry/fail, parallel workers
 - [x] Worker heartbeat healthcheck (Compose `--wait` requires it)
 - [x] Verified on the developer Mac and CI green (run 36785705853, commit bcab052)
+
+## Phase 7 exit criteria
+
+- [x] `document_chunks.search_vector`: generated tsvector + GIN index (migration `0006`)
+- [x] Full-text ranker (`websearch_to_tsquery`, `ts_rank_cd`) and pgvector cosine ranker with HNSW iterative scans
+- [x] Reciprocal Rank Fusion (k=60); hybrid degrades to full-text when embedding fails
+- [x] `POST /api/v1/workspaces/{id}/search`: modes, product/source/authority/type filters, members only
+- [x] Only each source's latest document is searchable
+- [x] Tests: RRF and metrics units, modes, filters, cross-workspace leakage, re-ingest, outage, Recall@3/MRR
+- [ ] Verified on the developer Mac and CI green

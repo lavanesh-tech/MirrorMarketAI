@@ -8,10 +8,9 @@ Read this file first when resuming the project in a new session.
   organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products),
   5 (sources, snapshots, documents, SSRF-safe URL ingestion, uploads), 6 (chunking, embeddings,
   pgvector HNSW, embedding jobs and worker)
-- **Next phase:** 7. PostgreSQL full-text search (a tsvector on chunks plus a GIN index), pgvector
-  similarity, hybrid ranking (reciprocal rank fusion), metadata filters (workspace, product,
-  source type, authority, date), a `POST /api/v1/search` endpoint with workspace-scoped access,
-  and retrieval tests (Recall@K, MRR, cross-workspace leakage).
+- **In progress:** 7 (hybrid retrieval) is implemented and passes in the cloud workspace; it still
+  needs verifying on the Mac and in CI.
+- **Next phase:** 8. Purchase requirements, structured extraction and requirement versions.
 - **Last updated:** 2026-09-30
 
 ## Working rules (from the owner)
@@ -111,6 +110,9 @@ Read this file first when resuming the project in a new session.
 22. Embeddings are stored one row per (chunk, model); vector(1536) with an HNSW cosine index.
 23. The job queue lives in the database (SKIP LOCKED), with retries and max attempts; Kafka comes later.
 24. The default embedder is the offline hashing one; OpenAI is used when configured.
+25. Hybrid search = Postgres full-text (generated tsvector + GIN, `websearch_to_tsquery`) and
+    pgvector cosine, fused with RRF (k=60). Access filters run in SQL before ranking; only each
+    source's latest document is searched; hybrid degrades to full-text if embedding fails.
 
 ## Migrations
 
@@ -120,7 +122,8 @@ Read this file first when resuming the project in a new session.
 | `0002` | `20260930_2105_0002_identity_and_workspaces.py` | users, organizations, organization_members, comparison_workspaces, workspace_members |
 | `0003` | `20260930_2120_0003_product_catalog.py` | products, product_variants, product_identifiers, product_specifications, workspace_products |
 | `0004` | `20260930_2137_0004_sources_snapshots_documents.py` | product_sources, source_snapshots, source_documents |
-| `0005` (head) | `20260930_2209_0005_chunks_embeddings_jobs.py` | document_chunks, chunk_embeddings (vector + HNSW), embedding_jobs |
+| `0005` | `20260930_2209_0005_chunks_embeddings_jobs.py` | document_chunks, chunk_embeddings (vector + HNSW), embedding_jobs |
+| `0006` (head) | `20260930_2240_0006_chunk_full_text_search.py` | `document_chunks.search_vector` (generated tsvector) + GIN index |
 
 ## Endpoints
 
@@ -142,11 +145,14 @@ Read this file first when resuming the project in a new session.
 | GET | `/api/v1/sources/{id}`, `/api/v1/sources/{id}/document` | status + latest doc meta / latest text |
 | POST | `/api/v1/sources/{id}/embed` | chunk + embed now (idempotent) → job |
 | GET | `/api/v1/sources/{id}/chunks`, `/api/v1/embedding-jobs/{id}` | chunks with offsets / job status |
+| POST | `/api/v1/workspaces/{id}/search` | hybrid/lexical/vector search; filters: product_ids, source_ids, authorities, source_types; members only (404 otherwise); 503 `search_unavailable` for vector mode when embedding fails |
 | GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
 | GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
 
 ## Tests
 
+- Phase 7: 343 tests, 96% coverage in the cloud workspace (PostgreSQL 16 with pgvector 0.8.1 built
+  locally, because `hnsw.iterative_scan` needs 0.8+).
 - Phase 6: 328 tests, 96% coverage in the cloud workspace (PostgreSQL 16 with pgvector 0.6 locally;
   PG17 with pgvector 0.8.6 on the Mac and in CI).
 - Phase 5: 299 tests, 97% coverage in the cloud workspace. `reportlab` is a dev-only
@@ -166,7 +172,11 @@ Read this file first when resuming the project in a new session.
 
 ## Benchmark results
 
-None yet.
+- Retrieval quality, Phase 7 (`tests/db/test_search.py`): 8 labelled queries over 8 one-chunk
+  documents, offline hashing embedder, measured in the cloud workspace. Lexical: Recall@3 0.375,
+  MRR 0.375. Vector: Recall@3 0.875, MRR 0.823. Hybrid: Recall@3 0.875, MRR 0.823. This is a
+  small smoke benchmark of a lexical embedder, not a semantic-quality claim (Phase 27 does the
+  real evaluation).
 
 ## Known limitations / open items
 
@@ -176,7 +186,10 @@ None yet.
 - Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
 - Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
 - Phase 5 verified on the Mac (299 tests, 97% coverage; live upload ingested and metadata URL blocked with `unsafe_url`) and in CI (run 36782106155, commit 88c25ef).
-- Phase 6 still needs verifying on the Mac and in CI.
+- Phase 6 verified on the Mac and in CI (run 36785705853, commit bcab052).
+- Phase 7 still needs verifying on the Mac and in CI.
+- Full-text search ANDs every query term (`websearch_to_tsquery`), so long natural-language
+  questions often get no lexical hit; vector search carries those. English stemming only.
 - The default embeddings are lexical (hashing); semantic quality needs `EMBEDDING_PROVIDER=openai`
   plus a key. Chunk sizes are measured in characters, not model tokens.
 - New Alembic migrations that use vectors must `from pgvector.sqlalchemy import Vector` by hand

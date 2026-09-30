@@ -274,3 +274,22 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   cost money. Retrieval-quality numbers will be reported separately for each
   provider (Phase 27), and hashing results are never presented as semantic
   quality.
+
+## ADR-025: Hybrid retrieval in PostgreSQL with Reciprocal Rank Fusion
+
+- **Status:** Accepted (Phase 7)
+- **Decision:** Keep search inside PostgreSQL. Full-text uses a generated
+  `tsvector` column with a GIN index and `websearch_to_tsquery` (never raises on
+  user input). Vector search uses pgvector cosine distance on the HNSW index with
+  `hnsw.iterative_scan = strict_order`, so filtered queries still return enough
+  rows. The two ranked lists are merged with RRF (k=60), which uses ranks only
+  and needs no score calibration.
+- **Access control:** Workspace membership is checked first (404 for
+  non-members). Visibility filters (workspace-private sources, or shared sources
+  of products in the workspace, latest document only) are SQL predicates applied
+  before ranking, so other tenants' chunks can never be ranked or leaked.
+- **Consequences:**
+  - No extra search cluster (OpenSearch/Elasticsearch) to run or keep in sync.
+  - If the embedding provider fails, hybrid falls back to full-text and reports
+    `degraded: true`. Vector-only mode returns 503.
+  - Needs pgvector 0.8 or later for iterative scans.

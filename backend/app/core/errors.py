@@ -153,6 +153,12 @@ class EmbeddingJobNotFoundError(NotFoundError):
     message = "Embedding job not found."
 
 
+class SearchUnavailableError(AppError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    code = "search_unavailable"
+    message = "Semantic search is temporarily unavailable. Try mode 'lexical'."
+
+
 def error_body(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "request_id": get_request_id(), **extra}}
 

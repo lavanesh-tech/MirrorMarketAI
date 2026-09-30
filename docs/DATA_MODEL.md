@@ -4,7 +4,7 @@ PostgreSQL is the system of record. This document lists every table that exists
 **now**, and the conventions all tables follow. Domain tables are added phase by
 phase (see [ROADMAP.md](ROADMAP.md)).
 
-## Current schema (migration head: `0005`)
+## Current schema (migration head: `0006`)
 
 | Object | Migration | Purpose |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ phase (see [ROADMAP.md](ROADMAP.md)).
 | `product_sources` | `0004` | evidence source for a product: `source_type`, `authority` (OFFICIAL/THIRD_PARTY/USER), `title`, `url`, `status` (PENDING/INGESTED/FAILED), `last_error`; `workspace_id` NULL = shared |
 | `source_snapshots` | `0004` | immutable bytes per fetch/upload: `sha256` (unique per source), `content_type`, `byte_size`, `raw_content` BYTEA, `final_url`, `http_status`, `fetched_at`, `last_seen_at` |
 | `source_documents` | `0004` | normalized text per snapshot (1:1) with denormalized `source_id`, `product_id`, `workspace_id` for filtered retrieval |
-| `document_chunks` | `0005` | chunk text + `char_start`/`char_end` into the document, `token_estimate`, `content_hash`; denormalized `source_id`, `product_id`, `workspace_id`; unique (document, chunk_index) |
+| `document_chunks` | `0005` | chunk text + `char_start`/`char_end` into the document, `token_estimate`, `content_hash`, `search_vector` (generated `to_tsvector('english', text)`, GIN index, `0006`); denormalized `source_id`, `product_id`, `workspace_id`; unique (document, chunk_index) |
 | `chunk_embeddings` | `0005` | `embedding vector(1536)` per (chunk, `model`) — unique; HNSW cosine index |
 | `embedding_jobs` | `0005` | per-document job: `status` PENDING/RUNNING/SUCCEEDED/FAILED, `attempts`, counts, `tokens_used`, `last_error`; partial index on PENDING |
 | `alembic_version` | Alembic | the migration revision currently applied |

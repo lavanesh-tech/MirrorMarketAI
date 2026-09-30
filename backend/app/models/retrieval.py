@@ -17,6 +17,7 @@ from enum import StrEnum
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     DateTime,
     ForeignKey,
     Index,
@@ -25,6 +26,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.config import EMBEDDING_DIMENSIONS
@@ -43,6 +45,7 @@ class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("document_id", "chunk_index"),
         CheckConstraint("char_end > char_start", name="span_valid"),
+        Index("ix_document_chunks_search_vector", "search_vector", postgresql_using="gin"),
     )
 
     document_id: Mapped[uuid.UUID] = mapped_column(
@@ -63,6 +66,10 @@ class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     char_end: Mapped[int] = mapped_column(Integer)
     token_estimate: Mapped[int] = mapped_column(Integer)
     content_hash: Mapped[str] = mapped_column(String(64))
+    # Full-text representation maintained by Postgres itself (never written by the app).
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('english'::regconfig, text)", persisted=True), deferred=True
+    )
 
 
 class ChunkEmbedding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
