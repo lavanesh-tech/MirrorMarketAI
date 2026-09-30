@@ -110,4 +110,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Deterministic identity: canonical key, GTIN check digit + GTIN-14 normalization, global identifier uniqueness
 - [x] Workspace products: add/list/remove with role enforcement and tenant isolation
 - [x] Tests: identifier/key unit tests, catalog API, workspace-product RBAC/isolation, constraint tests
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36779473241, commit 7be3f05)

@@ -143,7 +143,7 @@ None yet.
   0001, pgvector 0.8.6) and in CI (run 36775232625, commit 2860cd4, Testcontainers DB tests included).
 - Redis is not used by the API yet (Phase 19).
 - Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
-- Phase 4 still needs verifying on the Mac and in CI.
+- Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
 - Catalog has no moderation yet (only the creator can edit) and specs have no source links
   (Phase 5 adds sources and evidence).
 - No invitations endpoint yet: members are added only through `WorkspaceService.add_member`
