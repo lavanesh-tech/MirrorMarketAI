@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.21"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python (from backend/.python-version)
+        run: uv python install
+
+      - name: Install dependencies (must match uv.lock exactly)
+        run: uv sync --locked
+
+      - name: Ruff lint
+        run: uv run ruff check --output-format=github .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: mypy (strict)
+        run: uv run mypy
+
+      - name: pytest
+        run: uv run pytest --cov --cov-report=term-missing
+
+  docker:
+    name: Docker (build image, start stack, smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Build and start stack
+        run: docker compose up -d --build --wait --wait-timeout 180
+
+      - name: Smoke test health endpoint
+        run: |
+          curl -fsS -i http://127.0.0.1:8000/api/v1/health
+          curl -fsS http://127.0.0.1:8000/api/v1/health | grep -q '"status":"ok"'
+
+      - name: Verify pgvector extension
+        run: |
+          docker compose exec -T postgres \
+            psql -U mirrormarket -d mirrormarket -tAc \
+            "SELECT extversion FROM pg_extension WHERE extname = 'vector';" | grep -E '^[0-9]+\.[0-9]+'
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
