@@ -76,6 +76,7 @@ None yet (Alembic arrives in Phase 2). The local DB gets pgvector from
 - Verified on the owner's Mac (Python 3.12.14): ruff, mypy and pytest all pass.
 - Verified on the owner's Mac: `make up` brings the stack up healthy, `/api/v1/health` returns 200
   with `x-request-id`, and pgvector 0.8.6 is installed.
+- GitHub Actions CI is green (run 36773136185, commit b579343): the backend job and the docker job both pass.
 
 ## Benchmark results
 
@@ -83,7 +84,6 @@ None yet.
 
 ## Known limitations / open items
 
-- CI has not run on GitHub yet (the GitHub repo still needs to be created and pushed to).
 - The API does not connect to Postgres or Redis yet (Phase 2 and Phase 19).
 - No auth, rate limiting or security headers yet (Phase 3 and Phase 22). Swagger docs are
   publicly exposed.

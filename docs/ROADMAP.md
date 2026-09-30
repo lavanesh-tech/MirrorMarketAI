@@ -80,4 +80,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Ruff, strict mypy and pytest pass
 - [x] Docker Compose config valid; Postgres (pgvector) and Redis have health checks
 - [x] `make up` verified on the developer Mac (image build + healthy stack)
-- [ ] CI green on GitHub after first push
+- [x] CI green on GitHub after first push
