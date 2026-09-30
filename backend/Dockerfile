@@ -41,10 +41,13 @@ RUN groupadd --system --gid 10001 app \
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --chown=root:root app ./app
+COPY app ./app
 
 # Source is owned by root and the process runs as `app`: the running service
-# cannot modify its own code.
+# cannot modify its own code. Normalise permissions so the image works no matter
+# what file modes the build context had (e.g. 0600 files from a restrictive umask).
+RUN chmod -R a+rX,go-w /app/app
+
 USER app
 
 EXPOSE 8000

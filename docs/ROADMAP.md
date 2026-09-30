@@ -79,5 +79,5 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Settings validated at startup; secrets masked
 - [x] Ruff, strict mypy and pytest pass
 - [x] Docker Compose config valid; Postgres (pgvector) and Redis have health checks
-- [ ] `make up` verified on the developer Mac (image build + healthy stack)
+- [x] `make up` verified on the developer Mac (image build + healthy stack)
 - [ ] CI green on GitHub after first push
