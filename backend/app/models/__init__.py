@@ -12,6 +12,7 @@ from app.models.catalog import (
     ProductVariant,
     WorkspaceProduct,
 )
+from app.models.evidence import EvidenceItem, EvidencePack
 from app.models.identity import (
     ComparisonWorkspace,
     Organization,
@@ -29,6 +30,8 @@ __all__ = [
     "ComparisonWorkspace",
     "DocumentChunk",
     "EmbeddingJob",
+    "EvidenceItem",
+    "EvidencePack",
     "Organization",
     "OrganizationMember",
     "Product",

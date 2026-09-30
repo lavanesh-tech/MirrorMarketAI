@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth,
     embeddings,
+    evidence,
     health,
     products,
     requirements,
@@ -26,3 +27,4 @@ api_router.include_router(sources.router)
 api_router.include_router(embeddings.router)
 api_router.include_router(search.router)
 api_router.include_router(requirements.router)
+api_router.include_router(evidence.router)

@@ -153,3 +153,11 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] LLM failure degrades to rules (`degraded: true`)
 - [x] Tests: domain validation, extractor patterns, mocked OpenAI, API versioning/locking/RBAC, real concurrent saves
 - [x] Verified on the developer Mac and CI green (run 36788330694, commit 9ac5155)
+
+## Phase 9 exit criteria
+
+- [x] Tables: evidence_packs, evidence_items (migration `0008`); items are text snapshots (FKs SET NULL)
+- [x] Create pack from hybrid search (pins current requirement version); get, list; MEMBER+ creates
+- [x] Citation validator: unknown markers, uncited sentences, unsupported numbers and quotes
+- [x] Labelled synthetic benchmark (`benchmarks/citations.py`) with committed result JSON
+- [ ] Verified on the developer Mac and CI green

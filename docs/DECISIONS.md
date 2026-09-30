@@ -318,3 +318,16 @@ Newest at the bottom. A superseded decision is marked, not deleted.
 - **Consequences:** Tests and CI are deterministic and free. Invalid model output
   can never be stored. Users always review the spec (preview, then save) before
   it drives any comparison.
+
+## ADR-028: Evidence packs as snapshots + deterministic citation validation
+
+- **Status:** Accepted (Phase 9)
+- **Decision:** Agents and Q&A (Phases 10-17) never cite live chunks. They cite an
+  evidence pack: search results frozen into numbered items (E1..En) whose text and
+  source metadata are copied. A deterministic validator rejects unknown markers,
+  uncited substantive sentences, numbers not present in the cited items, and
+  quoted phrases not found verbatim.
+- **Consequences:** Citations stay verifiable after re-ingestion or deletion.
+  Hallucinated figures behind real citations are caught without an LLM judge.
+  The validator is lexical: paraphrased claims aren't semantically checked
+  (Phase 27 evaluates that).

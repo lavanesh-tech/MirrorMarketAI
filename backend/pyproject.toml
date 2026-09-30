@@ -101,7 +101,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-files = ["app", "tests", "migrations"]
+files = ["app", "tests", "migrations", "benchmarks"]
 
 [[tool.mypy.overrides]]
 # asyncpg ships no type information; it is only used directly in test setup.

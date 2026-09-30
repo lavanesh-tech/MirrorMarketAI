@@ -5,7 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-8. Next: **9, evidence packs, citations and the citation validator.**
+- Completed: 1-8. Phase 9 (evidence packs and citations) is built; waiting for Mac + CI.
+- Next: **10, the Product Research Agent.**
 - Last verified: Phase 8, CI run 36788330694, commit 9ac5155 (2026-09-30).
 
 ## Working rules
@@ -35,13 +36,14 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Hybrid search: tsvector+GIN and pgvector, RRF k=60, access filters in SQL, latest document only, degrades to lexical.
 - Requirements: immutable versions, optimistic locking (`expected_version`, 409), idempotent re-save.
 - Extractors: offline rules by default; OpenAI strict JSON schema when configured; falls back to rules (`degraded`).
+- Evidence packs freeze search hits as snapshot items E1..En. A deterministic validator checks markers, uncited sentences, numbers and quotes.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
-## Database migrations (head 0007)
+## Database migrations (head 0008)
 
 0001 pgvector · 0002 users/orgs/workspaces/members · 0003 catalog + workspace_products ·
 0004 sources/snapshots/documents · 0005 chunks/embeddings/jobs · 0006 chunk tsvector + GIN ·
-0007 purchase_requirements/requirement_versions
+0007 purchase_requirements/requirement_versions · 0008 evidence_packs/evidence_items
 
 ## Major endpoints (/api/v1)
 
@@ -51,16 +53,19 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - products/{id}/sources (+upload); sources/{id} ingest/document/embed/chunks; embedding-jobs/{id}
 - POST workspaces/{id}/search (hybrid|lexical|vector + filters)
 - workspaces/{id}/requirements: POST extract, PUT save, GET current, versions[/{n}], diff?from=&to=
+- workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
 
 ## Tests
 
-- 387 tests, 97% coverage (Phase 8; Mac + CI). `make check` runs everything CI runs.
+- 407 tests, 97% coverage (Phase 9, cloud workspace). Phase 8: 387 (Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
 
 - Retrieval smoke benchmark (synthetic: 8 docs, 8 labelled queries, hashing embedder), Recall@3 / MRR:
   lexical 0.375 / 0.375, vector 0.875 / 0.823, hybrid 0.875 / 0.823. Source: `tests/db/test_search.py`.
+- Citation validator (synthetic, author-labelled, 24 answers): case accuracy 1.0, issue precision 1.0,
+  recall 1.0 (16/16). Evidence: `backend/benchmarks/results/citations.json`. This shows the rules work, not real-world accuracy.
 
 ## Known issues / limits
 
@@ -74,6 +79,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 ## Important commands
 
 ```bash
+cd backend && uv run python -m benchmarks.citations && cd ..
 make check
 make up
 make ps

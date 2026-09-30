@@ -1,0 +1,15 @@
+{
+  "benchmark": "citation_validator",
+  "dataset": "synthetic, 24 labelled answers over 5 evidence items",
+  "cases": 24,
+  "case_accuracy": 1.0,
+  "issue_precision": 1.0,
+  "issue_recall": 1.0,
+  "true_positives": 16,
+  "false_positives": 0,
+  "false_negatives": 0,
+  "measured_at": "2026-09-30T23:07:44+00:00",
+  "commit": "8e26981",
+  "python": "3.12.14",
+  "machine": "arm64"
+}

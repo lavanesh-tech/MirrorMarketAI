@@ -173,6 +173,16 @@ class RequirementTextTooLongError(UnprocessableError):
     message = "The requirement text is too long."
 
 
+class EvidencePackNotFoundError(NotFoundError):
+    code = "evidence_pack_not_found"
+    message = "Evidence pack not found."
+
+
+class NoEvidenceFoundError(UnprocessableError):
+    code = "no_evidence_found"
+    message = "No evidence in this workspace matches the query."
+
+
 class SearchUnavailableError(AppError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "search_unavailable"

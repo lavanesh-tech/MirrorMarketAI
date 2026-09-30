@@ -138,6 +138,8 @@ Run `make help` for every command.
 | POST | `/api/v1/workspaces/{id}/requirements/extract` | Turn a free-text brief into structured requirements (preview) 🔒 |
 | PUT | `/api/v1/workspaces/{id}/requirements` | Save a new requirements version (optimistic locking) 🔒 |
 | GET | `/api/v1/workspaces/{id}/requirements[/versions[/{n}]]`, `/diff?from=&to=` | Current requirements, history and diffs 🔒 |
+| POST/GET | `/api/v1/workspaces/{id}/evidence-packs[/{pack_id}]` | Freeze search results as citable evidence (E1..En) / list / get 🔒 |
+| POST | `/api/v1/workspaces/{id}/evidence-packs/{pack_id}/validate` | Check [E1]-style citations: markers, uncited claims, numbers, quotes 🔒 |
 | POST | `/api/v1/workspaces/{id}/search` | Hybrid search (full-text + vector, RRF) over the workspace's evidence, with filters 🔒 |
 
 🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape
