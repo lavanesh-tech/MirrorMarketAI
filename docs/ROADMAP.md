@@ -91,5 +91,5 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Generic repository + pagination; `Base` naming convention, UUID and timestamp mixins
 - [x] DB tests: repository, constraints, transactions, readiness, session dependency
 - [x] Migration tests: fresh upgrade, downgrade/re-upgrade round trip, no model drift, single head
-- [ ] Verified on the developer Mac (`make check`, `make up`, `make ready`)
-- [ ] CI green
+- [x] Verified on the developer Mac (`make up`, `make ready`, migrations, pgvector)
+- [x] CI green (run 36775232625, commit 2860cd4)

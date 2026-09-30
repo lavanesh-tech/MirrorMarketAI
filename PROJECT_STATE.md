@@ -107,8 +107,8 @@ None yet.
 
 ## Known limitations / open items
 
-- Phase 2 still needs verifying on the Mac and in CI (Testcontainers path, Compose `migrate`
-  service, `make ready`).
+- Phase 2 verified on the Mac (Compose `migrate` then `api`, `/ready` returns 200, `alembic current` is
+  0001, pgvector 0.8.6) and in CI (run 36775232625, commit 2860cd4, Testcontainers DB tests included).
 - Redis is not used by the API yet (Phase 19).
 - No domain tables yet (Phase 3).
 - No auth, rate limiting or security headers yet (Phase 3 and Phase 22). Swagger docs are
