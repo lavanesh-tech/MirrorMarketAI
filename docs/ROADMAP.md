@@ -22,7 +22,7 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | ✅ |
 | 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ✅ |
 | 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ✅ |
-| 8 | Purchase requirements, structured extraction, requirement versions | 🔜 |
+| 8 | Purchase requirements, structured extraction, requirement versions |  🔜 |
 | 9 | Evidence packs, citations, citation validator | ⬜ |
 
 ## Agents
@@ -143,3 +143,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Only each source's latest document is searchable
 - [x] Tests: RRF and metrics units, modes, filters, cross-workspace leakage, re-ingest, outage, Recall@3/MRR
 - [x] Verified on the developer Mac and CI green (run 36787055813, commit 05b6dae)
+
+## Phase 8 exit criteria
+
+- [x] Tables: purchase_requirements, requirement_versions (migration `0007`)
+- [x] `RequirementSpec`: category, budget (Decimal), MUST/SHOULD criteria with operators and weights, excluded brands, use cases
+- [x] Offline rule extractor (units, conversions, ranges, negation, priorities) and OpenAI strict-schema extractor with retries
+- [x] Preview, versioned save with optimistic locking, idempotent re-save, history, diff
+- [x] LLM failure degrades to rules (`degraded: true`)
+- [x] Tests: domain validation, extractor patterns, mocked OpenAI, API versioning/locking/RBAC, real concurrent saves
+- [ ] Verified on the developer Mac and CI green

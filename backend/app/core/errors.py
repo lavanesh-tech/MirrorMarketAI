@@ -153,6 +153,26 @@ class EmbeddingJobNotFoundError(NotFoundError):
     message = "Embedding job not found."
 
 
+class RequirementNotFoundError(NotFoundError):
+    code = "requirement_not_found"
+    message = "This workspace has no purchase requirements yet."
+
+
+class RequirementVersionNotFoundError(NotFoundError):
+    code = "requirement_version_not_found"
+    message = "Requirement version not found."
+
+
+class RequirementVersionConflictError(ConflictError):
+    code = "requirement_version_conflict"
+    message = "Requirements were changed by someone else. Reload and try again."
+
+
+class RequirementTextTooLongError(UnprocessableError):
+    code = "requirement_text_too_long"
+    message = "The requirement text is too long."
+
+
 class SearchUnavailableError(AppError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "search_unavailable"

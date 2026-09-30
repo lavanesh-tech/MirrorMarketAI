@@ -19,6 +19,7 @@ from app.models.identity import (
     User,
     WorkspaceMember,
 )
+from app.models.requirements import PurchaseRequirement, RequirementVersion
 from app.models.retrieval import ChunkEmbedding, DocumentChunk, EmbeddingJob
 from app.models.sources import ProductSource, SourceDocument, SourceSnapshot
 
@@ -35,6 +36,8 @@ __all__ = [
     "ProductSource",
     "ProductSpecification",
     "ProductVariant",
+    "PurchaseRequirement",
+    "RequirementVersion",
     "SourceDocument",
     "SourceSnapshot",
     "TimestampMixin",

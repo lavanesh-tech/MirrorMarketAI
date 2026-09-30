@@ -8,7 +8,9 @@ Read this file first when resuming the project in a new session.
   organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products),
   5 (sources, snapshots, documents, SSRF-safe URL ingestion, uploads), 6 (chunking, embeddings,
   pgvector HNSW, embedding jobs and worker), 7 (hybrid full-text + vector search with RRF)
-- **Next phase:** 8. Purchase requirements, structured extraction and requirement versions.
+- **In progress:** 8 (purchase requirements, extraction, versions) is implemented and passes in the
+  cloud workspace; it still needs verifying on the Mac and in CI.
+- **Next phase:** 9. Evidence packs, citations and a citation validator.
 - **Last updated:** 2026-09-30
 
 ## Working rules (from the owner)
@@ -77,7 +79,14 @@ Read this file first when resuming the project in a new session.
 | `backend/app/models/retrieval.py` | DocumentChunk, ChunkEmbedding (Vector(1536), HNSW), EmbeddingJob, JobStatus |
 | `backend/app/services/embeddings.py` | `enqueue_embedding_job`, `EmbeddingService.claim_next/run/process_now` |
 | `backend/app/workers/embedding_worker.py` | `python -m app.workers.embedding_worker [--once]` (Compose service `embedding-worker`) |
-| `docs/DECISIONS.md` | ADR-001 to ADR-024 |
+| `backend/app/retrieval/fusion.py`, `metrics.py` | `reciprocal_rank_fusion`; `recall_at_k`, `reciprocal_rank`, `mean` |
+| `backend/app/services/search.py` | `SearchService` (visibility scope, lexical + vector rankers, RRF, degraded fallback) |
+| `backend/app/domain/requirements.py` | `RequirementSpec`, `Criterion` (MUST/SHOULD, operators), `Budget`, `diff_specs` |
+| `backend/app/extraction/rules.py` | offline rule extractor: category, budget, quantities with unit conversion, features, brands, use cases |
+| `backend/app/providers/extraction.py` | `RuleBasedExtractor`, `OpenAIRequirementExtractor` (strict JSON schema), `create_requirement_extractor` |
+| `backend/app/models/requirements.py` | PurchaseRequirement (one per workspace, `current_version`), RequirementVersion (immutable) |
+| `backend/app/services/requirements.py` | preview, versioned save (row lock + expected_version), history, diff |
+| `docs/DECISIONS.md` | ADR-001 to ADR-027 |
 | `docs/DATA_MODEL.md`, `docs/TESTING.md` | schema conventions and test strategy |
 
 ## Architecture decisions (details in docs/DECISIONS.md)
@@ -111,6 +120,10 @@ Read this file first when resuming the project in a new session.
 25. Hybrid search = Postgres full-text (generated tsvector + GIN, `websearch_to_tsquery`) and
     pgvector cosine, fused with RRF (k=60). Access filters run in SQL before ranking; only each
     source's latest document is searched; hybrid degrades to full-text if embedding fails.
+26. Requirements are versioned: every save inserts an immutable RequirementVersion; writers send
+    `expected_version` (optimistic locking, 409 on mismatch; the parent row is locked FOR UPDATE).
+27. Requirement extraction: offline rules by default, OpenAI structured outputs (strict JSON
+    schema, validated by the same pydantic model) when configured; LLM failure degrades to rules.
 
 ## Migrations
 
@@ -121,7 +134,8 @@ Read this file first when resuming the project in a new session.
 | `0003` | `20260930_2120_0003_product_catalog.py` | products, product_variants, product_identifiers, product_specifications, workspace_products |
 | `0004` | `20260930_2137_0004_sources_snapshots_documents.py` | product_sources, source_snapshots, source_documents |
 | `0005` | `20260930_2209_0005_chunks_embeddings_jobs.py` | document_chunks, chunk_embeddings (vector + HNSW), embedding_jobs |
-| `0006` (head) | `20260930_2240_0006_chunk_full_text_search.py` | `document_chunks.search_vector` (generated tsvector) + GIN index |
+| `0006` | `20260930_2240_0006_chunk_full_text_search.py` | `document_chunks.search_vector` (generated tsvector) + GIN index |
+| `0007` (head) | `20260930_2248_0007_purchase_requirements_and_versions.py` | purchase_requirements, requirement_versions |
 
 ## Endpoints
 
@@ -144,11 +158,15 @@ Read this file first when resuming the project in a new session.
 | POST | `/api/v1/sources/{id}/embed` | chunk + embed now (idempotent) → job |
 | GET | `/api/v1/sources/{id}/chunks`, `/api/v1/embedding-jobs/{id}` | chunks with offsets / job status |
 | POST | `/api/v1/workspaces/{id}/search` | hybrid/lexical/vector search; filters: product_ids, source_ids, authorities, source_types; members only (404 otherwise); 503 `search_unavailable` for vector mode when embedding fails |
+| POST | `/api/v1/workspaces/{id}/requirements/extract` | preview spec from text (EDITOR+); `degraded` when LLM failed |
+| PUT/GET | `/api/v1/workspaces/{id}/requirements` | save new version (`text` and/or `spec`, `expected_version`; 201 new, 200 unchanged, 409 stale) / current |
+| GET | `/api/v1/workspaces/{id}/requirements/versions[/{n}]`, `/diff?from=&to=` | history (members) and field-level diff |
 | GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
 | GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
 
 ## Tests
 
+- Phase 8: 387 tests, 97% coverage in the cloud workspace.
 - Phase 7: 343 tests, 96% coverage in the cloud workspace (PostgreSQL 16 with pgvector 0.8.1 built
   locally, because `hnsw.iterative_scan` needs 0.8+).
 - Phase 6: 328 tests, 96% coverage in the cloud workspace (PostgreSQL 16 with pgvector 0.6 locally;
@@ -185,6 +203,9 @@ Read this file first when resuming the project in a new session.
 - Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
 - Phase 5 verified on the Mac (299 tests, 97% coverage; live upload ingested and metadata URL blocked with `unsafe_url`) and in CI (run 36782106155, commit 88c25ef).
 - Phase 6 verified on the Mac and in CI (run 36785705853, commit bcab052).
+- Phase 8 still needs verifying on the Mac and in CI.
+- The rule extractor is English-only and pattern-based (no NLP); it reports what it could not use
+  in `unparsed`. Richer briefs need `REQUIREMENTS_EXTRACTOR=openai`.
 - Phase 7 verified on the Mac (343 tests, 96% coverage) and in CI (run 36787055813, commit 05b6dae).
 - Full-text search ANDs every query term (`websearch_to_tsquery`), so long natural-language
   questions often get no lexical hit; vector search carries those. English stemming only.

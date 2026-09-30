@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     embeddings,
     health,
     products,
+    requirements,
     search,
     sources,
     workspace_products,
@@ -24,3 +25,4 @@ api_router.include_router(products.router)
 api_router.include_router(sources.router)
 api_router.include_router(embeddings.router)
 api_router.include_router(search.router)
+api_router.include_router(requirements.router)

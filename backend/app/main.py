@@ -28,6 +28,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 from app.ingestion.safe_fetch import SafeFetcher
 from app.providers.embeddings import create_embedding_provider
+from app.providers.extraction import create_requirement_extractor
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.fetcher = fetcher
     embedder = create_embedding_provider(settings)
     app.state.embedder = embedder
+    extractor = create_requirement_extractor(settings)
+    app.state.extractor = extractor
     logger.info(
         "application startup",
         extra={
@@ -59,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await extractor.aclose()
         await embedder.aclose()
         await fetcher.aclose()
         await database.dispose()

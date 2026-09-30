@@ -293,3 +293,28 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   - If the embedding provider fails, hybrid falls back to full-text and reports
     `degraded: true`. Vector-only mode returns 503.
   - Needs pgvector 0.8 or later for iterative scans.
+
+## ADR-026: Immutable requirement versions with optimistic locking
+
+- **Status:** Accepted (Phase 8)
+- **Decision:** Each workspace has one `purchase_requirements` row whose
+  `current_version` counter is bumped on every save, and every save inserts an
+  immutable `requirement_versions` row. Clients send `expected_version`; the
+  server locks the parent row (`SELECT ... FOR UPDATE`) and returns 409 when it
+  doesn't match. The first save's race is resolved by the unique `workspace_id`.
+- **Consequences:**
+  - Recommendations (Phase 15/16) can record exactly which version they used.
+  - Collaborators never silently overwrite each other (lost-update protection).
+  - Re-sending identical content is a no-op (200), so retries are safe.
+
+## ADR-027: Requirement extraction = offline rules by default, LLM optional
+
+- **Status:** Accepted (Phase 8)
+- **Decision:** `REQUIREMENTS_EXTRACTOR=rules` uses a deterministic pattern
+  extractor. `openai` uses chat completions with a strict JSON Schema; the output
+  is validated by the same `RequirementSpec` model the API uses, and the brief
+  is marked as untrusted data in the system prompt. If the LLM call fails, the
+  service falls back to rules and reports `degraded: true`.
+- **Consequences:** Tests and CI are deterministic and free. Invalid model output
+  can never be stored. Users always review the spec (preview, then save) before
+  it drives any comparison.

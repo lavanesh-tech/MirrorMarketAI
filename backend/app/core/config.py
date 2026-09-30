@@ -119,6 +119,11 @@ class Settings(BaseSettings):
     chunk_overlap_chars: int = Field(default=200, ge=0, le=5_000)
     worker_poll_interval_seconds: float = Field(default=2.0, gt=0, le=300)
 
+    # --- Requirements ----------------------------------------------------------
+    # "rules" is a deterministic offline extractor; "openai" uses structured outputs.
+    requirements_extractor: Literal["openai", "rules"] = "rules"
+    requirements_max_text_chars: int = Field(default=4000, ge=200, le=20_000)
+
     # --- Kafka (placeholders; introduced in Phase 21) ------------------------
     kafka_enabled: bool = False
     kafka_bootstrap_servers: str = "localhost:9092"
@@ -166,6 +171,8 @@ class Settings(BaseSettings):
             raise ValueError("chunk_overlap_chars must be less than half of chunk_target_chars")
         if self.embedding_provider == "openai" and not self.openai_configured:
             raise ValueError("embedding_provider=openai requires OPENAI_API_KEY")
+        if self.requirements_extractor == "openai" and not self.openai_configured:
+            raise ValueError("requirements_extractor=openai requires OPENAI_API_KEY")
         return self
 
     @model_validator(mode="after")

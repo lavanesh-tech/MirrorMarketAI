@@ -4,7 +4,7 @@ PostgreSQL is the system of record. This document lists every table that exists
 **now**, and the conventions all tables follow. Domain tables are added phase by
 phase (see [ROADMAP.md](ROADMAP.md)).
 
-## Current schema (migration head: `0006`)
+## Current schema (migration head: `0007`)
 
 | Object | Migration | Purpose |
 | --- | --- | --- |
@@ -25,6 +25,8 @@ phase (see [ROADMAP.md](ROADMAP.md)).
 | `document_chunks` | `0005` | chunk text + `char_start`/`char_end` into the document, `token_estimate`, `content_hash`, `search_vector` (generated `to_tsvector('english', text)`, GIN index, `0006`); denormalized `source_id`, `product_id`, `workspace_id`; unique (document, chunk_index) |
 | `chunk_embeddings` | `0005` | `embedding vector(1536)` per (chunk, `model`) — unique; HNSW cosine index |
 | `embedding_jobs` | `0005` | per-document job: `status` PENDING/RUNNING/SUCCEEDED/FAILED, `attempts`, counts, `tokens_used`, `last_error`; partial index on PENDING |
+| `purchase_requirements` | `0007` | one per workspace (unique `workspace_id`, CASCADE); `current_version` is the optimistic-lock counter |
+| `requirement_versions` | `0007` | immutable history: `version` (unique per requirement, ≥1), `raw_text`, JSONB `spec` (RequirementSpec), JSONB `unparsed`, `extractor`, `change_note`, `created_by_id` |
 | `alembic_version` | Alembic | the migration revision currently applied |
 
 Foreign keys are indexed. Deleting a workspace cascades to its members.

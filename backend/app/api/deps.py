@@ -15,6 +15,7 @@ from app.core.errors import AuthenticationError
 from app.ingestion.safe_fetch import SafeFetcher
 from app.models.identity import User
 from app.providers.embeddings import EmbeddingProvider
+from app.providers.extraction import RequirementExtractor
 from app.repositories.identity import UserRepository
 from app.security.tokens import decode_access_token
 
@@ -74,6 +75,11 @@ def get_fetcher(request: Request) -> SafeFetcher:
     return fetcher
 
 
+def get_extractor(request: Request) -> RequirementExtractor:
+    extractor: RequirementExtractor = request.app.state.extractor
+    return extractor
+
+
 def get_embedder(request: Request) -> EmbeddingProvider:
     embedder: EmbeddingProvider = request.app.state.embedder
     return embedder
@@ -81,6 +87,7 @@ def get_embedder(request: Request) -> EmbeddingProvider:
 
 FetcherDep = Annotated[SafeFetcher, Depends(get_fetcher)]
 EmbedderDep = Annotated[EmbeddingProvider, Depends(get_embedder)]
+ExtractorDep = Annotated[RequirementExtractor, Depends(get_extractor)]
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
