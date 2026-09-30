@@ -53,3 +53,14 @@ async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
         httpx.AsyncClient(transport=transport, base_url="http://testserver") as http_client,
     ):
         yield http_client
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Detach app log handlers before interpreter exit.
+
+    Testcontainers stops its reaper in an atexit hook and logs while doing so;
+    by then pytest has closed the captured stdout our handler points at.
+    """
+    import logging  # noqa: PLC0415
+
+    logging.getLogger().handlers.clear()
