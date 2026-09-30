@@ -5,10 +5,11 @@ Read this file first when resuming the project in a new session.
 ## Status
 
 - **Completed phases:** 1 (foundation), 2 (async PostgreSQL, Alembic, readiness), 3 (users,
-  organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products)
-- **Next phase:** 5. Product sources, snapshots, document ingestion (upload plus safe URL
-  ingestion with SSRF defense), parsing and normalization. Store raw snapshots in PostgreSQL
-  for now (S3 comes in Phase 31).
+  organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products),
+  5 (sources, snapshots, documents, SSRF-safe URL ingestion, uploads)
+- **Next phase:** 6. Chunking `source_documents` into `document_chunks`, OpenAI embeddings
+  behind a provider interface (with a deterministic fake for tests and CI), a pgvector column
+  plus HNSW index, and embedding jobs tracked in PostgreSQL.
 - **Last updated:** 2026-09-30
 
 ## Working rules (from the owner)
@@ -67,7 +68,12 @@ Read this file first when resuming the project in a new session.
 | `backend/app/models/catalog.py` | Product, ProductVariant, ProductIdentifier, ProductSpecification, WorkspaceProduct, `PRODUCT_CATEGORIES` |
 | `backend/app/repositories/catalog.py`, `services/catalog.py` | catalog search and lookup; `CatalogService` (creator-only edits); `WorkspaceProductService` (EDITOR+ add/remove) |
 | `backend/app/api/v1/endpoints/products.py`, `workspace_products.py` | catalog routes and `/workspaces/{id}/products` routes |
-| `docs/DECISIONS.md` | ADR-001 to ADR-018 |
+| `backend/app/ingestion/safe_fetch.py` | `SafeFetcher` (SSRF defense, IP pinning, redirect/size/time/type limits), `validate_url_syntax`, `is_public_ip` |
+| `backend/app/ingestion/parsers.py` | HTML/PDF/text parsing, `normalize_text`, `sniff_content_type` |
+| `backend/app/models/sources.py` | ProductSource, SourceSnapshot (sha256, last_seen_at), SourceDocument; SourceType, SourceAuthority, SourceStatus |
+| `backend/app/services/sources.py` | create/list/get, `ingest_url`, `upload`, `_store` (dedupe → parse → document) |
+| `backend/tests/support/fake_web.py`, `documents.py` | fake DNS + HTTP (`FakeWeb`) and PDF/HTML builders for tests |
+| `docs/DECISIONS.md` | ADR-001 to ADR-021 |
 | `docs/DATA_MODEL.md`, `docs/TESTING.md` | schema conventions and test strategy |
 
 ## Architecture decisions (details in docs/DECISIONS.md)
@@ -92,6 +98,9 @@ Read this file first when resuming the project in a new session.
 16. Roles are stored as VARCHAR with a CHECK constraint, not native enums.
 17. The product catalog is global; workspace data lives on `workspace_products`.
 18. Specs are typed: NUMERIC xor text, plus a unit, never floats.
+19. A hand-written SSRF-safe fetcher pins the validated IP (Host header and SNI are kept).
+20. Snapshots are immutable and content-addressed; the latest one is picked by `last_seen_at`.
+21. Upload type comes from magic bytes; uploads always get USER authority.
 
 ## Migrations
 
@@ -99,7 +108,8 @@ Read this file first when resuming the project in a new session.
 | --- | --- | --- |
 | `0001` | `20260930_1700_0001_enable_pgvector.py` | `CREATE EXTENSION IF NOT EXISTS vector` |
 | `0002` | `20260930_2105_0002_identity_and_workspaces.py` | users, organizations, organization_members, comparison_workspaces, workspace_members |
-| `0003` (head) | `20260930_2120_0003_product_catalog.py` | products, product_variants, product_identifiers, product_specifications, workspace_products |
+| `0003` | `20260930_2120_0003_product_catalog.py` | products, product_variants, product_identifiers, product_specifications, workspace_products |
+| `0004` (head) | `20260930_2137_0004_sources_snapshots_documents.py` | product_sources, source_snapshots, source_documents |
 
 ## Endpoints
 
@@ -115,11 +125,17 @@ Read this file first when resuming the project in a new session.
 | GET | `/api/v1/products/by-identifier`, `/api/v1/products/{id}` | lookup / detail |
 | POST/PUT | `/api/v1/products/{id}/variants`, `/identifiers`, `/specifications` | creator-only edits |
 | POST/GET/DELETE | `/api/v1/workspaces/{id}/products[/{product_id}]` | EDITOR+ modifies, members read |
+| POST/GET | `/api/v1/products/{id}/sources` | register (shared or `workspace_id`) / list visible |
+| POST | `/api/v1/products/{id}/sources/upload` | multipart upload → snapshot + document |
+| POST | `/api/v1/sources/{id}/ingest` | SSRF-safe fetch → snapshot → document (422 unsafe_url, 502 fetch failed) |
+| GET | `/api/v1/sources/{id}`, `/api/v1/sources/{id}/document` | status + latest doc meta / latest text |
 | GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
 | GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
 
 ## Tests
 
+- Phase 5: 299 tests, 97% coverage in the cloud workspace. `reportlab` is a dev-only
+  dependency used to build test PDFs.
 - Phase 4: 218 tests, 97% coverage in the cloud workspace.
 - Phase 3: 166 tests, 98% line+branch coverage in the cloud workspace (PostgreSQL 16 through
   `TEST_DATABASE_URL`). Coverage runs with `concurrency = ["greenlet", "thread"]`.
@@ -144,6 +160,10 @@ None yet.
 - Redis is not used by the API yet (Phase 19).
 - Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
 - Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
+- Phase 5 still needs verifying on the Mac and in CI.
+- Ingestion runs inside the request (no workers until Phase 21); raw bytes are stored in
+  PostgreSQL (S3 comes in Phase 31); robots.txt isn't consulted yet (only user-supplied URLs
+  are fetched, never crawled).
 - Catalog has no moderation yet (only the creator can edit) and specs have no source links
   (Phase 5 adds sources and evidence).
 - No invitations endpoint yet: members are added only through `WorkspaceService.add_member`

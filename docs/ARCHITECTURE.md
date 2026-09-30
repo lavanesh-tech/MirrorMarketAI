@@ -117,6 +117,41 @@ Product 1──* ProductVariant
   can add variants, identifiers or specs. Moderation and source-backed specs
   come in Phase 5.
 
+### Evidence sources and ingestion (Phase 5)
+
+```
+ProductSource (shared, or private to a workspace)
+   └──* SourceSnapshot (exact bytes, sha256, content type, last_seen_at)
+          └──1 SourceDocument (normalized text; product/workspace IDs copied onto it for filtering)
+
+URL:    validate syntax → resolve DNS → every IP public? → connect to that IP
+        (Host header + TLS SNI = hostname) → manual redirects, each re-validated
+        → status 200 + allowed content type → stream with byte cap → snapshot
+Upload: read ≤ limit+1 bytes → sniff magic bytes (never trust the extension
+        or MIME type) → snapshot
+Both:   sha256 matches an existing snapshot? reuse it (unchanged=true)
+        : parse (HTML without scripts/styles, pypdf with a page cap, text)
+          → NFKC + strip control/zero-width chars → document
+```
+
+- **SSRF defense (`app/ingestion/safe_fetch.py`):**
+  - Only http and https; no credentials in the URL; ports 80 and 443 by default.
+  - Blocked hostnames: `localhost`, `*.local`, `*.internal`, and numeric forms like `127.1`.
+  - Blocked addresses: private, loopback, link-local and metadata IPs, CGNAT,
+    multicast, reserved, and IPv4-mapped IPv6 versions of these.
+  - Every DNS answer must be public, which blocks DNS rebinding.
+  - Redirects are limited in number and each one is re-validated.
+  - Total timeout, a decompressed-byte cap, a content-type allow-list, and
+    `trust_env=False` (no proxies taken from the environment).
+- **Untrusted content:** documents are data. They are never executed or
+  followed as instructions, and zero-width characters (a prompt-injection
+  hiding trick) are stripped at ingestion.
+- **Access:** shared sources can be read by anyone signed in and written only
+  by the product's creator. Workspace sources exist only for that workspace's
+  members (404 otherwise), and EDITOR or higher can write them.
+- Ingestion runs inside the request for now, with tight size and time bounds.
+  It moves to Kafka workers in Phase 21, and raw bytes move to S3 in Phase 31.
+
 ### Backend module layout
 
 | Package | Responsibility | Introduced |

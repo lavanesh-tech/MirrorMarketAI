@@ -26,6 +26,7 @@ from app.core.database import Database
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
+from app.ingestion.safe_fetch import SafeFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     database = Database.from_settings(settings)
     app.state.database = database
+    fetcher = SafeFetcher(settings)
+    app.state.fetcher = fetcher
     logger.info(
         "application startup",
         extra={
@@ -53,6 +56,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await fetcher.aclose()
         await database.dispose()
         logger.info("application shutdown")
 

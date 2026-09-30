@@ -23,6 +23,7 @@ import asyncpg
 import httpx
 import pytest
 from alembic import command
+from fastapi import FastAPI
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -149,15 +150,16 @@ async def db_session(connection: AsyncConnection) -> AsyncIterator[AsyncSession]
 
 
 @pytest.fixture
-async def api(
+def api_app(
     make_settings: Callable[..., Settings],
     migrated_database_url: str,
     db_session: AsyncSession,
-) -> AsyncIterator[httpx.AsyncClient]:
-    """HTTP client whose requests all share the test's rolled-back session.
+) -> FastAPI:
+    """App whose requests all share the test's rolled-back session.
 
     Services still call commit() (turned into SAVEPOINT releases), so nothing
-    a test writes through the API survives it.
+    a test writes through the API survives it. Tests may add further
+    `dependency_overrides` (e.g. a fake URL fetcher) before using `api`.
     """
     app = create_app(make_settings(database_url=migrated_database_url))
 
@@ -165,9 +167,14 @@ async def api(
         yield db_session
 
     app.dependency_overrides[get_db_session] = _session_override
-    transport = httpx.ASGITransport(app=app)
+    return app
+
+
+@pytest.fixture
+async def api(api_app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+    transport = httpx.ASGITransport(app=api_app)
     async with (
-        app.router.lifespan_context(app),
+        api_app.router.lifespan_context(api_app),
         httpx.AsyncClient(transport=transport, base_url="http://testserver") as client,
     ):
         yield client

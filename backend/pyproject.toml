@@ -17,6 +17,8 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "pyjwt>=2.15.1",
     "email-validator>=2.3.0",
+    "python-multipart>=0.0.32",
+    "pypdf>=6.19.0",
 ]
 
 [dependency-groups]
@@ -27,6 +29,7 @@ dev = [
     "pytest-asyncio>=1.4",
     "pytest-cov>=7.1",
     "testcontainers[postgres]>=4.15.0",
+    "reportlab>=5.0.1",
 ]
 
 [tool.uv]
@@ -64,6 +67,7 @@ select = [
 ]
 ignore = [
     "PLR0913",  # too many arguments: FastAPI dependency signatures legitimately have many
+    "PLR0917",  # too many positional arguments: same reason (FastAPI injects by name)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -100,7 +104,7 @@ files = ["app", "tests", "migrations"]
 
 [[tool.mypy.overrides]]
 # asyncpg ships no type information; it is only used directly in test setup.
-module = ["asyncpg", "asyncpg.*"]
+module = ["asyncpg", "asyncpg.*", "reportlab", "reportlab.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

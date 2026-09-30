@@ -83,6 +83,18 @@ class Settings(BaseSettings):
     jwt_audience: str = "mirrormarket-api"
     jwt_access_token_ttl_minutes: int = Field(default=15, ge=1, le=60)
 
+    # --- Source ingestion (URL fetch + uploads) ------------------------------
+    ingestion_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
+    ingestion_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    ingestion_max_redirects: int = Field(default=5, ge=0, le=10)
+    ingestion_allowed_ports: Annotated[list[int], NoDecode] = Field(
+        default_factory=lambda: [80, 443]
+    )
+    ingestion_user_agent: str = (
+        "MirrorMarketBot/0.1 (+https://github.com/lavanesh-tech/MirrorMarketAI)"
+    )
+    ingestion_max_pdf_pages: int = Field(default=200, ge=1, le=2000)
+
     # --- Redis (cache/coordination; wired up in Phase 19) --------------------
     redis_url: SecretStr = SecretStr("redis://localhost:6380/0")
 
@@ -103,6 +115,13 @@ class Settings(BaseSettings):
     def _split_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator("ingestion_allowed_ports", mode="before")
+    @classmethod
+    def _split_ports(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [int(p) for p in value.split(",") if p.strip()]
         return value
 
     @field_validator("cors_allowed_origins")

@@ -8,11 +8,11 @@ the request into structured requirements, gathers evidence about candidate produ
 runs specialised AI agents over that evidence, and returns comparisons in which
 every factual claim cites its source. Collaborators see the research happen live.
 
-> **Status: Phase 4 of 35 complete.** Done so far: the backend foundation, async
+> **Status: Phase 5 of 35 complete.** Done so far: the backend foundation, async
 > PostgreSQL + pgvector, migrations, readiness checks, JWT auth, role-based
-> comparison workspaces, and a product catalog (variants, validated identifiers,
-> typed specifications) that products can be added to workspaces from. There is
-> no RAG, no agents and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> comparison workspaces, a product catalog, and evidence sources: SSRF-safe URL
+> ingestion and PDF/HTML/text uploads, turned into versioned snapshots and
+> normalized documents. There is no RAG, no agents and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Principles
 
@@ -125,6 +125,12 @@ Run `make help` for every command.
 | POST | `/api/v1/workspaces/{id}/products` | Add a product to a workspace (OWNER/EDITOR) 🔒 |
 | GET | `/api/v1/workspaces/{id}/products` | Products in the workspace (members) 🔒 |
 | DELETE | `/api/v1/workspaces/{id}/products/{product_id}` | Remove it from the workspace (OWNER/EDITOR) 🔒 |
+| POST | `/api/v1/products/{id}/sources` | Register a URL source (shared, or private with `workspace_id`) 🔒 |
+| GET | `/api/v1/products/{id}/sources` | Shared sources + those from your workspaces 🔒 |
+| POST | `/api/v1/products/{id}/sources/upload` | Upload PDF/HTML/MD/TXT (multipart) → snapshot + document 🔒 |
+| POST | `/api/v1/sources/{id}/ingest` | SSRF-safe fetch → snapshot → parsed document 🔒 |
+| GET | `/api/v1/sources/{id}` | Source status + latest document metadata 🔒 |
+| GET | `/api/v1/sources/{id}/document` | Latest normalized text (untrusted content) 🔒 |
 
 🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape
 `{"error": {"code", "message", "request_id"}}`.

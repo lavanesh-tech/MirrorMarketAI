@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.database import Database
 from app.core.errors import AuthenticationError
+from app.ingestion.safe_fetch import SafeFetcher
 from app.models.identity import User
 from app.repositories.identity import UserRepository
 from app.security.tokens import decode_access_token
@@ -67,6 +68,12 @@ async def get_current_user(
     return user
 
 
+def get_fetcher(request: Request) -> SafeFetcher:
+    fetcher: SafeFetcher = request.app.state.fetcher
+    return fetcher
+
+
+FetcherDep = Annotated[SafeFetcher, Depends(get_fetcher)]
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 CurrentUser = Annotated[User, Depends(get_current_user)]

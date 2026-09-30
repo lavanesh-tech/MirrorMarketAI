@@ -116,6 +116,38 @@ class InvalidIdentifierValueError(UnprocessableError):
     code = "invalid_identifier"
 
 
+class SourceNotFoundError(NotFoundError):
+    code = "source_not_found"
+    message = "Source not found."
+
+
+class SourceHasNoUrlError(ConflictError):
+    code = "source_has_no_url"
+    message = "This source has no URL to fetch."
+
+
+class UnsafeUrlError(UnprocessableError):
+    code = "unsafe_url"
+    message = "This URL is not allowed."
+
+
+class SourceUnparseableError(UnprocessableError):
+    code = "unparseable_source"
+    message = "No usable text could be extracted from this source."
+
+
+class SourceFetchFailedError(AppError):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    code = "source_fetch_failed"
+    message = "The source could not be fetched."
+
+
+class FileTooLargeError(AppError):
+    status_code = status.HTTP_413_CONTENT_TOO_LARGE
+    code = "file_too_large"
+    message = "The uploaded file is too large."
+
+
 def error_body(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "request_id": get_request_id(), **extra}}
 

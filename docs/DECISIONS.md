@@ -207,3 +207,38 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   The API uses decimals (no floats) and rejects NaN and Infinity.
 - **Consequences:** Hard constraints and scoring ("RAM ≥ 16 GB") are exact SQL
   or Python comparisons. The LLM never does arithmetic on specs.
+
+## ADR-019: Hand-rolled SSRF-safe fetcher with IP pinning
+
+- **Status:** Accepted (Phase 5)
+- **Decision:** Use a small, fully tested fetcher (`SafeFetcher`) instead of
+  plain `httpx.get`. It resolves DNS itself, requires *every* resolved address
+  to be public, connects to the validated IP, and sends the original `Host`
+  header and TLS SNI, so certificate checks still apply to the hostname.
+  Redirects are followed by hand and each hop is re-validated. It also enforces
+  size, time and content-type limits.
+- **Consequences:** Defends against internal-network access, cloud-metadata
+  theft, DNS rebinding and redirect tricks. The trade-off is that sites which
+  need other ports, or which are reachable only through a proxy, are
+  intentionally unsupported.
+
+## ADR-020: Immutable, content-addressed snapshots
+
+- **Status:** Accepted (Phase 5)
+- **Decision:** Each distinct set of bytes becomes one `source_snapshots` row,
+  unique by `(source_id, sha256)`, with the raw bytes kept. A re-fetch that
+  returns the same bytes reuses the snapshot and bumps `last_seen_at`. Parsed
+  text lives in `source_documents`, one per snapshot.
+- **Consequences:**
+  - Unchanged pages aren't re-parsed or re-embedded.
+  - Any document can be re-parsed later from its original bytes.
+  - Citations (Phase 9) can point to the exact version of the evidence.
+  - Raw bytes sit in PostgreSQL until the S3 move in Phase 31.
+
+## ADR-021: Uploads are typed by content, not by claims
+
+- **Status:** Accepted (Phase 5)
+- **Decision:** Upload type comes from magic bytes (`%PDF-`, HTML markers);
+  other binaries are rejected. Uploads are read with a hard byte cap, filenames
+  are sanitized, and PDFs are limited by page count, with encrypted files
+  refused. Uploaded sources always get `USER` authority.

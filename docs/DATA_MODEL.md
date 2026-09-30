@@ -4,7 +4,7 @@ PostgreSQL is the system of record. This document lists every table that exists
 **now**, and the conventions all tables follow. Domain tables are added phase by
 phase (see [ROADMAP.md](ROADMAP.md)).
 
-## Current schema (migration head: `0003`)
+## Current schema (migration head: `0004`)
 
 | Object | Migration | Purpose |
 | --- | --- | --- |
@@ -19,6 +19,9 @@ phase (see [ROADMAP.md](ROADMAP.md)).
 | `product_identifiers` | `0003` | `scheme` ∈ GTIN/MPN/ASIN/SKU, normalized `value`; unique (scheme, value) catalog-wide; optional `variant_id` |
 | `product_specifications` | `0003` | `key` (snake_case), `value_number` NUMERIC(18,6) XOR `value_text`, `unit`; unique (product, variant, key) NULLS NOT DISTINCT |
 | `workspace_products` | `0003` | tenant link: workspace ↔ product (+ optional variant, notes, `added_by_id`); unique (workspace, product); product FK RESTRICT |
+| `product_sources` | `0004` | evidence source for a product: `source_type`, `authority` (OFFICIAL/THIRD_PARTY/USER), `title`, `url`, `status` (PENDING/INGESTED/FAILED), `last_error`; `workspace_id` NULL = shared |
+| `source_snapshots` | `0004` | immutable bytes per fetch/upload: `sha256` (unique per source), `content_type`, `byte_size`, `raw_content` BYTEA, `final_url`, `http_status`, `fetched_at`, `last_seen_at` |
+| `source_documents` | `0004` | normalized text per snapshot (1:1) with denormalized `source_id`, `product_id`, `workspace_id` for filtered retrieval |
 | `alembic_version` | Alembic | the migration revision currently applied |
 
 Foreign keys are indexed. Deleting a workspace cascades to its members.

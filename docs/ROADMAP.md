@@ -19,8 +19,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | # | Phase | Status |
 | --- | --- | --- |
 | 4 | Products, variants, identifiers, specifications | ✅ |
-| 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | 🔜 |
-| 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ⬜ |
+| 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | ✅ |
+| 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | 🔜 |
 | 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ⬜ |
 | 8 | Purchase requirements, structured extraction, requirement versions | ⬜ |
 | 9 | Evidence packs, citations, citation validator | ⬜ |
@@ -111,3 +111,14 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Workspace products: add/list/remove with role enforcement and tenant isolation
 - [x] Tests: identifier/key unit tests, catalog API, workspace-product RBAC/isolation, constraint tests
 - [x] Verified on the developer Mac and CI green (run 36779473241, commit 7be3f05)
+
+## Phase 5 exit criteria
+
+- [x] Tables: product_sources, source_snapshots, source_documents (migration `0004`)
+- [x] SSRF-safe URL fetcher (scheme/port/host/IP rules, DNS pinning, redirect re-validation, size/time/type limits)
+- [x] Uploads: PDF/HTML/Markdown/text with magic-byte sniffing and size caps
+- [x] Parsing + normalization (scripts/styles removed, control and zero-width chars stripped)
+- [x] Content-addressed snapshots with change detection
+- [x] Shared vs workspace-private sources with access control
+- [x] Tests: SSRF matrix, fake-DNS/HTTP fetcher tests, parsers, source API (ingest, reuse, uploads, isolation)
+- [ ] Verified on the developer Mac and CI green

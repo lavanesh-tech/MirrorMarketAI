@@ -19,6 +19,7 @@ from app.models.identity import (
     User,
     WorkspaceMember,
 )
+from app.models.sources import ProductSource, SourceDocument, SourceSnapshot
 
 __all__ = [
     "Base",
@@ -27,8 +28,11 @@ __all__ = [
     "OrganizationMember",
     "Product",
     "ProductIdentifier",
+    "ProductSource",
     "ProductSpecification",
     "ProductVariant",
+    "SourceDocument",
+    "SourceSnapshot",
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",
     "User",
