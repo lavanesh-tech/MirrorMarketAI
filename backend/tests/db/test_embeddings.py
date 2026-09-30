@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 
 import httpx
 import pytest
@@ -197,7 +198,7 @@ def worker_db_url(fresh_database_url: Callable[[], str]) -> str:
 
 
 async def test_parallel_workers_never_process_the_same_job(
-    worker_db_url: str, make_settings: SettingsFactory
+    worker_db_url: str, make_settings: SettingsFactory, tmp_path: Path
 ) -> None:
     """Real commits on a dedicated database: SKIP LOCKED gives each job to one worker."""
     settings: Settings = make_settings(database_url=worker_db_url)
@@ -270,7 +271,9 @@ async def test_parallel_workers_never_process_the_same_job(
         assert statuses == ["SUCCEEDED"] * 6
         assert attempts == [1] * 6  # nobody processed a job twice
 
-        # The CLI entry point drains an empty queue and exits cleanly.
-        assert await run_worker(settings, once=True) == 0
+        # The CLI entry point drains an empty queue, writes its heartbeat and exits.
+        heartbeat_file = tmp_path / "worker.heartbeat"
+        assert await run_worker(settings, once=True, heartbeat_path=heartbeat_file) == 0
+        assert heartbeat_file.exists()
     finally:
         await database.dispose()

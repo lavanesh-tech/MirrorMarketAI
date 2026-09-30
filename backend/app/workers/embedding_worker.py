@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import logging
 import signal
+from pathlib import Path
 
 from app.core.config import Settings, get_settings
 from app.core.database import Database
@@ -21,11 +22,32 @@ from app.services.embeddings import EmbeddingService
 
 logger = logging.getLogger("app.workers.embedding")
 
+# Liveness signal for container health checks: the worker touches this file on
+# every loop iteration and after every job; Docker/ECS marks the container
+# unhealthy if it goes stale (e.g. the event loop is stuck).
+HEARTBEAT_FILE = Path("/tmp/embedding-worker.heartbeat")  # noqa: S108 - tmpfs in the container
 
-async def drain(database: Database, settings: Settings, provider: EmbeddingProvider) -> int:
+
+def heartbeat(path: Path | None = HEARTBEAT_FILE) -> None:
+    if path is None:
+        return
+    try:
+        path.touch()
+    except OSError:  # never let a heartbeat failure kill the worker
+        logger.warning("could not write heartbeat file", extra={"path": str(path)})
+
+
+async def drain(
+    database: Database,
+    settings: Settings,
+    provider: EmbeddingProvider,
+    *,
+    heartbeat_path: Path | None = None,
+) -> int:
     """Process pending jobs until none are left. Returns the number processed."""
     processed = 0
     while True:
+        heartbeat(heartbeat_path)
         async with database.session_factory() as session:
             service = EmbeddingService(session, settings, provider)
             job = await service.claim_next()
@@ -35,7 +57,9 @@ async def drain(database: Database, settings: Settings, provider: EmbeddingProvi
             processed += 1
 
 
-async def run_worker(settings: Settings, *, once: bool) -> int:
+async def run_worker(
+    settings: Settings, *, once: bool, heartbeat_path: Path | None = HEARTBEAT_FILE
+) -> int:
     database = Database.from_settings(settings)
     provider = create_embedding_provider(settings)
     stop = asyncio.Event()
@@ -46,7 +70,8 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
     logger.info("embedding worker started", extra={"model": provider.model, "once": once})
     try:
         while not stop.is_set():
-            total += await drain(database, settings, provider)
+            heartbeat(heartbeat_path)
+            total += await drain(database, settings, provider, heartbeat_path=heartbeat_path)
             if once:
                 break
             try:
