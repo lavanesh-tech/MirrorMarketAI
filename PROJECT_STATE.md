@@ -7,9 +7,7 @@ Read this file first when resuming the project in a new session.
 - **Completed phases:** 1 (foundation), 2 (async PostgreSQL, Alembic, readiness), 3 (users,
   organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products),
   5 (sources, snapshots, documents, SSRF-safe URL ingestion, uploads), 6 (chunking, embeddings,
-  pgvector HNSW, embedding jobs and worker)
-- **In progress:** 7 (hybrid retrieval) is implemented and passes in the cloud workspace; it still
-  needs verifying on the Mac and in CI.
+  pgvector HNSW, embedding jobs and worker), 7 (hybrid full-text + vector search with RRF)
 - **Next phase:** 8. Purchase requirements, structured extraction and requirement versions.
 - **Last updated:** 2026-09-30
 
@@ -187,7 +185,7 @@ Read this file first when resuming the project in a new session.
 - Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
 - Phase 5 verified on the Mac (299 tests, 97% coverage; live upload ingested and metadata URL blocked with `unsafe_url`) and in CI (run 36782106155, commit 88c25ef).
 - Phase 6 verified on the Mac and in CI (run 36785705853, commit bcab052).
-- Phase 7 still needs verifying on the Mac and in CI.
+- Phase 7 verified on the Mac (343 tests, 96% coverage) and in CI (run 36787055813, commit 05b6dae).
 - Full-text search ANDs every query term (`websearch_to_tsquery`), so long natural-language
   questions often get no lexical hit; vector search carries those. English stemming only.
 - The default embeddings are lexical (hashing); semantic quality needs `EMBEDDING_PROVIDER=openai`

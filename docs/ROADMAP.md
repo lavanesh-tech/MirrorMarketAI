@@ -21,8 +21,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 4 | Products, variants, identifiers, specifications | ✅ |
 | 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | ✅ |
 | 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ✅ |
-| 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | 🔜 |
-| 8 | Purchase requirements, structured extraction, requirement versions | ⬜ |
+| 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ✅ |
+| 8 | Purchase requirements, structured extraction, requirement versions | 🔜 |
 | 9 | Evidence packs, citations, citation validator | ⬜ |
 
 ## Agents
@@ -142,4 +142,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `POST /api/v1/workspaces/{id}/search`: modes, product/source/authority/type filters, members only
 - [x] Only each source's latest document is searchable
 - [x] Tests: RRF and metrics units, modes, filters, cross-workspace leakage, re-ingest, outage, Recall@3/MRR
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36787055813, commit 05b6dae)
