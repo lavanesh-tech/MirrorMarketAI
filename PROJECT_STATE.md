@@ -129,7 +129,7 @@ None yet.
 - Phase 2 verified on the Mac (Compose `migrate` then `api`, `/ready` returns 200, `alembic current` is
   0001, pgvector 0.8.6) and in CI (run 36775232625, commit 2860cd4, Testcontainers DB tests included).
 - Redis is not used by the API yet (Phase 19).
-- Phase 3 still needs verifying on the Mac and in CI.
+- Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
 - No invitations endpoint yet: members are added only through `WorkspaceService.add_member`
   (used by tests). Invitations come with collaboration (Phase 20).
 - No refresh tokens, logout, rate limiting or account lockout yet (Phases 19 and 22).

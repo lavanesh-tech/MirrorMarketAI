@@ -101,4 +101,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Workspaces: create, paginated list (member-only), get, PATCH (OWNER/EDITOR), members
 - [x] 404 for non-members, 403 for insufficient role; standard error envelope
 - [x] Tests: tokens (expiry, alg=none, wrong key/aud/iss), passwords, role matrix, auth API, workspace isolation/RBAC, constraints
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36777813805, commit 4de24b4)
