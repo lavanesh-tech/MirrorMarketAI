@@ -152,6 +152,27 @@ Both:   sha256 matches an existing snapshot? reuse it (unchanged=true)
 - Ingestion runs inside the request for now, with tight size and time bounds.
   It moves to Kafka workers in Phase 21, and raw bytes move to S3 in Phase 31.
 
+### Chunking, embeddings and jobs (Phase 6)
+
+```
+SourceDocument created ──(same transaction)──▶ embedding_jobs: PENDING
+embedding-worker(s): SELECT … FOR UPDATE SKIP LOCKED → RUNNING
+   → chunk_text() (sentence-aware, ≤ 2000 chars, ~200-char overlap, exact offsets)
+   → provider.embed() in batches → chunk_embeddings (vector(1536), HNSW cosine)
+   → SUCCEEDED   |  error → PENDING (retry) … → FAILED after max attempts
+```
+
+- **Providers** (`app/providers/embeddings.py`): `openai` calls the REST API
+  through httpx, with timeouts, retries with backoff on 429/5xx, and dimension
+  checks. `hashing` is deterministic lexical feature hashing, so CI and the demo
+  work offline. It is not semantic, and is labeled as such everywhere.
+- **Idempotent:** chunks are created once per document, and embeddings are
+  unique per `(chunk_id, model)`. A re-run only fills in the gaps.
+- **Tenant data on every chunk:** `product_id`, `workspace_id` and `source_id`
+  are copied onto each chunk, so Phase 7 can filter before doing vector math.
+- **`POST /sources/{id}/embed`** runs the same job synchronously. It's for
+  demos and tests; normal traffic goes through the worker.
+
 ### Backend module layout
 
 | Package | Responsibility | Introduced |

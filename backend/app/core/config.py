@@ -31,6 +31,8 @@ class Environment(StrEnum):
 # Publicly known: only acceptable for local development and tests.
 _DEV_JWT_SECRET = "dev-only-insecure-jwt-secret-change-me-0123456789"  # noqa: S105
 MIN_JWT_SECRET_LENGTH = 32
+# Size of the pgvector column (migration 0005). Must match the embedding model.
+EMBEDDING_DIMENSIONS = 1536
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LogFormat = Literal["json", "console"]
@@ -104,6 +106,18 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = Field(default=1536, gt=0, le=4096)
     openai_request_timeout_seconds: float = Field(default=30.0, gt=0)
+    openai_base_url: str = "https://api.openai.com/v1"
+
+    # --- Chunking + embeddings ------------------------------------------------
+    # "hashing" is a deterministic, offline embedder (lexical feature hashing):
+    # the demo and CI work without an API key. Use "openai" for real semantics.
+    embedding_provider: Literal["openai", "hashing"] = "hashing"
+    embedding_batch_size: int = Field(default=64, ge=1, le=2048)
+    embedding_max_retries: int = Field(default=3, ge=0, le=8)
+    embedding_job_max_attempts: int = Field(default=3, ge=1, le=10)
+    chunk_target_chars: int = Field(default=2000, ge=200, le=20_000)
+    chunk_overlap_chars: int = Field(default=200, ge=0, le=5_000)
+    worker_poll_interval_seconds: float = Field(default=2.0, gt=0, le=300)
 
     # --- Kafka (placeholders; introduced in Phase 21) ------------------------
     kafka_enabled: bool = False
@@ -140,6 +154,19 @@ class Settings(BaseSettings):
         if not value.get_secret_value().startswith("postgresql+asyncpg://"):
             raise ValueError("database_url must use the 'postgresql+asyncpg://' scheme")
         return value
+
+    @model_validator(mode="after")
+    def _check_embedding_config(self) -> Self:
+        if self.openai_embedding_dimensions != EMBEDDING_DIMENSIONS:
+            raise ValueError(
+                f"openai_embedding_dimensions must be {EMBEDDING_DIMENSIONS} "
+                "(the pgvector column size); changing it requires a migration"
+            )
+        if self.chunk_overlap_chars >= self.chunk_target_chars // 2:
+            raise ValueError("chunk_overlap_chars must be less than half of chunk_target_chars")
+        if self.embedding_provider == "openai" and not self.openai_configured:
+            raise ValueError("embedding_provider=openai requires OPENAI_API_KEY")
+        return self
 
     @model_validator(mode="after")
     def _enforce_production_safety(self) -> Self:

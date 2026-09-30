@@ -242,3 +242,35 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   other binaries are rejected. Uploads are read with a hard byte cap, filenames
   are sanitized, and PDFs are limited by page count, with encrypted files
   refused. Uploaded sources always get `USER` authority.
+
+## ADR-022: Embeddings in a separate table, one row per (chunk, model)
+
+- **Status:** Accepted (Phase 6)
+- **Decision:** `chunk_embeddings(chunk_id, model, embedding vector(1536))`
+  with an HNSW index (`vector_cosine_ops`, m=16, ef_construction=64). The
+  vector size is fixed by migration, and settings refuse to start with any
+  other size.
+- **Consequences:** Switching or A/B-testing an embedding model means adding
+  rows, not rewriting chunks. Changing dimensions needs a migration.
+
+## ADR-023: Database-backed job queue with SKIP LOCKED (before Kafka)
+
+- **Status:** Accepted (Phase 6)
+- **Decision:** `embedding_jobs` is created in the same transaction as the
+  document. Workers claim jobs with `FOR UPDATE SKIP LOCKED`. Failures retry
+  up to `EMBEDDING_JOB_MAX_ATTEMPTS`, after which the job is marked FAILED.
+- **Consequences:**
+  - Jobs are durable and exactly-once, with any number of parallel workers and
+    no new infrastructure.
+  - Kafka (Phase 21) will add push-based wake-ups and fan-out, but this table
+    stays the source of truth for job state.
+
+## ADR-024: Offline "hashing" embedder as the default provider
+
+- **Status:** Accepted (Phase 6)
+- **Decision:** `EMBEDDING_PROVIDER=hashing` by default, `openai` when a key is
+  configured. The provider interface is the same either way.
+- **Consequences:** Tests, CI and the demo never depend on an external API or
+  cost money. Retrieval-quality numbers will be reported separately for each
+  provider (Phase 27), and hashing results are never presented as semantic
+  quality.

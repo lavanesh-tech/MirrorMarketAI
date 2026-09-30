@@ -8,11 +8,12 @@ the request into structured requirements, gathers evidence about candidate produ
 runs specialised AI agents over that evidence, and returns comparisons in which
 every factual claim cites its source. Collaborators see the research happen live.
 
-> **Status: Phase 5 of 35 complete.** Done so far: the backend foundation, async
+> **Status: Phase 6 of 35 complete.** Done so far: the backend foundation, async
 > PostgreSQL + pgvector, migrations, readiness checks, JWT auth, role-based
 > comparison workspaces, a product catalog, and evidence sources: SSRF-safe URL
 > ingestion and PDF/HTML/text uploads, turned into versioned snapshots and
-> normalized documents. There is no RAG, no agents and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> normalized documents, then chunked and embedded into pgvector by a background
+> worker. There is no retrieval API, no agents and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Principles
 
@@ -131,6 +132,9 @@ Run `make help` for every command.
 | POST | `/api/v1/sources/{id}/ingest` | SSRF-safe fetch → snapshot → parsed document 🔒 |
 | GET | `/api/v1/sources/{id}` | Source status + latest document metadata 🔒 |
 | GET | `/api/v1/sources/{id}/document` | Latest normalized text (untrusted content) 🔒 |
+| POST | `/api/v1/sources/{id}/embed` | Chunk + embed the latest document now (idempotent) 🔒 |
+| GET | `/api/v1/sources/{id}/chunks` | Chunks with character offsets 🔒 |
+| GET | `/api/v1/embedding-jobs/{id}` | Job status, attempts, counts, tokens 🔒 |
 
 🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape
 `{"error": {"code", "message", "request_id"}}`.

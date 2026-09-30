@@ -45,6 +45,7 @@ from app.models.sources import (
     SourceStatus,
     SourceType,
 )
+from app.services.embeddings import embedding_model_name, enqueue_embedding_job
 from app.services.workspaces import WorkspaceService
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ class SourceService:
             raise ProductNotFoundError
         return product
 
-    async def _require_write(
+    async def require_write(
         self, product: Product, workspace_id: uuid.UUID | None, user: User
     ) -> None:
         if workspace_id is not None:
@@ -145,7 +146,7 @@ class SourceService:
         url: str | None,
     ) -> ProductSource:
         product = await self._product(product_id)
-        await self._require_write(product, workspace_id, user)
+        await self.require_write(product, workspace_id, user)
         if url is not None:
             try:
                 validate_url_syntax(url, self.settings.ingestion_allowed_ports)
@@ -171,7 +172,7 @@ class SourceService:
     ) -> IngestionResult:
         source = await self.get_source(source_id, user)
         product = await self._product(source.product_id)
-        await self._require_write(product, source.workspace_id, user)
+        await self.require_write(product, source.workspace_id, user)
         if not source.url:
             raise SourceHasNoUrlError
         try:
@@ -292,6 +293,10 @@ class SourceService:
             parser=parsed.parser,
         )
         self.session.add(document)
+        await self.session.flush()
+        # Queue chunking + embedding in the same transaction as the document:
+        # either both exist or neither does (no lost work, no orphan jobs).
+        await enqueue_embedding_job(self.session, document.id, embedding_model_name(self.settings))
         source.status = SourceStatus.INGESTED.value
         source.last_error = None
         source.last_ingested_at = now

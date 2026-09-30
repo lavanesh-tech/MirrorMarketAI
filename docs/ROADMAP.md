@@ -20,8 +20,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | --- | --- | --- |
 | 4 | Products, variants, identifiers, specifications | ✅ |
 | 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | ✅ |
-| 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | 🔜 |
-| 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ⬜ |
+| 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ✅ |
+| 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | 🔜 |
 | 8 | Purchase requirements, structured extraction, requirement versions | ⬜ |
 | 9 | Evidence packs, citations, citation validator | ⬜ |
 
@@ -122,3 +122,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Shared vs workspace-private sources with access control
 - [x] Tests: SSRF matrix, fake-DNS/HTTP fetcher tests, parsers, source API (ingest, reuse, uploads, isolation)
 - [x] Verified on the developer Mac and CI green (run 36782106155, commit 88c25ef)
+
+## Phase 6 exit criteria
+
+- [x] Sentence-aware chunker with exact offsets and overlap (unit-tested)
+- [x] Embedding providers: OpenAI (retries/timeouts/dimension checks, mocked in tests) and offline hashing
+- [x] Tables: document_chunks, chunk_embeddings (vector(1536) + HNSW), embedding_jobs (migration `0005`)
+- [x] Jobs enqueued atomically with documents; worker with SKIP LOCKED, retries, max attempts
+- [x] API: embed now, list chunks, job status; Compose `embedding-worker` service
+- [x] Tests: chunking, providers, embed API, idempotency, cosine nearest-neighbour, retry/fail, parallel workers
+- [ ] Verified on the developer Mac and CI green

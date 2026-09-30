@@ -6,10 +6,12 @@ Read this file first when resuming the project in a new session.
 
 - **Completed phases:** 1 (foundation), 2 (async PostgreSQL, Alembic, readiness), 3 (users,
   organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products),
-  5 (sources, snapshots, documents, SSRF-safe URL ingestion, uploads)
-- **Next phase:** 6. Chunking `source_documents` into `document_chunks`, OpenAI embeddings
-  behind a provider interface (with a deterministic fake for tests and CI), a pgvector column
-  plus HNSW index, and embedding jobs tracked in PostgreSQL.
+  5 (sources, snapshots, documents, SSRF-safe URL ingestion, uploads), 6 (chunking, embeddings,
+  pgvector HNSW, embedding jobs and worker)
+- **Next phase:** 7. PostgreSQL full-text search (a tsvector on chunks plus a GIN index), pgvector
+  similarity, hybrid ranking (reciprocal rank fusion), metadata filters (workspace, product,
+  source type, authority, date), a `POST /api/v1/search` endpoint with workspace-scoped access,
+  and retrieval tests (Recall@K, MRR, cross-workspace leakage).
 - **Last updated:** 2026-09-30
 
 ## Working rules (from the owner)
@@ -73,7 +75,12 @@ Read this file first when resuming the project in a new session.
 | `backend/app/models/sources.py` | ProductSource, SourceSnapshot (sha256, last_seen_at), SourceDocument; SourceType, SourceAuthority, SourceStatus |
 | `backend/app/services/sources.py` | create/list/get, `ingest_url`, `upload`, `_store` (dedupe → parse → document) |
 | `backend/tests/support/fake_web.py`, `documents.py` | fake DNS + HTTP (`FakeWeb`) and PDF/HTML builders for tests |
-| `docs/DECISIONS.md` | ADR-001 to ADR-021 |
+| `backend/app/retrieval/chunking.py` | `chunk_text` (sentence-aware, overlap, exact offsets), `estimate_tokens` |
+| `backend/app/providers/embeddings.py` | `EmbeddingProvider` protocol, `OpenAIEmbeddingProvider`, `HashingEmbeddingProvider`, `create_embedding_provider` |
+| `backend/app/models/retrieval.py` | DocumentChunk, ChunkEmbedding (Vector(1536), HNSW), EmbeddingJob, JobStatus |
+| `backend/app/services/embeddings.py` | `enqueue_embedding_job`, `EmbeddingService.claim_next/run/process_now` |
+| `backend/app/workers/embedding_worker.py` | `python -m app.workers.embedding_worker [--once]` (Compose service `embedding-worker`) |
+| `docs/DECISIONS.md` | ADR-001 to ADR-024 |
 | `docs/DATA_MODEL.md`, `docs/TESTING.md` | schema conventions and test strategy |
 
 ## Architecture decisions (details in docs/DECISIONS.md)
@@ -101,6 +108,9 @@ Read this file first when resuming the project in a new session.
 19. A hand-written SSRF-safe fetcher pins the validated IP (Host header and SNI are kept).
 20. Snapshots are immutable and content-addressed; the latest one is picked by `last_seen_at`.
 21. Upload type comes from magic bytes; uploads always get USER authority.
+22. Embeddings are stored one row per (chunk, model); vector(1536) with an HNSW cosine index.
+23. The job queue lives in the database (SKIP LOCKED), with retries and max attempts; Kafka comes later.
+24. The default embedder is the offline hashing one; OpenAI is used when configured.
 
 ## Migrations
 
@@ -109,7 +119,8 @@ Read this file first when resuming the project in a new session.
 | `0001` | `20260930_1700_0001_enable_pgvector.py` | `CREATE EXTENSION IF NOT EXISTS vector` |
 | `0002` | `20260930_2105_0002_identity_and_workspaces.py` | users, organizations, organization_members, comparison_workspaces, workspace_members |
 | `0003` | `20260930_2120_0003_product_catalog.py` | products, product_variants, product_identifiers, product_specifications, workspace_products |
-| `0004` (head) | `20260930_2137_0004_sources_snapshots_documents.py` | product_sources, source_snapshots, source_documents |
+| `0004` | `20260930_2137_0004_sources_snapshots_documents.py` | product_sources, source_snapshots, source_documents |
+| `0005` (head) | `20260930_2209_0005_chunks_embeddings_jobs.py` | document_chunks, chunk_embeddings (vector + HNSW), embedding_jobs |
 
 ## Endpoints
 
@@ -129,11 +140,15 @@ Read this file first when resuming the project in a new session.
 | POST | `/api/v1/products/{id}/sources/upload` | multipart upload → snapshot + document |
 | POST | `/api/v1/sources/{id}/ingest` | SSRF-safe fetch → snapshot → document (422 unsafe_url, 502 fetch failed) |
 | GET | `/api/v1/sources/{id}`, `/api/v1/sources/{id}/document` | status + latest doc meta / latest text |
+| POST | `/api/v1/sources/{id}/embed` | chunk + embed now (idempotent) → job |
+| GET | `/api/v1/sources/{id}/chunks`, `/api/v1/embedding-jobs/{id}` | chunks with offsets / job status |
 | GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
 | GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
 
 ## Tests
 
+- Phase 6: 328 tests, 96% coverage in the cloud workspace (PostgreSQL 16 with pgvector 0.6 locally;
+  PG17 with pgvector 0.8.6 on the Mac and in CI).
 - Phase 5: 299 tests, 97% coverage in the cloud workspace. `reportlab` is a dev-only
   dependency used to build test PDFs.
 - Phase 4: 218 tests, 97% coverage in the cloud workspace.
@@ -161,6 +176,11 @@ None yet.
 - Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
 - Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
 - Phase 5 verified on the Mac (299 tests, 97% coverage; live upload ingested and metadata URL blocked with `unsafe_url`) and in CI (run 36782106155, commit 88c25ef).
+- Phase 6 still needs verifying on the Mac and in CI.
+- The default embeddings are lexical (hashing); semantic quality needs `EMBEDDING_PROVIDER=openai`
+  plus a key. Chunk sizes are measured in characters, not model tokens.
+- New Alembic migrations that use vectors must `from pgvector.sqlalchemy import Vector` by hand
+  (autogenerate doesn't add the import).
 - Ingestion runs inside the request (no workers until Phase 21); raw bytes are stored in
   PostgreSQL (S3 comes in Phase 31); robots.txt isn't consulted yet (only user-supplied URLs
   are fetched, never crawled).

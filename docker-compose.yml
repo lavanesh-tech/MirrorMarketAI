@@ -95,5 +95,19 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Background worker: chunks + embeds newly ingested documents.
+  # Scale with: docker compose up -d --scale embedding-worker=3
+  embedding-worker:
+    <<: *app-service
+    command: ["python", "-m", "app.workers.embedding_worker"]
+    ports: []
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
   postgres-data:

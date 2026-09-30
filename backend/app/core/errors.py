@@ -148,6 +148,11 @@ class FileTooLargeError(AppError):
     message = "The uploaded file is too large."
 
 
+class EmbeddingJobNotFoundError(NotFoundError):
+    code = "embedding_job_not_found"
+    message = "Embedding job not found."
+
+
 def error_body(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "request_id": get_request_id(), **extra}}
 
