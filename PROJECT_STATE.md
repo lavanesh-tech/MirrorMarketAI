@@ -14,6 +14,7 @@ Read this file first when resuming the project in a new session.
 ## Working rules (from the owner)
 
 - Build one phase at a time and stop after each one until the owner says "continue".
+- **Response format:** after each phase, reply with ONLY the files to download (and where they go) plus the terminal commands to copy. Nothing else.
 - The owner reviews, commits and pushes all work. Never change git identity and never add AI
   attribution (no Co-authored-by, no Generated-by).
 - Deliver complete files plus copy-paste macOS commands. Keep explanations short and don't

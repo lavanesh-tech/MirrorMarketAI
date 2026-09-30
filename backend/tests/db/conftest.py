@@ -21,11 +21,11 @@ from collections.abc import AsyncIterator, Callable, Iterator
 
 import asyncpg
 import pytest
+from alembic import command
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from alembic import command
 from app.core.migrations import alembic_config
 
 PGVECTOR_IMAGE = "pgvector/pgvector:0.8.6-pg17-trixie"
