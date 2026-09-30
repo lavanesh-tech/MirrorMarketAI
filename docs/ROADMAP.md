@@ -131,4 +131,5 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Jobs enqueued atomically with documents; worker with SKIP LOCKED, retries, max attempts
 - [x] API: embed now, list chunks, job status; Compose `embedding-worker` service
 - [x] Tests: chunking, providers, embed API, idempotency, cosine nearest-neighbour, retry/fail, parallel workers
-- [ ] Verified on the developer Mac and CI green
+- [x] Worker heartbeat healthcheck (Compose `--wait` requires it)
+- [x] Verified on the developer Mac and CI green (run 36785705853, commit bcab052)

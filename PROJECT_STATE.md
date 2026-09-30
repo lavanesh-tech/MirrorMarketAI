@@ -194,3 +194,8 @@ None yet.
 - `gpt-4.1-mini` / `text-embedding-3-small` are placeholder defaults set in `.env`.
 - Before Phase 31, check which Postgres/pgvector versions AWS RDS supports and whether to use
   ElastiCache Redis OSS or Valkey.
+
+## Phase 6 status
+
+- Complete. CI green: run 36785705853, commit bcab052. The embedding worker has a heartbeat-file healthcheck (/tmp/embedding-worker.heartbeat, must be under 60s old).
+- Next: Phase 7, hybrid retrieval (Postgres full-text with tsvector + GIN, pgvector, RRF fusion, metadata filters, POST /api/v1/search, Recall@K/MRR and leakage tests).
