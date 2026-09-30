@@ -1,233 +1,83 @@
 # MirrorMarket AI: Project State
 
-Read this file first when resuming the project in a new session.
+Source of truth for progress. Paste this into a new conversation to resume. Details live in
+`docs/` (DECISIONS, DATA_MODEL, ROADMAP, TESTING).
 
-## Status
+## Current phase
 
-- **Completed phases:** 1 (foundation), 2 (async PostgreSQL, Alembic, readiness), 3 (users,
-  organizations, workspaces, memberships, JWT auth, RBAC), 4 (product catalog and workspace products),
-  5 (sources, snapshots, documents, SSRF-safe URL ingestion, uploads), 6 (chunking, embeddings,
-  pgvector HNSW, embedding jobs and worker), 7 (hybrid full-text + vector search with RRF)
-- **In progress:** 8 (purchase requirements, extraction, versions) is implemented and passes in the
-  cloud workspace; it still needs verifying on the Mac and in CI.
-- **Next phase:** 9. Evidence packs, citations and a citation validator.
-- **Last updated:** 2026-09-30
+- Completed: 1-8. Next: **9, evidence packs, citations and the citation validator.**
+- Last verified: Phase 8, CI run 36788330694, commit 9ac5155 (2026-09-30).
 
-## Working rules (from the owner)
+## Working rules
 
-- Build one phase at a time and stop after each one until the owner says "continue".
-- **Response format:** after each phase, reply with ONLY the files to download (and where they go) plus the terminal commands to copy. Nothing else.
-- The owner reviews, commits and pushes all work. Never change git identity and never add AI
-  attribution (no Co-authored-by, no Generated-by).
-- Deliver complete files plus copy-paste macOS commands. Keep explanations short and don't
-  regenerate files that haven't changed.
-- zsh: don't put inline `#` comments in pasted command blocks, and use `git --no-pager diff`.
-- Remote tools cannot write `Makefile` or `.github/workflows/*` into the owner's folder.
-  Deliver those as downloadable files and give the owner an `mv` command to place them.
-- Never commit secrets. Only `.env.example` is tracked.
-- Never invent metrics. Benchmarks must record date, commit SHA, dataset, hardware and config.
-- A final teaching and interview-prep phase happens only after the whole project is done.
+- Do one phase at a time, then stop until the owner says "next".
+- Replies are compact: files, verification, metrics, run commands, commit message, next phase.
+- Deliver work as a downloadable `phaseN.tgz` plus one copy-paste zsh block (no inline `#`, use `git --no-pager`).
+- The owner commits and pushes. Never change git identity or add AI attribution.
+- Never commit secrets; only `.env.example` is tracked. Never invent metrics.
+- The full teaching and interview walkthrough happens only after Phase 35.
 
 ## Environment
 
-- macOS on Apple Silicon, zsh, Docker Desktop.
-- Python 3.12, managed by **uv**. `backend/uv.lock` is committed and every install uses
-  `uv sync --locked`.
-- Repo: `/Users/lavaneshthirukondamahendran/Desktop/MirrorMarketAI` →
-  `github.com/lavanesh-tech/MirrorMarketAI`, branch `main`.
+- macOS on Apple Silicon, zsh, Docker Desktop. Python 3.12 with uv (`uv.lock` committed).
+- Repo: `~/Desktop/MirrorMarketAI` → `github.com/lavanesh-tech/MirrorMarketAI` (main).
+- Compose: postgres (PG17 + pgvector 0.8.6) :5433, redis :6380, migrate, api :8000, embedding-worker.
 
-## Important files
+## Architecture decisions (ADR-001 to ADR-027)
 
-| File | Purpose |
-| --- | --- |
-| `backend/app/main.py` | `create_app(settings)` factory and lifespan |
-| `backend/app/core/config.py` | `Settings`: secrets are `SecretStr`; production safety validators |
-| `backend/app/core/logging.py` | JSON and console formatters; one stdout handler for every logger |
-| `backend/app/core/request_context.py` | request-ID contextvar and validation |
-| `backend/app/core/middleware.py` | pure-ASGI request-ID, access-log and safe-500 middleware |
-| `backend/app/api/deps.py` | `get_app_settings`, `get_database`, `get_db_session` (per-request session, never commits) |
-| `backend/app/core/database.py` | `Database`: async engine and pool settings, session factory, `ping()`, `current_revision()` |
-| `backend/app/core/migrations.py` | `alembic_config()`, `expected_head_revision()` |
-| `backend/app/models/base.py` | `Base` (naming convention), `UUIDPrimaryKeyMixin`, `TimestampMixin` |
-| `backend/app/repositories/base.py` | generic `Repository[Model]`, `PageRequest` (max 100), `Page` |
-| `backend/migrations/` | Alembic async `env.py` and `versions/` |
-| `backend/tests/db/conftest.py` | Testcontainers or `TEST_DATABASE_URL`; fresh and migrated DBs; rollback-per-test session |
-| `backend/app/api/v1/router.py` | includes all v1 routers |
-| `backend/tests/conftest.py` | `make_settings`, `app` and `client` fixtures (ignore `.env`) |
-| `docker-compose.yml` | postgres (pgvector 0.8.6, PG17) :5433, redis 7.4 :6380, api :8000, all bound to 127.0.0.1 |
-| `Makefile` | `make help`; `make check` runs everything CI runs for the backend |
-| `.github/workflows/ci.yml` | backend job (ruff, mypy, pytest) and docker job (build, up, smoke test, pgvector check) |
-| `backend/app/core/errors.py` | `AppError` hierarchy and handlers; envelope `{"error": {code, message, request_id}}` |
-| `backend/app/security/passwords.py`, `tokens.py` | Argon2id hashing; HS256 JWT create/decode (algorithm pinned, required claims) |
-| `backend/app/domain/roles.py` | `WorkspaceRole` (OWNER > EDITOR > MEMBER > VIEWER), `has_at_least()`, `OrganizationRole` |
-| `backend/app/models/identity.py` | User, Organization, OrganizationMember, ComparisonWorkspace, WorkspaceMember |
-| `backend/app/repositories/identity.py` | User/Org/Workspace repositories (workspace reads always join via membership) |
-| `backend/app/services/auth.py`, `workspaces.py` | register/login; workspace CRUD and `authorize()` (404 for non-members, 403 for low role) |
-| `backend/app/api/deps.py` | also `get_current_user`, plus the `CurrentUser`, `SessionDep` and `SettingsDep` aliases |
-| `backend/tests/db/conftest.py` | also an `api` client fixture (requests share the rolled-back session) and `register_user()` |
-| `backend/app/domain/products.py` | `IdentifierScheme`, GTIN check digit and GTIN-14 normalization, `canonical_product_key`, spec-key rule |
-| `backend/app/models/catalog.py` | Product, ProductVariant, ProductIdentifier, ProductSpecification, WorkspaceProduct, `PRODUCT_CATEGORIES` |
-| `backend/app/repositories/catalog.py`, `services/catalog.py` | catalog search and lookup; `CatalogService` (creator-only edits); `WorkspaceProductService` (EDITOR+ add/remove) |
-| `backend/app/api/v1/endpoints/products.py`, `workspace_products.py` | catalog routes and `/workspaces/{id}/products` routes |
-| `backend/app/ingestion/safe_fetch.py` | `SafeFetcher` (SSRF defense, IP pinning, redirect/size/time/type limits), `validate_url_syntax`, `is_public_ip` |
-| `backend/app/ingestion/parsers.py` | HTML/PDF/text parsing, `normalize_text`, `sniff_content_type` |
-| `backend/app/models/sources.py` | ProductSource, SourceSnapshot (sha256, last_seen_at), SourceDocument; SourceType, SourceAuthority, SourceStatus |
-| `backend/app/services/sources.py` | create/list/get, `ingest_url`, `upload`, `_store` (dedupe → parse → document) |
-| `backend/tests/support/fake_web.py`, `documents.py` | fake DNS + HTTP (`FakeWeb`) and PDF/HTML builders for tests |
-| `backend/app/retrieval/chunking.py` | `chunk_text` (sentence-aware, overlap, exact offsets), `estimate_tokens` |
-| `backend/app/providers/embeddings.py` | `EmbeddingProvider` protocol, `OpenAIEmbeddingProvider`, `HashingEmbeddingProvider`, `create_embedding_provider` |
-| `backend/app/models/retrieval.py` | DocumentChunk, ChunkEmbedding (Vector(1536), HNSW), EmbeddingJob, JobStatus |
-| `backend/app/services/embeddings.py` | `enqueue_embedding_job`, `EmbeddingService.claim_next/run/process_now` |
-| `backend/app/workers/embedding_worker.py` | `python -m app.workers.embedding_worker [--once]` (Compose service `embedding-worker`) |
-| `backend/app/retrieval/fusion.py`, `metrics.py` | `reciprocal_rank_fusion`; `recall_at_k`, `reciprocal_rank`, `mean` |
-| `backend/app/services/search.py` | `SearchService` (visibility scope, lexical + vector rankers, RRF, degraded fallback) |
-| `backend/app/domain/requirements.py` | `RequirementSpec`, `Criterion` (MUST/SHOULD, operators), `Budget`, `diff_specs` |
-| `backend/app/extraction/rules.py` | offline rule extractor: category, budget, quantities with unit conversion, features, brands, use cases |
-| `backend/app/providers/extraction.py` | `RuleBasedExtractor`, `OpenAIRequirementExtractor` (strict JSON schema), `create_requirement_extractor` |
-| `backend/app/models/requirements.py` | PurchaseRequirement (one per workspace, `current_version`), RequirementVersion (immutable) |
-| `backend/app/services/requirements.py` | preview, versioned save (row lock + expected_version), history, diff |
-| `docs/DECISIONS.md` | ADR-001 to ADR-027 |
-| `docs/DATA_MODEL.md`, `docs/TESTING.md` | schema conventions and test strategy |
+- FastAPI app factory with lifespan; async SQLAlchemy 2 + asyncpg; Alembic in `backend/migrations`.
+- JSON logs, request IDs, error envelope `{"error":{code,message,request_id}}`.
+- Argon2id + HS256 JWT. RBAC OWNER>EDITOR>MEMBER>VIEWER; non-member 404, low role 403.
+- Catalog with canonical keys, GTIN-14, typed specs (snake_case keys with units).
+- SSRF-safe fetcher; content-addressed snapshots; workspace-private or shared sources.
+- Chunking with exact offsets; embeddings are vector(1536) with an HNSW cosine index, one row per (chunk, model).
+- DB job queue (SKIP LOCKED) and an embedding worker with a heartbeat healthcheck.
+- Hybrid search: tsvector+GIN and pgvector, RRF k=60, access filters in SQL, latest document only, degrades to lexical.
+- Requirements: immutable versions, optimistic locking (`expected_version`, 409), idempotent re-save.
+- Extractors: offline rules by default; OpenAI strict JSON schema when configured; falls back to rules (`degraded`).
+- Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
-## Architecture decisions (details in docs/DECISIONS.md)
+## Database migrations (head 0007)
 
-1. PostgreSQL + pgvector is the only primary and vector store.
-2. The app is built by a factory with an explicit lifespan; nothing connects at import time.
-3. uv with a committed lockfile.
-4. Standard-library logging with a custom JSON formatter.
-5. Pure-ASGI middleware for request IDs and safe 500s. Error body:
-   `{"error": {"code", "message", "request_id"}}`.
-6. `/health` is liveness only. Readiness (DB check) comes in Phase 2.
-7. Pinned infrastructure images; host ports 5433/6380 bound to 127.0.0.1.
-8. Strict mypy on app and tests; Ruff with bandit and bugbear rules; pytest treats warnings as errors.
-9. Session per request. Repositories never commit; the service layer owns transactions.
-10. Migrations ship in the image and run as the Compose `migrate` one-shot before `api` starts
-    (the folder is named `migrations/`, not `alembic/`).
-11. `/ready` checks DB connectivity and that `alembic_version` equals the code's head revision.
-12. DB tests use real PostgreSQL through Testcontainers, never SQLite.
-13. 15-minute HS256 JWT access tokens; refresh tokens and revocation come in Phase 22.
-14. Non-members get 404 and members with too low a role get 403.
-15. One error envelope for every error.
-16. Roles are stored as VARCHAR with a CHECK constraint, not native enums.
-17. The product catalog is global; workspace data lives on `workspace_products`.
-18. Specs are typed: NUMERIC xor text, plus a unit, never floats.
-19. A hand-written SSRF-safe fetcher pins the validated IP (Host header and SNI are kept).
-20. Snapshots are immutable and content-addressed; the latest one is picked by `last_seen_at`.
-21. Upload type comes from magic bytes; uploads always get USER authority.
-22. Embeddings are stored one row per (chunk, model); vector(1536) with an HNSW cosine index.
-23. The job queue lives in the database (SKIP LOCKED), with retries and max attempts; Kafka comes later.
-24. The default embedder is the offline hashing one; OpenAI is used when configured.
-25. Hybrid search = Postgres full-text (generated tsvector + GIN, `websearch_to_tsquery`) and
-    pgvector cosine, fused with RRF (k=60). Access filters run in SQL before ranking; only each
-    source's latest document is searched; hybrid degrades to full-text if embedding fails.
-26. Requirements are versioned: every save inserts an immutable RequirementVersion; writers send
-    `expected_version` (optimistic locking, 409 on mismatch; the parent row is locked FOR UPDATE).
-27. Requirement extraction: offline rules by default, OpenAI structured outputs (strict JSON
-    schema, validated by the same pydantic model) when configured; LLM failure degrades to rules.
+0001 pgvector · 0002 users/orgs/workspaces/members · 0003 catalog + workspace_products ·
+0004 sources/snapshots/documents · 0005 chunks/embeddings/jobs · 0006 chunk tsvector + GIN ·
+0007 purchase_requirements/requirement_versions
 
-## Migrations
+## Major endpoints (/api/v1)
 
-| Revision | File | Change |
-| --- | --- | --- |
-| `0001` | `20260930_1700_0001_enable_pgvector.py` | `CREATE EXTENSION IF NOT EXISTS vector` |
-| `0002` | `20260930_2105_0002_identity_and_workspaces.py` | users, organizations, organization_members, comparison_workspaces, workspace_members |
-| `0003` | `20260930_2120_0003_product_catalog.py` | products, product_variants, product_identifiers, product_specifications, workspace_products |
-| `0004` | `20260930_2137_0004_sources_snapshots_documents.py` | product_sources, source_snapshots, source_documents |
-| `0005` | `20260930_2209_0005_chunks_embeddings_jobs.py` | document_chunks, chunk_embeddings (vector + HNSW), embedding_jobs |
-| `0006` | `20260930_2240_0006_chunk_full_text_search.py` | `document_chunks.search_vector` (generated tsvector) + GIN index |
-| `0007` (head) | `20260930_2248_0007_purchase_requirements_and_versions.py` | purchase_requirements, requirement_versions |
-
-## Endpoints
-
-| Method | Path | Notes |
-| --- | --- | --- |
-| GET | `/api/v1/health` | liveness: `{status, service, version, environment}` |
-| POST | `/api/v1/auth/register`, `/api/v1/auth/login` | 201 user / 200 `{access_token, token_type, expires_at}` |
-| GET | `/api/v1/auth/me` | current user (Bearer) |
-| POST/GET | `/api/v1/workspaces` | create (caller becomes OWNER) / paginated list of your workspaces |
-| GET/PATCH | `/api/v1/workspaces/{id}` | members only; PATCH needs OWNER or EDITOR |
-| GET | `/api/v1/workspaces/{id}/members` | members only |
-| POST/GET | `/api/v1/products` | create / search (`q`, `category`, pagination) |
-| GET | `/api/v1/products/by-identifier`, `/api/v1/products/{id}` | lookup / detail |
-| POST/PUT | `/api/v1/products/{id}/variants`, `/identifiers`, `/specifications` | creator-only edits |
-| POST/GET/DELETE | `/api/v1/workspaces/{id}/products[/{product_id}]` | EDITOR+ modifies, members read |
-| POST/GET | `/api/v1/products/{id}/sources` | register (shared or `workspace_id`) / list visible |
-| POST | `/api/v1/products/{id}/sources/upload` | multipart upload → snapshot + document |
-| POST | `/api/v1/sources/{id}/ingest` | SSRF-safe fetch → snapshot → document (422 unsafe_url, 502 fetch failed) |
-| GET | `/api/v1/sources/{id}`, `/api/v1/sources/{id}/document` | status + latest doc meta / latest text |
-| POST | `/api/v1/sources/{id}/embed` | chunk + embed now (idempotent) → job |
-| GET | `/api/v1/sources/{id}/chunks`, `/api/v1/embedding-jobs/{id}` | chunks with offsets / job status |
-| POST | `/api/v1/workspaces/{id}/search` | hybrid/lexical/vector search; filters: product_ids, source_ids, authorities, source_types; members only (404 otherwise); 503 `search_unavailable` for vector mode when embedding fails |
-| POST | `/api/v1/workspaces/{id}/requirements/extract` | preview spec from text (EDITOR+); `degraded` when LLM failed |
-| PUT/GET | `/api/v1/workspaces/{id}/requirements` | save new version (`text` and/or `spec`, `expected_version`; 201 new, 200 unchanged, 409 stale) / current |
-| GET | `/api/v1/workspaces/{id}/requirements/versions[/{n}]`, `/diff?from=&to=` | history (members) and field-level diff |
-| GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
-| GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
+- health, ready; auth register/login/me
+- workspaces CRUD + members; workspaces/{id}/products
+- products (search, by-identifier, variants, identifiers, specifications)
+- products/{id}/sources (+upload); sources/{id} ingest/document/embed/chunks; embedding-jobs/{id}
+- POST workspaces/{id}/search (hybrid|lexical|vector + filters)
+- workspaces/{id}/requirements: POST extract, PUT save, GET current, versions[/{n}], diff?from=&to=
 
 ## Tests
 
-- Phase 8: 387 tests, 97% coverage in the cloud workspace.
-- Phase 7: 343 tests, 96% coverage in the cloud workspace (PostgreSQL 16 with pgvector 0.8.1 built
-  locally, because `hnsw.iterative_scan` needs 0.8+).
-- Phase 6: 328 tests, 96% coverage in the cloud workspace (PostgreSQL 16 with pgvector 0.6 locally;
-  PG17 with pgvector 0.8.6 on the Mac and in CI).
-- Phase 5: 299 tests, 97% coverage in the cloud workspace. `reportlab` is a dev-only
-  dependency used to build test PDFs.
-- Phase 4: 218 tests, 97% coverage in the cloud workspace.
-- Phase 3: 166 tests, 98% line+branch coverage in the cloud workspace (PostgreSQL 16 through
-  `TEST_DATABASE_URL`). Coverage runs with `concurrency = ["greenlet", "thread"]`.
-- Phase 2: 88 tests, 97% line+branch coverage in the cloud workspace, which used PostgreSQL 16
-  and pgvector 0.6 through `TEST_DATABASE_URL`. They include 27 DB tests (repository, migrations,
-  readiness and session tests). On the Mac and in CI they run through Testcontainers.
-- Run with `make check`, or `make test-unit` if Docker isn't running.
-- Phase 1 (historical): 48 tests.
-- Verified on the owner's Mac (Python 3.12.14): ruff, mypy and pytest all pass.
-- Verified on the owner's Mac: `make up` brings the stack up healthy, `/api/v1/health` returns 200
-  with `x-request-id`, and pgvector 0.8.6 is installed.
-- GitHub Actions CI is green (run 36773136185, commit b579343): the backend job and the docker job both pass.
+- 387 tests, 97% coverage (Phase 8; Mac + CI). `make check` runs everything CI runs.
+- DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
-## Benchmark results
+## Current measured metrics
 
-- Retrieval quality, Phase 7 (`tests/db/test_search.py`): 8 labelled queries over 8 one-chunk
-  documents, offline hashing embedder, measured in the cloud workspace. Lexical: Recall@3 0.375,
-  MRR 0.375. Vector: Recall@3 0.875, MRR 0.823. Hybrid: Recall@3 0.875, MRR 0.823. This is a
-  small smoke benchmark of a lexical embedder, not a semantic-quality claim (Phase 27 does the
-  real evaluation).
+- Retrieval smoke benchmark (synthetic: 8 docs, 8 labelled queries, hashing embedder), Recall@3 / MRR:
+  lexical 0.375 / 0.375, vector 0.875 / 0.823, hybrid 0.875 / 0.823. Source: `tests/db/test_search.py`.
 
-## Known limitations / open items
+## Known issues / limits
 
-- Phase 2 verified on the Mac (Compose `migrate` then `api`, `/ready` returns 200, `alembic current` is
-  0001, pgvector 0.8.6) and in CI (run 36775232625, commit 2860cd4, Testcontainers DB tests included).
-- Redis is not used by the API yet (Phase 19).
-- Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
-- Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
-- Phase 5 verified on the Mac (299 tests, 97% coverage; live upload ingested and metadata URL blocked with `unsafe_url`) and in CI (run 36782106155, commit 88c25ef).
-- Phase 6 verified on the Mac and in CI (run 36785705853, commit bcab052).
-- Phase 8 still needs verifying on the Mac and in CI.
-- The rule extractor is English-only and pattern-based (no NLP); it reports what it could not use
-  in `unparsed`. Richer briefs need `REQUIREMENTS_EXTRACTOR=openai`.
-- Phase 7 verified on the Mac (343 tests, 96% coverage) and in CI (run 36787055813, commit 05b6dae).
-- Full-text search ANDs every query term (`websearch_to_tsquery`), so long natural-language
-  questions often get no lexical hit; vector search carries those. English stemming only.
-- The default embeddings are lexical (hashing); semantic quality needs `EMBEDDING_PROVIDER=openai`
-  plus a key. Chunk sizes are measured in characters, not model tokens.
-- New Alembic migrations that use vectors must `from pgvector.sqlalchemy import Vector` by hand
-  (autogenerate doesn't add the import).
-- Ingestion runs inside the request (no workers until Phase 21); raw bytes are stored in
-  PostgreSQL (S3 comes in Phase 31); robots.txt isn't consulted yet (only user-supplied URLs
-  are fetched, never crawled).
-- Catalog has no moderation yet (only the creator can edit) and specs have no source links
-  (Phase 5 adds sources and evidence).
-- No invitations endpoint yet: members are added only through `WorkspaceService.add_member`
-  (used by tests). Invitations come with collaboration (Phase 20).
-- No refresh tokens, logout, rate limiting or account lockout yet (Phases 19 and 22).
-- No auth, rate limiting or security headers yet (Phase 3 and Phase 22). Swagger docs are
-  publicly exposed.
-- `gpt-4.1-mini` / `text-embedding-3-small` are placeholder defaults set in `.env`.
-- Before Phase 31, check which Postgres/pgvector versions AWS RDS supports and whether to use
-  ElastiCache Redis OSS or Valkey.
+- The hashing embedder is lexical, not semantic (OpenAI needs a key). Chunk size is measured in characters.
+- The rule extractor is English-only pattern matching; what it can't use is returned as `unparsed`.
+- Ingestion runs in the request; raw bytes are stored in Postgres (S3 comes in Phase 31).
+- Not yet: refresh tokens, rate limiting, invitations, security headers (Phases 19, 20, 22).
+- Before Phase 30: pin the CI runner (ubuntu-latest moves to 26 on 2026-10-19).
+- New vector migrations need `from pgvector.sqlalchemy import Vector` added by hand.
 
-## Phase 6 status
+## Important commands
 
-- Complete. CI green: run 36785705853, commit bcab052. The embedding worker has a heartbeat-file healthcheck (/tmp/embedding-worker.heartbeat, must be under 60s old).
-- Next: Phase 7, hybrid retrieval (Postgres full-text with tsvector + GIN, pgvector, RRF fusion, metadata filters, POST /api/v1/search, Recall@K/MRR and leakage tests).
+```bash
+make check
+make up
+make ps
+make down
+make migration m="msg"
+make migrate
+```

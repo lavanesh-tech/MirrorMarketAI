@@ -22,8 +22,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | ✅ |
 | 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ✅ |
 | 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ✅ |
-| 8 | Purchase requirements, structured extraction, requirement versions |  🔜 |
-| 9 | Evidence packs, citations, citation validator | ⬜ |
+| 8 | Purchase requirements, structured extraction, requirement versions | ✅ |
+| 9 | Evidence packs, citations, citation validator | 🔜 |
 
 ## Agents
 
@@ -152,4 +152,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Preview, versioned save with optimistic locking, idempotent re-save, history, diff
 - [x] LLM failure degrades to rules (`degraded: true`)
 - [x] Tests: domain validation, extractor patterns, mocked OpenAI, API versioning/locking/RBAC, real concurrent saves
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36788330694, commit 9ac5155)
