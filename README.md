@@ -8,9 +8,10 @@ the request into structured requirements, gathers evidence about candidate produ
 runs specialised AI agents over that evidence, and returns comparisons in which
 every factual claim cites its source. Collaborators see the research happen live.
 
-> **Status: Phase 2 of 35 complete.** Done so far: the backend foundation, async
-> PostgreSQL + pgvector access, Alembic migrations, and readiness checks. There is
-> no RAG, no agents, no auth and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: Phase 3 of 35 complete.** Done so far: the backend foundation, async
+> PostgreSQL + pgvector, Alembic migrations, readiness checks, and user accounts
+> with JWT login and role-based comparison workspaces. There is no RAG, no agents
+> and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Principles
 
@@ -105,6 +106,17 @@ Run `make help` for every command.
 | --- | --- | --- |
 | GET | `/api/v1/health` | Liveness: the process is up. Does not check dependencies. |
 | GET | `/api/v1/ready` | Readiness: 200 only if PostgreSQL is reachable and migrated to the revision this build expects; otherwise 503. |
+| POST | `/api/v1/auth/register` | Create an account (plus a personal organization) |
+| POST | `/api/v1/auth/login` | Email + password → Bearer access token (15 min) |
+| GET | `/api/v1/auth/me` | Current user 🔒 |
+| POST | `/api/v1/workspaces` | Create a comparison workspace; you become OWNER 🔒 |
+| GET | `/api/v1/workspaces?limit=&offset=` | Workspaces you're a member of, paginated 🔒 |
+| GET | `/api/v1/workspaces/{id}` | Workspace details (members only) 🔒 |
+| PATCH | `/api/v1/workspaces/{id}` | Update name/description (OWNER or EDITOR) 🔒 |
+| GET | `/api/v1/workspaces/{id}/members` | Members and roles (members only) 🔒 |
+
+🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape
+`{"error": {"code", "message", "request_id"}}`.
 | GET | `/api/v1/openapi.json` | OpenAPI schema |
 | GET | `/api/v1/docs` | Swagger UI |
 

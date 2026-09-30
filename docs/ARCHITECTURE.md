@@ -67,6 +67,32 @@ Readiness reasons come from a fixed vocabulary, so raw exception text, which cou
 include hosts or credentials, never reaches clients. The details are logged
 server-side.
 
+### Identity, tenancy and authorization (Phase 3)
+
+```
+Organization (tenant) 1──* ComparisonWorkspace 1──* WorkspaceMember *──1 User
+Organization          1──* OrganizationMember  *──1 User
+```
+
+- **Registration:** creates a `User` (email lower-cased, Argon2id hash) and a
+  personal `Organization`, with the user as OWNER, in one transaction.
+- **Login:** email + password → HS256 JWT access token (15 min). Claims:
+  `sub, iss, aud, iat, nbf, exp, jti, typ=access`. Decoding pins the algorithm
+  and requires every claim. Unknown emails still run a dummy Argon2 verify, so
+  timing doesn't reveal which accounts exist.
+- **`get_current_user`:** takes the Bearer token, verifies it, and loads an
+  active user; otherwise 401 with `WWW-Authenticate: Bearer`.
+- **Workspace authorization:** `WorkspaceService.authorize(workspace_id, user, minimum_role)`.
+  A non-member gets **404** (existence is hidden), and a member whose role is too
+  low gets **403**. Roles rank OWNER > EDITOR > MEMBER > VIEWER
+  (`app/domain/roles.py`).
+- **Isolation by construction:** the repositories have no "get any workspace
+  by id" query. Every workspace read joins through `workspace_members` for the
+  requesting user.
+- **Errors:** services raise `AppError` subclasses. `app/core/errors.py` turns
+  them into the standard envelope, along with validation errors (422, which
+  never echo submitted values) and 404/405 responses.
+
 ### Backend module layout
 
 | Package | Responsibility | Introduced |

@@ -7,6 +7,8 @@ from app.core.config import Environment, Settings, get_settings
 
 pytestmark = pytest.mark.unit
 
+_STRONG_SECRET = "x" * 48
+
 
 def _settings(**overrides: object) -> Settings:
     return Settings(_env_file=None, **overrides)  # type: ignore[arg-type]
@@ -25,6 +27,7 @@ def _isolate_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "REDIS_URL",
         "OPENAI_API_KEY",
         "KAFKA_ENABLED",
+        "JWT_SECRET_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -42,6 +45,7 @@ def test_defaults_are_safe_for_local_development() -> None:
 
 def test_values_are_read_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setenv("JWT_SECRET_KEY", _STRONG_SECRET)
     monkeypatch.setenv("LOG_LEVEL", "WARNING")
     monkeypatch.setenv("KAFKA_ENABLED", "true")
     s = _settings()
@@ -65,16 +69,32 @@ def test_wildcard_cors_origin_is_rejected() -> None:
 
 def test_production_rejects_debug() -> None:
     with pytest.raises(ValidationError, match="debug must be false"):
-        _settings(app_env="production", debug=True)
+        _settings(app_env="production", debug=True, jwt_secret_key=_STRONG_SECRET)
 
 
 def test_production_requires_json_logs() -> None:
     with pytest.raises(ValidationError, match="log_format must be 'json'"):
-        _settings(app_env="production", log_format="console")
+        _settings(app_env="production", log_format="console", jwt_secret_key=_STRONG_SECRET)
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_deployed_environments_reject_default_jwt_secret(env: str) -> None:
+    with pytest.raises(ValidationError, match="jwt_secret_key"):
+        _settings(app_env=env)
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_deployed_environments_reject_short_jwt_secret(env: str) -> None:
+    with pytest.raises(ValidationError, match="jwt_secret_key"):
+        _settings(app_env=env, jwt_secret_key="too-short")
+
+
+def test_local_environment_allows_dev_jwt_secret() -> None:
+    assert _settings().jwt_secret_key.get_secret_value()
 
 
 def test_production_accepts_safe_configuration() -> None:
-    s = _settings(app_env="production")
+    s = _settings(app_env="production", jwt_secret_key=_STRONG_SECRET)
     assert s.is_production
 
 

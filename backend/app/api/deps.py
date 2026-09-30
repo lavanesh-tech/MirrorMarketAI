@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Annotated
 
-from fastapi import Request
+from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
+from app.core.errors import AuthenticationError
+from app.models.identity import User
+from app.repositories.identity import UserRepository
+from app.security.tokens import decode_access_token
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -41,3 +47,26 @@ async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
         except Exception:
             await session.rollback()
             raise
+
+
+_bearer = HTTPBearer(auto_error=False, description="Access token from POST /api/v1/auth/login")
+
+
+async def get_current_user(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> User:
+    """Resolve the Bearer token to an active user, or fail with 401."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise AuthenticationError
+    claims = decode_access_token(credentials.credentials, settings)
+    user = await UserRepository(session).get(claims.user_id)
+    if user is None or not user.is_active:
+        raise AuthenticationError("Invalid token.")
+    return user
+
+
+SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+SettingsDep = Annotated[Settings, Depends(get_app_settings)]
+CurrentUser = Annotated[User, Depends(get_current_user)]

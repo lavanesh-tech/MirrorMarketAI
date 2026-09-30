@@ -28,6 +28,10 @@ class Environment(StrEnum):
     PRODUCTION = "production"
 
 
+# Publicly known: only acceptable for local development and tests.
+_DEV_JWT_SECRET = "dev-only-insecure-jwt-secret-change-me-0123456789"  # noqa: S105
+MIN_JWT_SECRET_LENGTH = 32
+
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LogFormat = Literal["json", "console"]
 
@@ -70,6 +74,15 @@ class Settings(BaseSettings):
     # Readiness probe budget for the database check.
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
+    # --- Authentication -----------------------------------------------------
+    # HS256 signing key for access tokens. The default is for local/test only;
+    # staging/production refuse to start unless a strong secret is supplied.
+    jwt_secret_key: SecretStr = SecretStr(_DEV_JWT_SECRET)
+    jwt_algorithm: Literal["HS256"] = "HS256"
+    jwt_issuer: str = "mirrormarket"
+    jwt_audience: str = "mirrormarket-api"
+    jwt_access_token_ttl_minutes: int = Field(default=15, ge=1, le=60)
+
     # --- Redis (cache/coordination; wired up in Phase 19) --------------------
     redis_url: SecretStr = SecretStr("redis://localhost:6380/0")
 
@@ -111,6 +124,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _enforce_production_safety(self) -> Self:
+        if self.app_env in (Environment.STAGING, Environment.PRODUCTION):
+            secret = self.jwt_secret_key.get_secret_value()
+            if secret == _DEV_JWT_SECRET or len(secret) < MIN_JWT_SECRET_LENGTH:
+                raise ValueError(
+                    f"jwt_secret_key must be a unique secret of at least "
+                    f"{MIN_JWT_SECRET_LENGTH} characters outside local/test"
+                )
         if self.app_env is Environment.PRODUCTION:
             if self.debug:
                 raise ValueError("debug must be false when app_env=production")

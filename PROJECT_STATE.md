@@ -4,11 +4,10 @@ Read this file first when resuming the project in a new session.
 
 ## Status
 
-- **Completed phases:** 1 (repository foundation), 2 (async PostgreSQL, Alembic, readiness,
-  repository base, DB tests)
-- **Next phase:** 3. Users, organizations/workspaces, memberships, and the authentication
-  foundation. This adds the first domain tables and migrations, plus workspace-scoped
-  repositories.
+- **Completed phases:** 1 (foundation), 2 (async PostgreSQL, Alembic, readiness), 3 (users,
+  organizations, workspaces, memberships, JWT auth, RBAC)
+- **Next phase:** 4. Products, variants, identifiers, specifications. Products are global
+  catalog entries, and workspaces link to them through a workspace-scoped join table.
 - **Last updated:** 2026-09-30
 
 ## Working rules (from the owner)
@@ -55,7 +54,15 @@ Read this file first when resuming the project in a new session.
 | `docker-compose.yml` | postgres (pgvector 0.8.6, PG17) :5433, redis 7.4 :6380, api :8000, all bound to 127.0.0.1 |
 | `Makefile` | `make help`; `make check` runs everything CI runs for the backend |
 | `.github/workflows/ci.yml` | backend job (ruff, mypy, pytest) and docker job (build, up, smoke test, pgvector check) |
-| `docs/DECISIONS.md` | ADR-001 to ADR-012 |
+| `backend/app/core/errors.py` | `AppError` hierarchy and handlers; envelope `{"error": {code, message, request_id}}` |
+| `backend/app/security/passwords.py`, `tokens.py` | Argon2id hashing; HS256 JWT create/decode (algorithm pinned, required claims) |
+| `backend/app/domain/roles.py` | `WorkspaceRole` (OWNER > EDITOR > MEMBER > VIEWER), `has_at_least()`, `OrganizationRole` |
+| `backend/app/models/identity.py` | User, Organization, OrganizationMember, ComparisonWorkspace, WorkspaceMember |
+| `backend/app/repositories/identity.py` | User/Org/Workspace repositories (workspace reads always join via membership) |
+| `backend/app/services/auth.py`, `workspaces.py` | register/login; workspace CRUD and `authorize()` (404 for non-members, 403 for low role) |
+| `backend/app/api/deps.py` | also `get_current_user`, plus the `CurrentUser`, `SessionDep` and `SettingsDep` aliases |
+| `backend/tests/db/conftest.py` | also an `api` client fixture (requests share the rolled-back session) and `register_user()` |
+| `docs/DECISIONS.md` | ADR-001 to ADR-016 |
 | `docs/DATA_MODEL.md`, `docs/TESTING.md` | schema conventions and test strategy |
 
 ## Architecture decisions (details in docs/DECISIONS.md)
@@ -74,23 +81,35 @@ Read this file first when resuming the project in a new session.
     (the folder is named `migrations/`, not `alembic/`).
 11. `/ready` checks DB connectivity and that `alembic_version` equals the code's head revision.
 12. DB tests use real PostgreSQL through Testcontainers, never SQLite.
+13. 15-minute HS256 JWT access tokens; refresh tokens and revocation come in Phase 22.
+14. Non-members get 404 and members with too low a role get 403.
+15. One error envelope for every error.
+16. Roles are stored as VARCHAR with a CHECK constraint, not native enums.
 
 ## Migrations
 
 | Revision | File | Change |
 | --- | --- | --- |
-| `0001` (head) | `20260930_1700_0001_enable_pgvector.py` | `CREATE EXTENSION IF NOT EXISTS vector` |
+| `0001` | `20260930_1700_0001_enable_pgvector.py` | `CREATE EXTENSION IF NOT EXISTS vector` |
+| `0002` (head) | `20260930_2105_0002_identity_and_workspaces.py` | users, organizations, organization_members, comparison_workspaces, workspace_members |
 
 ## Endpoints
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/v1/health` | liveness: `{status, service, version, environment}` |
+| POST | `/api/v1/auth/register`, `/api/v1/auth/login` | 201 user / 200 `{access_token, token_type, expires_at}` |
+| GET | `/api/v1/auth/me` | current user (Bearer) |
+| POST/GET | `/api/v1/workspaces` | create (caller becomes OWNER) / paginated list of your workspaces |
+| GET/PATCH | `/api/v1/workspaces/{id}` | members only; PATCH needs OWNER or EDITOR |
+| GET | `/api/v1/workspaces/{id}/members` | members only |
 | GET | `/api/v1/ready` | readiness: `{status: ready\|not_ready, checks: {database, migrations}}`; 503 when not ready |
 | GET | `/api/v1/openapi.json`, `/api/v1/docs` | OpenAPI and Swagger UI |
 
 ## Tests
 
+- Phase 3: 166 tests, 98% line+branch coverage in the cloud workspace (PostgreSQL 16 through
+  `TEST_DATABASE_URL`). Coverage runs with `concurrency = ["greenlet", "thread"]`.
 - Phase 2: 88 tests, 97% line+branch coverage in the cloud workspace, which used PostgreSQL 16
   and pgvector 0.6 through `TEST_DATABASE_URL`. They include 27 DB tests (repository, migrations,
   readiness and session tests). On the Mac and in CI they run through Testcontainers.
@@ -110,7 +129,10 @@ None yet.
 - Phase 2 verified on the Mac (Compose `migrate` then `api`, `/ready` returns 200, `alembic current` is
   0001, pgvector 0.8.6) and in CI (run 36775232625, commit 2860cd4, Testcontainers DB tests included).
 - Redis is not used by the API yet (Phase 19).
-- No domain tables yet (Phase 3).
+- Phase 3 still needs verifying on the Mac and in CI.
+- No invitations endpoint yet: members are added only through `WorkspaceService.add_member`
+  (used by tests). Invitations come with collaboration (Phase 20).
+- No refresh tokens, logout, rate limiting or account lockout yet (Phases 19 and 22).
 - No auth, rate limiting or security headers yet (Phase 3 and Phase 22). Swagger docs are
   publicly exposed.
 - `gpt-4.1-mini` / `text-embedding-3-small` are placeholder defaults set in `.env`.

@@ -12,13 +12,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | --- | --- | --- |
 | 1 | Repository foundation: FastAPI, settings, logging, request IDs, health, Docker, Compose (Postgres+pgvector, Redis), Ruff, mypy, pytest, Makefile, CI skeleton | ✅ |
 | 2 | Async PostgreSQL, SQLAlchemy 2.x, Alembic, readiness endpoint, repository base, database tests (Testcontainers) | ✅ |
-| 3 | Users, organizations/workspaces, memberships, authentication foundation | 🔜 |
+| 3 | Users, organizations/workspaces, memberships, authentication foundation | ✅ |
 
 ## Product data and RAG
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 4 | Products, variants, identifiers, specifications | ⬜ |
+| 4 | Products, variants, identifiers, specifications | 🔜 |
 | 5 | Product sources, snapshots, document ingestion, uploads, safe URL ingestion | ⬜ |
 | 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ⬜ |
 | 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ⬜ |
@@ -93,3 +93,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Migration tests: fresh upgrade, downgrade/re-upgrade round trip, no model drift, single head
 - [x] Verified on the developer Mac (`make up`, `make ready`, migrations, pgvector)
 - [x] CI green (run 36775232625, commit 2860cd4)
+
+## Phase 3 exit criteria
+
+- [x] Tables: users, organizations, organization_members, comparison_workspaces, workspace_members (migration `0002`)
+- [x] Register (Argon2id, personal org), login (JWT access token), `/auth/me`
+- [x] Workspaces: create, paginated list (member-only), get, PATCH (OWNER/EDITOR), members
+- [x] 404 for non-members, 403 for insufficient role; standard error envelope
+- [x] Tests: tokens (expiry, alg=none, wrong key/aud/iss), passwords, role matrix, auth API, workspace isolation/RBAC, constraints
+- [ ] Verified on the developer Mac and CI green

@@ -143,3 +143,44 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   transactional DDL and pgvector. `make test-unit` runs only the tests that
   don't need Docker. A schema-drift test fails whenever a model changes
   without a matching migration.
+
+## ADR-013: Stateless JWT access tokens now; refresh and revocation in Phase 22
+
+- **Status:** Accepted (Phase 3)
+- **Decision:** Short-lived (15 min) HS256 JWTs signed with `JWT_SECRET_KEY`.
+  The verifier pins the algorithm, requires `iss`/`aud`/`exp`/`jti`/`typ`, and
+  rejects `alg=none`. Staging and production refuse to start with the dev
+  secret or any secret under 32 characters. Passwords use Argon2id, capped at
+  128 characters to prevent hash-DoS.
+- **Alternatives:** Server-side sessions in Redis; RS256 with a key pair.
+- **Consequences:** No per-request session lookup beyond loading the user,
+  which also enforces `is_active`. Logout and revocation need refresh tokens and
+  a deny-list (Phase 22). RS256 becomes worthwhile once other services verify
+  tokens.
+
+## ADR-014: 404 for non-members, 403 for insufficient role
+
+- **Status:** Accepted (Phase 3)
+- **Decision:** A user who isn't a member of a workspace gets 404
+  (`workspace_not_found`), whether or not the workspace exists. A member whose
+  role is too low gets 403.
+- **Consequences:** Guessing workspace IDs (IDOR probing) can't confirm that a
+  workspace exists. Members still get an honest "you lack permission".
+
+## ADR-015: One error envelope for every failure
+
+- **Status:** Accepted (Phase 3)
+- **Decision:** Every error response has the shape
+  `{"error": {"code", "message", "request_id", ...}}`. Services raise typed
+  `AppError`s with no dependency on HTTP. Validation errors list their location
+  and reason, but never the submitted values, which may include passwords.
+- **Consequences:** Clients can branch on a stable `code`, and support can
+  trace any error through `request_id`.
+
+## ADR-016: Roles are VARCHAR + CHECK, not native PostgreSQL enums
+
+- **Status:** Accepted (Phase 3)
+- **Decision:** Role columns are `VARCHAR(16)` with a named CHECK constraint
+  (`ck_<table>_role_valid`), mapped to Python `StrEnum`s.
+- **Consequences:** Adding a role is an ordinary migration that replaces the
+  constraint, with no `ALTER TYPE`. The database still rejects unknown values.

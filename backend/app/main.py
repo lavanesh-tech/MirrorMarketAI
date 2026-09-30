@@ -23,6 +23,7 @@ from app import __version__
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.database import Database
+from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 
@@ -84,5 +85,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
     app.add_middleware(RequestContextMiddleware)
 
+    register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     return app

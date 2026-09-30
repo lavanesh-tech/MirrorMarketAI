@@ -4,15 +4,21 @@ PostgreSQL is the system of record. This document lists every table that exists
 **now**, and the conventions all tables follow. Domain tables are added phase by
 phase (see [ROADMAP.md](ROADMAP.md)).
 
-## Current schema (migration head: `0001`)
+## Current schema (migration head: `0002`)
 
-| Object | Created by | Purpose |
+| Object | Migration | Purpose |
 | --- | --- | --- |
-| extension `vector` | `0001_enable_pgvector` | pgvector type and operators for embeddings (used from Phase 6) |
-| table `alembic_version` | Alembic | the migration revision currently applied |
+| extension `vector` | `0001` | pgvector type and operators for embeddings (used from Phase 6) |
+| `users` | `0002` | accounts: `email` (unique, CHECK lower-case), `password_hash` (Argon2id), `display_name`, `is_active` |
+| `organizations` | `0002` | tenants. `is_personal` marks the org every user gets at registration; `created_by_id → users` |
+| `organization_members` | `0002` | user ↔ org with `role` ∈ OWNER/ADMIN/MEMBER; unique (org, user) |
+| `comparison_workspaces` | `0002` | purchase-research workspaces: `organization_id` (CASCADE), `created_by_id`, `name`, `description` |
+| `workspace_members` | `0002` | user ↔ workspace with `role` ∈ OWNER/EDITOR/MEMBER/VIEWER; unique (workspace, user) |
+| `alembic_version` | Alembic | the migration revision currently applied |
 
-No domain tables yet. The first ones (users, organizations/workspaces,
-memberships) arrive in Phase 3.
+Foreign keys are indexed. Deleting a workspace cascades to its members.
+Deleting a user is RESTRICTed while they're recorded as the creator of an
+organization or workspace.
 
 ## Conventions
 
