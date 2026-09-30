@@ -121,4 +121,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Content-addressed snapshots with change detection
 - [x] Shared vs workspace-private sources with access control
 - [x] Tests: SSRF matrix, fake-DNS/HTTP fetcher tests, parsers, source API (ingest, reuse, uploads, isolation)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36782106155, commit 88c25ef)

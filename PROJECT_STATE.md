@@ -160,7 +160,7 @@ None yet.
 - Redis is not used by the API yet (Phase 19).
 - Phase 3 verified on the Mac (166 tests, 98% coverage; live register, login, me and workspace calls) and in CI (run 36777813805, commit 4de24b4).
 - Phase 4 verified on the Mac (218 tests, 97% coverage; live product, spec and workspace-product calls) and in CI (run 36779473241, commit 7be3f05).
-- Phase 5 still needs verifying on the Mac and in CI.
+- Phase 5 verified on the Mac (299 tests, 97% coverage; live upload ingested and metadata URL blocked with `unsafe_url`) and in CI (run 36782106155, commit 88c25ef).
 - Ingestion runs inside the request (no workers until Phase 21); raw bytes are stored in
   PostgreSQL (S3 comes in Phase 31); robots.txt isn't consulted yet (only user-supplied URLs
   are fetched, never crawled).
