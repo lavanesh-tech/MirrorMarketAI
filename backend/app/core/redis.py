@@ -31,3 +31,15 @@ async def ping(redis: Redis) -> float:
     started = time.perf_counter()
     await redis.ping()
     return round((time.perf_counter() - started) * 1000, 2)
+
+
+def create_subscriber_redis(settings: Settings) -> Redis | None:
+    """A separate client for pub/sub: it blocks waiting for messages, so no read timeout."""
+    if settings.redis_url is None:
+        return None
+    return Redis.from_url(
+        settings.redis_url.get_secret_value(),
+        socket_connect_timeout=settings.redis_timeout_seconds,
+        socket_timeout=None,
+        health_check_interval=30,
+    )

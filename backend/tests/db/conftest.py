@@ -18,6 +18,8 @@ import asyncio
 import os
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from dataclasses import dataclass
 
 import asyncpg
 import httpx
@@ -28,10 +30,13 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.api.deps import get_db_session
+from app.api.deps import get_db_session, get_session_factory
 from app.core.config import Settings
 from app.core.migrations import alembic_config
+from app.domain.roles import WorkspaceRole
 from app.main import create_app
+from app.services.workspaces import WorkspaceService
+from tests.support.ws import WsClient
 
 PGVECTOR_IMAGE = "pgvector/pgvector:0.8.6-pg17-trixie"
 
@@ -184,6 +189,7 @@ class ApiUser:
     def __init__(self, user_id: str, email: str, token: str) -> None:
         self.id = user_id
         self.email = email
+        self.token = token
         self.headers = {"Authorization": f"Bearer {token}"}
 
 
@@ -202,3 +208,69 @@ async def register_user(
     login = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert login.status_code == 200, login.text
     return ApiUser(created.json()["id"], email, login.json()["access_token"])
+
+
+# --- Realtime: an app + HTTP client + WebSocket factory sharing the test's session ---
+
+
+@dataclass
+class Stack:
+    app: FastAPI
+    http: httpx.AsyncClient
+    settings: Settings
+
+    def ws(self, workspace_id: str, origin: str | None = None) -> WsClient:
+        headers = {"Origin": origin} if origin else None
+        return WsClient(self.app, f"/api/v1/ws/workspaces/{workspace_id}", headers)
+
+    async def connect(self, workspace_id: str, user: ApiUser) -> WsClient:
+        """An authenticated socket that has received its `ready` message."""
+        client = self.ws(workspace_id)
+        await client.__aenter__()
+        await client.send_json({"type": "auth", "token": user.token})
+        await client.until("ready")
+        return client
+
+
+StackFactory = Callable[..., AbstractAsyncContextManager[Stack]]
+
+
+@pytest.fixture
+def stack(
+    make_settings: Callable[..., Settings], migrated_database_url: str, db_session: AsyncSession
+) -> StackFactory:
+    @asynccontextmanager
+    async def _stack(**overrides: object) -> AsyncIterator[Stack]:
+        settings = make_settings(database_url=migrated_database_url, **overrides)
+        app = create_app(settings)
+
+        async def _session() -> AsyncIterator[AsyncSession]:
+            yield db_session
+
+        @asynccontextmanager
+        async def _scope() -> AsyncIterator[AsyncSession]:
+            yield db_session
+
+        app.dependency_overrides[get_db_session] = _session
+        app.dependency_overrides[get_session_factory] = lambda: _scope
+        async with (
+            app.router.lifespan_context(app),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+            ) as http,
+        ):
+            yield Stack(app, http, settings)
+
+    return _stack
+
+
+async def workspace(http: httpx.AsyncClient, user: ApiUser) -> str:
+    created = await http.post("/api/v1/workspaces", json={"name": "W"}, headers=user.headers)
+    workspace_id: str = created.json()["id"]
+    return workspace_id
+
+
+async def join(
+    session: AsyncSession, workspace_id: str, user: ApiUser, role: WorkspaceRole
+) -> None:
+    await WorkspaceService(session).add_member(uuid.UUID(workspace_id), uuid.UUID(user.id), role)

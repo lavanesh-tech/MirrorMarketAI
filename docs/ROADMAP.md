@@ -250,3 +250,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Single-use tokens (GETDEL) + PKCE helper for OAuth state; `/ready` reports Redis as non-required
 - [x] Benchmark of cache hit vs Postgres and rate-limit decision latency (`benchmarks/redis_paths.py`)
 - [x] Verified on the developer Mac and CI green (run 36811623348, commit 7247b7f)
+
+## Phase 20 exit criteria
+
+- [x] `workspace_comments` and `product_votes` (migration `0011`); comments with one-level replies, edit, soft delete; vote upsert and tallies
+- [x] WebSocket `/ws/workspaces/{id}`: first-message JWT auth, membership check, origin allow-list, closes on token expiry
+- [x] Limits: connections per user, message size and rate, idle timeout, bounded send queue (slow consumer closed with 1013)
+- [x] Cross-replica fan-out through Redis pub/sub with local fallback; presence in a Redis sorted set with TTL
+- [x] Events for comments, votes, agent runs and presence; tenant isolation tested; two-replica test
+- [x] Fan-out benchmark (`benchmarks/realtime_fanout.py`); protocol documented in `docs/REALTIME.md`
+- [ ] Verified on the developer Mac and CI green

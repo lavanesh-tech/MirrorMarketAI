@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager
 from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import HTTPConnection
 
 from app.coordination.cache import JsonCache
 from app.coordination.rate_limit import RateLimiter
@@ -19,6 +21,8 @@ from app.models.identity import User
 from app.providers.embeddings import EmbeddingProvider
 from app.providers.extraction import RequirementExtractor
 from app.providers.llm import OpenAIChatClient
+from app.realtime.bus import EventBus
+from app.realtime.presence import Presence
 from app.repositories.identity import UserRepository
 from app.security.tokens import decode_access_token
 
@@ -103,6 +107,33 @@ def get_rate_limiter(request: Request) -> RateLimiter:
     return limiter
 
 
+def get_event_bus(request: Request) -> EventBus:
+    bus: EventBus = request.app.state.bus
+    return bus
+
+
+def get_presence(request: Request) -> Presence:
+    presence: Presence = request.app.state.presence
+    return presence
+
+
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
+
+
+def get_session_factory(connection: HTTPConnection) -> SessionFactory:
+    """For long-lived connections (WebSockets): open a session only while it is needed.
+
+    A WebSocket must not hold a pooled database connection for its whole lifetime,
+    so the handler opens short sessions from this factory instead of using
+    `get_db_session`.
+    """
+    database: Database = connection.app.state.database
+    return database.session_factory
+
+
+EventsDep = Annotated[EventBus, Depends(get_event_bus)]
+PresenceDep = Annotated[Presence, Depends(get_presence)]
+SessionFactoryDep = Annotated[SessionFactory, Depends(get_session_factory)]
 CacheDep = Annotated[JsonCache, Depends(get_cache)]
 RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 FetcherDep = Annotated[SafeFetcher, Depends(get_fetcher)]

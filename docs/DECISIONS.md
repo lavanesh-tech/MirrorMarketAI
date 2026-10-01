@@ -474,3 +474,18 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   protection; that trade-off favours availability and is logged as a warning.
   Stored idempotent responses are kept for 24 h. Ordinary tests run with Redis
   off, so rate-limit counters never leak between tests.
+
+## ADR-039: Push-only WebSockets, Redis pub/sub fan-out, REST for all writes
+
+- **Status:** Accepted (Phase 20)
+- **Decision:** A workspace WebSocket only delivers events; comments, votes and
+  agent runs are written through REST and then published. The token is sent in the
+  first message (not the URL), the socket closes when the token expires, and no
+  database connection is held while a socket is open. Events fan out across API
+  replicas through Redis pub/sub and fall back to local delivery. Each socket has
+  a bounded queue; slow clients are disconnected. Presence is a TTL'd Redis sorted
+  set keyed by connection.
+- **Consequences:** One code path for validation and RBAC, and sockets stay cheap.
+  Delivery is at-most-once with no replay, so clients must refetch after
+  reconnecting; durable event delivery is Kafka's job (Phase 21). Membership
+  changes do not close existing sockets yet.

@@ -111,6 +111,17 @@ class Settings(BaseSettings):
     idempotency_lock_seconds: int = Field(default=300, ge=5, le=3_600)
     idempotency_max_body_bytes: int = Field(default=1_048_576, ge=1_024, le=20_971_520)
 
+    # --- Realtime (WebSockets) ---------------------------------------------------
+    ws_auth_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    ws_heartbeat_seconds: int = Field(default=20, ge=1, le=300)
+    # A connection that sends nothing (not even a ping) for this long is closed.
+    ws_idle_timeout_seconds: float = Field(default=60.0, gt=0, le=3_600)
+    ws_max_connections_per_user: int = Field(default=5, ge=1, le=100)
+    ws_send_queue_size: int = Field(default=100, ge=1, le=10_000)
+    ws_max_message_bytes: int = Field(default=4_096, ge=64, le=1_048_576)
+    ws_max_messages_per_10s: int = Field(default=30, ge=1, le=10_000)
+    presence_ttl_seconds: int = Field(default=45, ge=2, le=3_600)
+
     # --- OpenAI (placeholders; used from Phase 6 onward) ---------------------
     openai_api_key: SecretStr | None = None
     openai_chat_model: str = "gpt-4.1-mini"
@@ -202,6 +213,8 @@ class Settings(BaseSettings):
                 f"openai_embedding_dimensions must be {EMBEDDING_DIMENSIONS} "
                 "(the pgvector column size); changing it requires a migration"
             )
+        if self.presence_ttl_seconds <= self.ws_heartbeat_seconds:
+            raise ValueError("presence_ttl_seconds must be greater than ws_heartbeat_seconds")
         if self.chunk_overlap_chars >= self.chunk_target_chars // 2:
             raise ValueError("chunk_overlap_chars must be less than half of chunk_target_chars")
         if self.embedding_provider == "openai" and not self.openai_configured:

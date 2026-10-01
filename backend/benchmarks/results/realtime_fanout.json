@@ -1,0 +1,46 @@
+{
+  "benchmark": "realtime_fanout",
+  "what": "publish -> queued for all connections of one workspace (no socket I/O)",
+  "runs_per_case": 200,
+  "results": {
+    "room_10": {
+      "via_redis_pubsub": {
+        "median_ms": 0.418,
+        "p95_ms": 0.487,
+        "every_connection_got_every_event": true
+      },
+      "single_process": {
+        "median_ms": 0.006,
+        "p95_ms": 0.006,
+        "every_connection_got_every_event": true
+      }
+    },
+    "room_100": {
+      "via_redis_pubsub": {
+        "median_ms": 0.458,
+        "p95_ms": 0.501,
+        "every_connection_got_every_event": true
+      },
+      "single_process": {
+        "median_ms": 0.025,
+        "p95_ms": 0.026,
+        "every_connection_got_every_event": true
+      }
+    },
+    "room_1000": {
+      "via_redis_pubsub": {
+        "median_ms": 0.642,
+        "p95_ms": 0.697,
+        "every_connection_got_every_event": true
+      },
+      "single_process": {
+        "median_ms": 0.22,
+        "p95_ms": 0.226,
+        "every_connection_got_every_event": true
+      }
+    }
+  },
+  "commit": "1a21481",
+  "python": "3.12.14",
+  "machine": "arm64"
+}

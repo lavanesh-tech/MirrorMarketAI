@@ -1,1 +1,1 @@
-"""WebSocket connections, presence and fan-out (Phase 20)."""
+"""Realtime collaboration: WebSocket hub, cross-replica event bus, presence."""

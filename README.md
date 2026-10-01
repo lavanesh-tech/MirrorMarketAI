@@ -32,7 +32,7 @@ every factual claim cites its source. Collaborators see the research happen live
 | Cache / coordination | Redis 7: GCRA rate limits, price cache, Idempotency-Key replay, one-time tokens (fail open) |
 | Events | Kafka (from Phase 21) |
 | AI | OpenAI chat + embeddings, LangChain where it helps |
-| Realtime | WebSockets |
+| Realtime | WebSockets (push-only events, Redis pub/sub fan-out, presence); see `docs/REALTIME.md` |
 | Frontend | Next.js, React, TypeScript |
 | Quality | Ruff, mypy (strict), pytest, Playwright, k6 |
 | Ops | Docker, GitHub Actions, Terraform, AWS (ECS Fargate, RDS, ElastiCache, S3) |

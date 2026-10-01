@@ -29,11 +29,14 @@ from app.core.database import Database
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
-from app.core.redis import create_redis
+from app.core.redis import create_redis, create_subscriber_redis
 from app.ingestion.safe_fetch import SafeFetcher
 from app.providers.embeddings import create_embedding_provider
 from app.providers.extraction import create_requirement_extractor
 from app.providers.llm import OpenAIChatClient
+from app.realtime.bus import EventBus
+from app.realtime.hub import Hub
+from app.realtime.presence import Presence
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +56,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis = redis
     app.state.cache = JsonCache(redis, settings.redis_key_prefix, settings.price_cache_ttl_seconds)
     app.state.rate_limiter = RateLimiter(redis, settings.redis_key_prefix)
+    hub = Hub()
+    subscriber = create_subscriber_redis(settings)
+    bus = EventBus(hub, redis, subscriber, settings.redis_key_prefix)
+    app.state.hub = hub
+    app.state.bus = bus
+    app.state.presence = Presence(
+        hub, redis, settings.redis_key_prefix, settings.presence_ttl_seconds
+    )
+    bus.start()
     fetcher = SafeFetcher(settings)
     app.state.fetcher = fetcher
     embedder = create_embedding_provider(settings)
@@ -79,6 +91,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await extractor.aclose()
         await embedder.aclose()
         await fetcher.aclose()
+        await bus.stop()
+        if subscriber is not None:
+            await subscriber.aclose()
         if redis is not None:
             await redis.aclose()
         await database.dispose()

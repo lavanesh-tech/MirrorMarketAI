@@ -202,6 +202,19 @@ class NothingToCompareError(UnprocessableError):
     message = "Add products to the workspace and save requirements (or a budget) to compare."
 
 
+class CommentNotFoundError(NotFoundError):
+    code = "comment_not_found"
+    message = "Comment not found."
+
+
+class InvalidCommentParentError(UnprocessableError):
+    code = "invalid_comment_parent"
+    message = (
+        "A reply must target a top-level, non-deleted comment on the same product "
+        "in this workspace."
+    )
+
+
 class SearchUnavailableError(AppError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "search_unavailable"

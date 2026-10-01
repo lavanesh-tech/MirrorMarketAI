@@ -31,6 +31,8 @@ phase (see [ROADMAP.md](ROADMAP.md)).
 | `evidence_items` | `0008` | citable snapshot E{position}: unique (pack, position); chunk text, offsets, `content_hash`, source title/url/authority/type, score; `chunk_id`/`source_id` SET NULL on delete |
 | `agent_runs` | `0009` | one row per agent execution: `agent`, `product_id`, `evidence_pack_id` (SET NULL), `requirement_version`, `status`, `engine`, `degraded`, JSONB `output` and `validation`, `duration_ms`, `tokens_used` |
 | `price_snapshots` | `0010` | global price observations: product (CASCADE), optional variant, `retailer`, `amount` NUMERIC(12,2) > 0, `currency` ^[A-Z]{3}$, `observed_at`, `in_stock`, `url`, `source` MANUAL/IMPORT/EVIDENCE; unique (product, retailer, currency, observed_at); index (product, currency, observed_at) |
+| `workspace_comments` | `0011` | workspace (CASCADE), optional product (NULL = workspace-level), author (RESTRICT), `parent_id` self FK (replies one level deep, enforced in the service), `body` CHECK 1-4000 chars, `edited_at`, `deleted_at` (soft delete, body overwritten); index (workspace, product, created_at) |
+| `product_votes` | `0011` | one row per (workspace, product, user) UNIQUE; `value` CHECK IN (-1, 1); upsert with ON CONFLICT DO UPDATE, value 0 deletes the row |
 | `alembic_version` | Alembic | the migration revision currently applied |
 
 Foreign keys are indexed. Deleting a workspace cascades to its members.

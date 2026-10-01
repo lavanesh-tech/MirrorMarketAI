@@ -7,11 +7,13 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     agents,
     auth,
+    collaboration,
     embeddings,
     evidence,
     health,
     prices,
     products,
+    realtime,
     requirements,
     search,
     sources,
@@ -32,3 +34,5 @@ api_router.include_router(search.router)
 api_router.include_router(requirements.router)
 api_router.include_router(evidence.router)
 api_router.include_router(agents.router)
+api_router.include_router(collaboration.router)
+api_router.include_router(realtime.router)

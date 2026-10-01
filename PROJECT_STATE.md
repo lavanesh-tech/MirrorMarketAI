@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-19.
-- Next: **20, WebSockets (presence, comments, votes, realtime updates).**
+- Completed: 1-19. Phase 20 (WebSockets) is built; waiting for Mac + CI.
+- Next: **21, Kafka (outbox, workers, idempotent consumers, DLQ).**
 - Last verified: Phase 19, CI run 36811623348, commit 7247b7f (2026-09-30).
 
 ## Working rules
@@ -48,13 +48,14 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Ask (`POST /workspaces/{id}/ask`): hybrid search (optional product filter) → evidence pack → answer. The offline engine is extractive (IDF-weighted term coverage ≥ 0.5, up to 3 verbatim sentences with [E#]); the LLM engine uses a JSON schema {answerable, answer}. Every sentence must pass the citation validator or is dropped (`dropped_sentences`). If nothing is left, it abstains. LLM failure falls back to extractive with `degraded`. Stored as an `ask` run.
 - Prices: global `price_snapshots` (product, retailer, NUMERIC amount, ISO currency, observed_at, in_stock, source). Batch insert uses ON CONFLICT DO NOTHING (idempotent). History is bucketed in SQL (date_trunc day/week/month, min/max per retailer) plus stats (latest per retailer, lowest current in stock, all-time low/high, 30-day average/low, change %, volatility, lowest-in-window). The Value Agent prefers the cheapest fresh (≤ PRICE_MAX_AGE_DAYS) in-stock snapshot in the budget currency, then evidence, then catalog.
 - Redis (`app/coordination`): one pool per process; empty `REDIS_URL` disables everything and all features fail open on Redis errors. GCRA rate limits in one Lua script using Redis TIME (auth per IP + per email, agent POSTs per user; 429 + Retry-After). Price-history read-through cache with version-key invalidation (`X-Cache`). `Idempotency-Key` middleware for POST/PATCH (scoped per caller+path, SET NX claim, replay < 500, 409 in progress, 422 body mismatch). One-time tokens via GETDEL (OAuth state + PKCE). `/ready` reports Redis with `required=false`.
+- Realtime (`app/realtime`, `docs/REALTIME.md`): push-only WebSocket per workspace, JWT in the first message, membership check with a short DB session, closes on token expiry. Hub with bounded per-socket queues (slow consumer → 1013), limits on connections/size/rate/idle, origin allow-list. EventBus → Redis pub/sub `mm:rt:<ws>` with local fallback; presence in a TTL'd Redis sorted set. Comments (one-level replies, soft delete) and votes (upsert) are REST writes that publish events; agent runs publish `agent_run.completed`.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
-## Database migrations (head 0010)
+## Database migrations (head 0011)
 
 0001 pgvector · 0002 users/orgs/workspaces/members · 0003 catalog + workspace_products ·
 0004 sources/snapshots/documents · 0005 chunks/embeddings/jobs · 0006 chunk tsvector + GIN ·
-0007 purchase_requirements/requirement_versions · 0008 evidence_packs/evidence_items · 0009 agent_runs · 0010 price_snapshots
+0007 purchase_requirements/requirement_versions · 0008 evidence_packs/evidence_items · 0009 agent_runs · 0010 price_snapshots · 0011 workspace_comments/product_votes
 
 ## Major endpoints (/api/v1)
 
@@ -69,11 +70,14 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
 - POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+); POST .../compatibility (optional body {owned_devices}); POST .../value; POST .../risk; POST .../synthesize
 - POST workspaces/{id}/analyze (MEMBER+, optional body {product_ids}); POST workspaces/{id}/compare (body {product_ids, weights, budget_is_hard}); POST workspaces/{id}/ask (body {question, product_ids, limit})
+- workspaces/{id}/comments: POST (MEMBER+), GET (?product_id=&workspace_level_only=), PATCH/DELETE {comment}; PUT workspaces/{id}/products/{pid}/vote {value: 1|-1|0}; GET workspaces/{id}/votes; GET workspaces/{id}/presence
+- WebSocket `/api/v1/ws/workspaces/{id}` (events: presence.*, comment.*, vote.changed, agent_run.completed)
 - POST workspaces/{id}/products/{pid}/research (MEMBER+); GET workspaces/{id}/agent-runs[/{run}] (?agent=&product_id=)
 
 ## Tests
 
-- 538 tests, 98% coverage (Phase 19; Mac + CI). `make check` runs everything CI runs.
+- 558 tests, 98% coverage (Phase 20, cloud workspace). Phase 19: 538 (Mac + CI). `make check` runs everything CI runs.
+- WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
 ## Current measured metrics
@@ -108,12 +112,17 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   median 14.07 ms vs from the Redis cache 0.79 ms (23 KB payload); one GCRA rate-limit decision 0.11 ms median.
   Mac (arm64, Compose PG17 + Redis 7.4): Postgres 7.69 ms vs cache 1.00 ms median; rate-limit decision 0.36 ms. Evidence: `backend/benchmarks/results/redis_paths.json`.
 
+- Realtime fan-out (cloud workspace, Redis 7.0, in-memory queues, no socket I/O): publish → queued for all connections,
+  median 0.19 / 0.24 / 0.65 ms for rooms of 10 / 100 / 1000 through Redis pub/sub; 0.02 / 0.04 / 0.28 ms single-process.
+  Evidence: `backend/benchmarks/results/realtime_fanout.json` (re-run on the Mac).
+
 ## Known issues / limits
 
 - The hashing embedder is lexical, not semantic (OpenAI needs a key). Chunk size is measured in characters.
 - The rule extractor is English-only pattern matching; what it can't use is returned as `unparsed`.
 - Ingestion runs in the request; raw bytes are stored in Postgres (S3 comes in Phase 31).
 - Not yet: refresh tokens, invitations, security headers, OAuth login flow (Phase 22 uses the one-time token store).
+- Realtime: at-most-once, no replay (clients refetch on reconnect); membership is checked only at connect.
 - Rate limits key on the socket peer IP; behind a proxy, uvicorn `--forwarded-allow-ips` is needed (Phase 29).
 - Before Phase 30: pin the CI runner (ubuntu-latest moves to 26 on 2026-10-19).
 - New vector migrations need `from pgvector.sqlalchemy import Vector` added by hand.
@@ -125,6 +134,7 @@ cd backend && uv run python -m benchmarks.citations && uv run python -m benchmar
 make up
 cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket uv run python -m benchmarks.price_history_db && cd ..
 cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket REDIS_URL=redis://localhost:6380/0 uv run python -m benchmarks.redis_paths && cd ..
+cd backend && REDIS_URL=redis://localhost:6380/0 uv run python -m benchmarks.realtime_fanout && cd ..
 make check
 make up
 make ps

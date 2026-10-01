@@ -7,8 +7,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.api.deps import CurrentUser, EmbedderDep, LLMDep, SessionDep, SettingsDep
+from app.api.deps import (
+    CurrentUser,
+    EmbedderDep,
+    EventsDep,
+    LLMDep,
+    SessionDep,
+    SettingsDep,
+)
 from app.api.rate_limits import agent_rate_limit
+from app.models.agents import AgentRun
 from app.repositories.base import MAX_PAGE_SIZE
 from app.schemas.agents import (
     AgentRunListResponse,
@@ -24,12 +32,30 @@ from app.services.ask import AskService
 from app.services.comparison import ComparisonService
 from app.services.orchestrator import Orchestrator
 
+EVENT_AGENT_RUN_COMPLETED = "agent_run.completed"
+
 router = APIRouter(
     prefix="/workspaces/{workspace_id}",
     tags=["agents"],
     dependencies=[Depends(agent_rate_limit)],
     responses={429: {"description": "Rate limited (per user, agent runs only)"}},
 )
+
+
+async def _announce(events: EventsDep, actor_id: uuid.UUID, run: AgentRun) -> AgentRunResponse:
+    """Tell everyone in the workspace that a run finished (they refetch it by id)."""
+    await events.publish(
+        run.workspace_id,
+        EVENT_AGENT_RUN_COMPLETED,
+        {
+            "run_id": str(run.id),
+            "agent": run.agent,
+            "product_id": run.product_id,
+            "status": run.status,
+        },
+        actor_id,
+    )
+    return AgentRunResponse.model_validate(run)
 
 
 @router.post(
@@ -42,6 +68,7 @@ async def research_product(
     workspace_id: uuid.UUID,
     product_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -50,7 +77,7 @@ async def research_product(
     run = await AgentService(session, settings, embedder, llm).research_product(
         workspace_id, user, product_id
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -63,6 +90,7 @@ async def analyze_reviews(
     workspace_id: uuid.UUID,
     product_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -71,7 +99,7 @@ async def analyze_reviews(
     run = await AgentService(session, settings, embedder, llm).analyze_reviews(
         workspace_id, user, product_id
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -84,6 +112,7 @@ async def check_compatibility(
     workspace_id: uuid.UUID,
     product_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -93,7 +122,7 @@ async def check_compatibility(
     run = await AgentService(session, settings, embedder, llm).check_compatibility(
         workspace_id, user, product_id, body.owned_devices if body else None
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -106,6 +135,7 @@ async def assess_value(
     workspace_id: uuid.UUID,
     product_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -114,7 +144,7 @@ async def assess_value(
     run = await AgentService(session, settings, embedder, llm).assess_value(
         workspace_id, user, product_id
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -127,6 +157,7 @@ async def assess_risk(
     workspace_id: uuid.UUID,
     product_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -135,7 +166,7 @@ async def assess_risk(
     run = await AgentService(session, settings, embedder, llm).assess_risk(
         workspace_id, user, product_id
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -148,6 +179,7 @@ async def synthesize_product(
     workspace_id: uuid.UUID,
     product_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -156,7 +188,7 @@ async def synthesize_product(
     run = await AgentService(session, settings, embedder, llm).synthesize_product(
         workspace_id, user, product_id
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -168,6 +200,7 @@ async def synthesize_product(
 async def analyze_workspace(
     workspace_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -177,7 +210,7 @@ async def analyze_workspace(
     run = await Orchestrator(session, settings, embedder, llm).analyze(
         workspace_id, user, body.product_ids if body else None
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -189,6 +222,7 @@ async def analyze_workspace(
 async def compare_products(
     workspace_id: uuid.UUID,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -202,7 +236,7 @@ async def compare_products(
         weights=request.weights,
         budget_is_hard=request.budget_is_hard,
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.post(
@@ -215,6 +249,7 @@ async def ask(
     workspace_id: uuid.UUID,
     body: AskRequest,
     user: CurrentUser,
+    events: EventsDep,
     session: SessionDep,
     settings: SettingsDep,
     embedder: EmbedderDep,
@@ -223,7 +258,7 @@ async def ask(
     run = await AskService(session, settings, embedder, llm).ask(
         workspace_id, user, body.question, product_ids=body.product_ids, limit=body.limit
     )
-    return AgentRunResponse.model_validate(run)
+    return await _announce(events, user.id, run)
 
 
 @router.get("/agent-runs", response_model=AgentRunListResponse)

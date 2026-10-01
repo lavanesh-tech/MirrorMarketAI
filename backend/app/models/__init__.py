@@ -13,6 +13,7 @@ from app.models.catalog import (
     ProductVariant,
     WorkspaceProduct,
 )
+from app.models.collaboration import ProductVote, WorkspaceComment
 from app.models.evidence import EvidenceItem, EvidencePack
 from app.models.identity import (
     ComparisonWorkspace,
@@ -43,6 +44,7 @@ __all__ = [
     "ProductSource",
     "ProductSpecification",
     "ProductVariant",
+    "ProductVote",
     "PurchaseRequirement",
     "RequirementVersion",
     "SourceDocument",
@@ -50,6 +52,7 @@ __all__ = [
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",
     "User",
+    "WorkspaceComment",
     "WorkspaceMember",
     "WorkspaceProduct",
 ]
