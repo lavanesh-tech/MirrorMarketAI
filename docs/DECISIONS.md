@@ -456,3 +456,21 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   The benchmark showed the original slowness came from application code (an
   O(n²) loop), not the database, and that the composite index doesn't help yet
   at tens of thousands of rows. It's kept for larger histories.
+
+## ADR-038: Redis as an optional accelerator that fails open
+
+- **Status:** Accepted (Phase 19)
+- **Decision:** Redis holds only derived or short-lived state: cache entries,
+  rate-limit counters, idempotency records and one-time tokens. PostgreSQL stays
+  the source of truth. Every Redis call is wrapped so an outage degrades to "no
+  cache, no limit, no replay" instead of failing requests, and `/ready` reports
+  Redis without gating on it. Rate limiting uses GCRA in a single Lua script with
+  Redis's own clock (one key per identity, exact Retry-After, no replica clock
+  skew). The cache invalidates by bumping a per-product version number instead of
+  deleting keys, which avoids SCAN and the stale-write race. Idempotency is ASGI
+  middleware keyed by caller + method + path + key, claimed with SET NX, so a
+  retried POST never runs an agent twice.
+- **Consequences:** Failing open means a Redis outage also disables brute-force
+  protection; that trade-off favours availability and is logged as a warning.
+  Stored idempotent responses are kept for 24 h. Ordinary tests run with Redis
+  off, so rate-limit counters never leak between tests.

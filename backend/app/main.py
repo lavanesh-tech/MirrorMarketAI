@@ -21,11 +21,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api.v1.router import api_router
+from app.coordination.cache import JsonCache
+from app.coordination.idempotency import IdempotencyMiddleware
+from app.coordination.rate_limit import RateLimiter
 from app.core.config import Settings, get_settings
 from app.core.database import Database
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
+from app.core.redis import create_redis
 from app.ingestion.safe_fetch import SafeFetcher
 from app.providers.embeddings import create_embedding_provider
 from app.providers.extraction import create_requirement_extractor
@@ -45,6 +49,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     database = Database.from_settings(settings)
     app.state.database = database
+    redis = create_redis(settings)  # lazy: connects on first command
+    app.state.redis = redis
+    app.state.cache = JsonCache(redis, settings.redis_key_prefix, settings.price_cache_ttl_seconds)
+    app.state.rate_limiter = RateLimiter(redis, settings.redis_key_prefix)
     fetcher = SafeFetcher(settings)
     app.state.fetcher = fetcher
     embedder = create_embedding_provider(settings)
@@ -60,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "version": __version__,
             "openai_configured": settings.openai_configured,
             "kafka_enabled": settings.kafka_enabled,
+            "redis_configured": redis is not None,
         },
     )
     try:
@@ -70,6 +79,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await extractor.aclose()
         await embedder.aclose()
         await fetcher.aclose()
+        if redis is not None:
+            await redis.aclose()
         await database.dispose()
         logger.info("application shutdown")
 
@@ -91,14 +102,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Middleware added LAST runs FIRST. RequestContextMiddleware is outermost so
     # the request ID exists for everything else, including CORS rejections.
+    # Idempotency is innermost: it replays exactly what the routes produced.
+    app.add_middleware(
+        IdempotencyMiddleware,
+        prefix=settings.redis_key_prefix,
+        ttl_seconds=settings.idempotency_ttl_seconds,
+        lock_seconds=settings.idempotency_lock_seconds,
+        max_body_bytes=settings.idempotency_max_body_bytes,
+    )
     if settings.cors_allowed_origins:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=settings.cors_allowed_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
-            expose_headers=["X-Request-ID"],
+            allow_headers=["Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key"],
+            expose_headers=[
+                "X-Request-ID",
+                "Retry-After",
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining",
+                "X-Cache",
+                "Idempotent-Replayed",
+            ],
         )
     app.add_middleware(RequestContextMiddleware)
 

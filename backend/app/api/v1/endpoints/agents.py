@@ -5,9 +5,10 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, EmbedderDep, LLMDep, SessionDep, SettingsDep
+from app.api.rate_limits import agent_rate_limit
 from app.repositories.base import MAX_PAGE_SIZE
 from app.schemas.agents import (
     AgentRunListResponse,
@@ -23,7 +24,12 @@ from app.services.ask import AskService
 from app.services.comparison import ComparisonService
 from app.services.orchestrator import Orchestrator
 
-router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["agents"])
+router = APIRouter(
+    prefix="/workspaces/{workspace_id}",
+    tags=["agents"],
+    dependencies=[Depends(agent_rate_limit)],
+    responses={429: {"description": "Rate limited (per user, agent runs only)"}},
+)
 
 
 @router.post(

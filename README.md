@@ -29,7 +29,7 @@ every factual claim cites its source. Collaborators see the research happen live
 | --- | --- |
 | API | Python 3.12, FastAPI, Pydantic v2, pydantic-settings |
 | Data | PostgreSQL 17 + pgvector, SQLAlchemy 2.x (async), Alembic |
-| Cache / coordination | Redis |
+| Cache / coordination | Redis 7: GCRA rate limits, price cache, Idempotency-Key replay, one-time tokens (fail open) |
 | Events | Kafka (from Phase 21) |
 | AI | OpenAI chat + embeddings, LangChain where it helps |
 | Realtime | WebSockets |

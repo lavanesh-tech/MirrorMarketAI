@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
-from app.api.deps import CurrentUser, SessionDep, SettingsDep
+from app.api.deps import CurrentUser, RateLimiterDep, SessionDep, SettingsDep
+from app.api.rate_limits import auth_rate_limit, enforce
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 from app.services.auth import AuthService
 
@@ -16,7 +17,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create an account",
-    responses={409: {"description": "Email already registered"}},
+    responses={
+        409: {"description": "Email already registered"},
+        429: {"description": "Rate limited"},
+    },
+    dependencies=[Depends(auth_rate_limit)],
 )
 async def register(
     body: RegisterRequest, session: SessionDep, settings: SettingsDep
@@ -31,9 +36,19 @@ async def register(
     "/login",
     response_model=TokenResponse,
     summary="Exchange email + password for an access token",
-    responses={401: {"description": "Incorrect email or password"}},
+    responses={
+        401: {"description": "Incorrect email or password"},
+        429: {"description": "Rate limited"},
+    },
+    dependencies=[Depends(auth_rate_limit)],
 )
-async def login(body: LoginRequest, session: SessionDep, settings: SettingsDep) -> TokenResponse:
+async def login(
+    body: LoginRequest, session: SessionDep, settings: SettingsDep, limiter: RateLimiterDep
+) -> TokenResponse:
+    if settings.rate_limit_enabled:
+        # Per account too, so a botnet cannot spread guesses for one email across IPs.
+        email = body.email.strip().lower()
+        await enforce(limiter, None, "auth:login-email", email, settings.rate_limit_auth_per_minute)
     token = await AuthService(session, settings).login(email=body.email, password=body.password)
     return TokenResponse(access_token=token.token, expires_at=token.expires_at)
 

@@ -240,3 +240,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Value Agent prefers fresh in-stock snapshots in the budget currency (`PRICE_MAX_AGE_DAYS`)
 - [x] DB benchmark with/without the history index (`benchmarks/price_history_db.py`); O(n²) stats bug found and fixed
 - [x] Verified on the developer Mac and CI green (run 36808476931, commit 0069f7a)
+
+## Phase 19 exit criteria
+
+- [x] Redis client in the lifespan (`REDIS_URL`, empty = disabled), short timeouts, every feature fails open
+- [x] GCRA rate limiting in one Lua script (Redis clock): auth per IP and per email, agent runs per user, 429 + Retry-After
+- [x] Price-history read-through cache with version-key invalidation on new snapshots (`X-Cache: HIT|MISS`)
+- [x] `Idempotency-Key` middleware (POST/PATCH): per-caller scope, in-progress 409, body-mismatch 422, 5xx not stored
+- [x] Single-use tokens (GETDEL) + PKCE helper for OAuth state; `/ready` reports Redis as non-required
+- [x] Benchmark of cache hit vs Postgres and rate-limit decision latency (`benchmarks/redis_paths.py`)
+- [ ] Verified on the developer Mac and CI green

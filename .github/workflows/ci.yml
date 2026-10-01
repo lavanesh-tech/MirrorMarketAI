@@ -69,6 +69,7 @@ jobs:
           curl -fsS http://127.0.0.1:8000/api/v1/health | grep -q '"status":"ok"'
           curl -fsS -i http://127.0.0.1:8000/api/v1/ready
           curl -fsS http://127.0.0.1:8000/api/v1/ready | grep -q '"status":"ready"'
+          curl -fsS http://127.0.0.1:8000/api/v1/ready | grep -q '"redis":{"status":"ok"'
 
       - name: Verify migrations ran
         run: docker compose logs migrate | grep -q "Running upgrade"

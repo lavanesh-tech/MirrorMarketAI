@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-18. Next: Phase 19 (Redis: caching, rate limiting, idempotency).
-- Next: **19, Redis (caching, rate limiting, idempotency, OAuth state).**
+- Completed: 1-18. Phase 19 (Redis) is built; waiting for Mac + CI.
+- Next: **20, WebSockets (presence, comments, votes, realtime updates).**
 - Last verified: Phase 18, CI run 36808476931, commit 0069f7a (2026-09-30). Mac price-history benchmark: median 8.07 ms (index) vs 7.88 ms (no index), 50k synthetic rows.
 
 ## Working rules
@@ -47,6 +47,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Comparison engine (`POST /workspaces/{id}/compare`): a matrix built from the latest research and value runs. Utility = 0.7·MET + 0.3·min-max position in the criterion's direction (unknown → 0). Score = 100·Σw·u/Σw (MUST weight 5, price 3, weights can be overridden 0-10). A MUST that is UNMET (or over budget when the budget is hard) makes a product ineligible. The winner must be eligible with all hard constraints verified. Sensitivity re-ranks with each weight ×0.5/×2, reusing the cached utility matrix. Stored as a `comparison` run with its source run ids.
 - Ask (`POST /workspaces/{id}/ask`): hybrid search (optional product filter) → evidence pack → answer. The offline engine is extractive (IDF-weighted term coverage ≥ 0.5, up to 3 verbatim sentences with [E#]); the LLM engine uses a JSON schema {answerable, answer}. Every sentence must pass the citation validator or is dropped (`dropped_sentences`). If nothing is left, it abstains. LLM failure falls back to extractive with `degraded`. Stored as an `ask` run.
 - Prices: global `price_snapshots` (product, retailer, NUMERIC amount, ISO currency, observed_at, in_stock, source). Batch insert uses ON CONFLICT DO NOTHING (idempotent). History is bucketed in SQL (date_trunc day/week/month, min/max per retailer) plus stats (latest per retailer, lowest current in stock, all-time low/high, 30-day average/low, change %, volatility, lowest-in-window). The Value Agent prefers the cheapest fresh (≤ PRICE_MAX_AGE_DAYS) in-stock snapshot in the budget currency, then evidence, then catalog.
+- Redis (`app/coordination`): one pool per process; empty `REDIS_URL` disables everything and all features fail open on Redis errors. GCRA rate limits in one Lua script using Redis TIME (auth per IP + per email, agent POSTs per user; 429 + Retry-After). Price-history read-through cache with version-key invalidation (`X-Cache`). `Idempotency-Key` middleware for POST/PATCH (scoped per caller+path, SET NX claim, replay < 500, 409 in progress, 422 body mismatch). One-time tokens via GETDEL (OAuth state + PKCE). `/ready` reports Redis with `required=false`.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0010)
@@ -57,7 +58,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Major endpoints (/api/v1)
 
-- health, ready; auth register/login/me
+- health, ready (database, migrations, redis); auth register/login/me (rate limited)
+- Headers: `Idempotency-Key` on any POST/PATCH; responses may carry `X-Cache`, `X-RateLimit-*`, `Retry-After`, `Idempotent-Replayed`
 - workspaces CRUD + members; workspaces/{id}/products
 - products (search, by-identifier, variants, identifiers, specifications)
 - POST/GET products/{id}/prices (batch record; history ?currency=&bucket=&since=&until=)
@@ -71,8 +73,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 501 tests, 98% coverage (Phase 18; Mac + CI). `make check` runs everything CI runs.
-- DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
+- 538 tests, 98% coverage (Phase 19, cloud workspace). Phase 18: 501 (Mac + CI). `make check` runs everything CI runs.
+- DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
 ## Current measured metrics
 
@@ -102,12 +104,17 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   entities. The composite (product, currency, observed_at) index gave no measurable gain at this size (14.12 ms without).
   Evidence: `backend/benchmarks/results/price_history_db.json` (re-run on the Mac against Compose Postgres).
 
+- Redis paths (cloud workspace, PostgreSQL 16 + Redis 7.0, same 50k synthetic snapshots): price history from Postgres
+  median 14.07 ms vs from the Redis cache 0.79 ms (23 KB payload); one GCRA rate-limit decision 0.11 ms median.
+  Evidence: `backend/benchmarks/results/redis_paths.json` (re-run on the Mac against Compose Postgres + Redis).
+
 ## Known issues / limits
 
 - The hashing embedder is lexical, not semantic (OpenAI needs a key). Chunk size is measured in characters.
 - The rule extractor is English-only pattern matching; what it can't use is returned as `unparsed`.
 - Ingestion runs in the request; raw bytes are stored in Postgres (S3 comes in Phase 31).
-- Not yet: refresh tokens, rate limiting, invitations, security headers (Phases 19, 20, 22).
+- Not yet: refresh tokens, invitations, security headers, OAuth login flow (Phase 22 uses the one-time token store).
+- Rate limits key on the socket peer IP; behind a proxy, uvicorn `--forwarded-allow-ips` is needed (Phase 29).
 - Before Phase 30: pin the CI runner (ubuntu-latest moves to 26 on 2026-10-19).
 - New vector migrations need `from pgvector.sqlalchemy import Vector` added by hand.
 
@@ -117,6 +124,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && uv run python -m benchmarks.price_extraction && uv run python -m benchmarks.risk_detection && uv run python -m benchmarks.comparison_scale && uv run python -m benchmarks.qa_extractive && cd ..
 make up
 cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket uv run python -m benchmarks.price_history_db && cd ..
+cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket REDIS_URL=redis://localhost:6380/0 uv run python -m benchmarks.redis_paths && cd ..
 make check
 make up
 make ps

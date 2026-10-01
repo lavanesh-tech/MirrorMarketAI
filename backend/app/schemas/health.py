@@ -30,7 +30,9 @@ CheckFailure = Literal["unreachable", "timeout", "not_migrated", "schema_mismatc
 class ReadinessCheck(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    status: Literal["ok", "fail"]
+    status: Literal["ok", "fail", "disabled"]
+    # Non-required checks are reported but do not make the instance not-ready.
+    required: bool = True
     latency_ms: float | None = None
     # A fixed vocabulary only: raw exception text could leak hostnames or credentials.
     reason: CheckFailure | None = None

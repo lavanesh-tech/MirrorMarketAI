@@ -28,6 +28,7 @@ class AppError(Exception):
 
     def __init__(self, message: str | None = None) -> None:
         self.detail = message or self.message
+        self.extra_headers: dict[str, str] = {}
         super().__init__(self.detail)
 
 
@@ -207,6 +208,20 @@ class SearchUnavailableError(AppError):
     message = "Semantic search is temporarily unavailable. Try mode 'lexical'."
 
 
+class RateLimitedError(AppError):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    code = "rate_limited"
+    message = "Too many requests. Retry after the number of seconds in Retry-After."
+
+    def __init__(self, retry_after_seconds: int, limit: int) -> None:
+        super().__init__()
+        self.extra_headers = {
+            "Retry-After": str(max(1, retry_after_seconds)),
+            "X-RateLimit-Limit": str(limit),
+            "X-RateLimit-Remaining": "0",
+        }
+
+
 def error_body(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "request_id": get_request_id(), **extra}}
 
@@ -216,7 +231,7 @@ async def _app_error_handler(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content=error_body(exc.code, exc.detail),
-        headers=exc.headers,
+        headers={**(exc.headers or {}), **exc.extra_headers} or None,
     )
 
 

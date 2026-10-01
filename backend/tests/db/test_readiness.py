@@ -35,7 +35,12 @@ async def test_ready_when_database_is_migrated(
     assert body["status"] == "ready"
     assert body["checks"]["database"]["status"] == "ok"
     assert body["checks"]["database"]["latency_ms"] >= 0
-    assert body["checks"]["migrations"] == {"status": "ok", "latency_ms": None, "reason": None}
+    assert body["checks"]["migrations"] == {
+        "status": "ok",
+        "required": True,
+        "latency_ms": None,
+        "reason": None,
+    }
 
 
 @pytest.fixture

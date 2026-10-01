@@ -9,6 +9,8 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.coordination.cache import JsonCache
+from app.coordination.rate_limit import RateLimiter
 from app.core.config import Settings
 from app.core.database import Database
 from app.core.errors import AuthenticationError
@@ -91,6 +93,18 @@ def get_embedder(request: Request) -> EmbeddingProvider:
     return embedder
 
 
+def get_cache(request: Request) -> JsonCache:
+    cache: JsonCache = request.app.state.cache
+    return cache
+
+
+def get_rate_limiter(request: Request) -> RateLimiter:
+    limiter: RateLimiter = request.app.state.rate_limiter
+    return limiter
+
+
+CacheDep = Annotated[JsonCache, Depends(get_cache)]
+RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
 FetcherDep = Annotated[SafeFetcher, Depends(get_fetcher)]
 EmbedderDep = Annotated[EmbeddingProvider, Depends(get_embedder)]
 ExtractorDep = Annotated[RequirementExtractor, Depends(get_extractor)]

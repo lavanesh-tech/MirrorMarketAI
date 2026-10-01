@@ -97,8 +97,19 @@ class Settings(BaseSettings):
     )
     ingestion_max_pdf_pages: int = Field(default=200, ge=1, le=2000)
 
-    # --- Redis (cache/coordination; wired up in Phase 19) --------------------
-    redis_url: SecretStr = SecretStr("redis://localhost:6380/0")
+    # --- Redis: cache, rate limits, idempotency, one-time tokens ----------------
+    # Empty REDIS_URL disables all of them (requests still work, nothing is cached).
+    redis_url: SecretStr | None = SecretStr("redis://localhost:6380/0")
+    redis_timeout_seconds: float = Field(default=0.5, gt=0, le=10)
+    redis_key_prefix: str = Field(default="mm:", max_length=32)
+    rate_limit_enabled: bool = True
+    rate_limit_auth_per_minute: int = Field(default=10, ge=1, le=10_000)
+    rate_limit_agents_per_minute: int = Field(default=30, ge=1, le=10_000)
+    price_cache_ttl_seconds: int = Field(default=60, ge=1, le=86_400)
+    idempotency_ttl_seconds: int = Field(default=86_400, ge=60, le=604_800)
+    # Must outlast the slowest request (orchestration budget is up to 900 s).
+    idempotency_lock_seconds: int = Field(default=300, ge=5, le=3_600)
+    idempotency_max_body_bytes: int = Field(default=1_048_576, ge=1_024, le=20_971_520)
 
     # --- OpenAI (placeholders; used from Phase 6 onward) ---------------------
     openai_api_key: SecretStr | None = None
@@ -153,6 +164,18 @@ class Settings(BaseSettings):
     def _split_ports(cls, value: object) -> object:
         if isinstance(value, str):
             return [int(p) for p in value.split(",") if p.strip()]
+        return value
+
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def _empty_redis_url_disables(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("redis_url")
+    @classmethod
+    def _require_redis_scheme(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not value.get_secret_value().startswith(("redis://", "rediss://")):
+            raise ValueError("redis_url must use the 'redis://' or 'rediss://' scheme")
         return value
 
     @field_validator("cors_allowed_origins")

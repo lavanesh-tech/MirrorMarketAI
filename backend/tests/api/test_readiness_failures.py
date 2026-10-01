@@ -32,11 +32,13 @@ async def test_not_ready_when_database_unreachable(make_settings: SettingsFactor
     response = await _get_ready(app)
 
     assert response.status_code == 503
+    fail = {"status": "fail", "required": True, "latency_ms": None, "reason": "unreachable"}
     assert response.json() == {
         "status": "not_ready",
         "checks": {
-            "database": {"status": "fail", "latency_ms": None, "reason": "unreachable"},
-            "migrations": {"status": "fail", "latency_ms": None, "reason": "unreachable"},
+            "database": fail,
+            "migrations": fail,
+            "redis": {"status": "disabled", "required": False, "latency_ms": None, "reason": None},
         },
     }
     # Connection details must never leak to clients.
@@ -57,6 +59,35 @@ async def test_not_ready_when_database_check_times_out(
 
     assert response.status_code == 503
     assert response.json()["checks"]["database"]["reason"] == "timeout"
+
+
+async def test_redis_down_is_reported_but_not_required(make_settings: SettingsFactory) -> None:
+    app = create_app(
+        make_settings(
+            database_url=_UNREACHABLE_URL,
+            db_connect_timeout_seconds=1,
+            redis_url="redis://:redis-pw@127.0.0.1:1/0",
+        )
+    )
+    response = await _get_ready(app)
+    redis = response.json()["checks"]["redis"]
+    assert (redis["status"], redis["required"], redis["reason"]) == ("fail", False, "unreachable")
+    assert "redis-pw" not in response.text
+
+
+async def test_redis_check_times_out(
+    make_settings: SettingsFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def slow_ping(_: object) -> float:
+        await asyncio.sleep(5)
+        return 5000.0
+
+    monkeypatch.setattr("app.api.v1.endpoints.health.ping", slow_ping)
+    app = create_app(
+        make_settings(readiness_timeout_seconds=0.05, redis_url="redis://127.0.0.1:1/0")
+    )
+    response = await _get_ready(app)
+    assert response.json()["checks"]["redis"]["reason"] == "timeout"
 
 
 async def test_health_is_ok_even_when_database_is_down(make_settings: SettingsFactory) -> None:
