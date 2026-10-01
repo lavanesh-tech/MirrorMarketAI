@@ -1,7 +1,8 @@
 """Value Agent: price, budget fit and value-for-money, computed deterministically.
 
 Pricing math must be exact and reproducible, so this agent has no LLM engine:
-- price: the first priced sentence in product-filtered evidence (sale/"now" prices
+- price: the cheapest fresh in-stock price snapshot (Phase 18 history, in the
+  budget currency), else the first priced sentence in product-filtered evidence (sale/"now" prices
   win over list/"was" prices in the same sentence), else a catalog `price` spec;
 - budget fit against the current requirements (no currency conversion: a
   mismatch is reported, never guessed);
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from typing import Any
@@ -53,9 +55,11 @@ class BudgetFit(StrEnum):
 class Price(BaseModel):
     amount: Decimal
     currency: str
-    source: str  # "evidence" | "catalog"
+    source: str  # "price_history" | "evidence" | "catalog"
     citations: list[str] = []
     quote: str | None = None
+    retailer: str | None = None
+    observed_at: datetime | None = None
 
     @field_validator("amount")
     @classmethod

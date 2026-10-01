@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.base import AgentResult
@@ -42,6 +44,7 @@ from app.domain.roles import WorkspaceRole
 from app.models.agents import AgentRun
 from app.models.catalog import Product, ProductSpecification, WorkspaceProduct
 from app.models.identity import User
+from app.models.prices import PriceSnapshot
 from app.models.requirements import PurchaseRequirement, RequirementVersion
 from app.providers.embeddings import EmbeddingProvider
 from app.providers.llm import LLMError, OpenAIChatClient
@@ -368,6 +371,11 @@ class AgentService:
                         quote=quote,
                     )
                     break
+        fresh = await self._fresh_price(
+            product_id, spec.budget.currency if spec and spec.budget else None
+        )
+        if fresh is not None:
+            price = fresh
         if price is None:
             catalog = await self.session.scalars(
                 select(ProductSpecification).where(ProductSpecification.product_id == product_id)
@@ -518,6 +526,38 @@ class AgentService:
         return run
 
     # ---------------------------------------------------------------- helpers
+    async def _fresh_price(self, product_id: uuid.UUID, currency: str | None) -> Price | None:
+        """Cheapest in-stock snapshot per retailer's latest observation, within the max age."""
+        since = datetime.now(UTC) - timedelta(days=self.settings.price_max_age_days)
+        latest = (
+            select(PriceSnapshot)
+            .where(
+                PriceSnapshot.product_id == product_id,
+                PriceSnapshot.observed_at >= since,
+                PriceSnapshot.currency == (currency or "USD"),
+            )
+            .ext(distinct_on(PriceSnapshot.retailer))
+            .order_by(PriceSnapshot.retailer, PriceSnapshot.observed_at.desc())
+            .subquery()
+        )
+        row = (
+            await self.session.execute(
+                select(latest)
+                .where(latest.c.in_stock.is_not(False))
+                .order_by(latest.c.amount, latest.c.retailer)
+                .limit(1)
+            )
+        ).first()
+        if row is None:
+            return None
+        return Price(
+            amount=row.amount,
+            currency=row.currency,
+            source="price_history",
+            retailer=row.retailer,
+            observed_at=row.observed_at,
+        )
+
     async def latest_run(
         self,
         workspace_id: uuid.UUID,

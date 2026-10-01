@@ -1,0 +1,17 @@
+{
+  "benchmark": "price_history_query",
+  "dataset": "synthetic: 50000 snapshots over 21 products, 365 days",
+  "target_rows": 2381,
+  "runs": 20,
+  "with_index": {
+    "median_ms": 8.07,
+    "p95_ms": 27.11
+  },
+  "without_index": {
+    "median_ms": 7.88,
+    "p95_ms": 8.92
+  },
+  "commit": "1ab286b",
+  "python": "3.12.14",
+  "machine": "arm64"
+}

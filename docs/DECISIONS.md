@@ -443,3 +443,16 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   abstention rate becomes a measurable quality signal (Phase 27). The extractive
   engine misses paraphrases ("fast charge" vs "10 minute charge"); the measured
   held-out accuracy reflects that.
+
+## ADR-037: Price history as global, idempotent snapshots; aggregation in SQL
+
+- **Status:** Accepted (Phase 18)
+- **Decision:** Prices are public facts, so snapshots belong to the catalog
+  product, not a workspace. Each observation is unique per (product, retailer,
+  currency, observed_at), and inserts use ON CONFLICT DO NOTHING, so re-sending a
+  batch is safe. Bucketing (date_trunc + min/max per retailer) runs in PostgreSQL;
+  statistics are computed in Python with Decimals. Currencies are never converted.
+- **Consequences:** The Value Agent can use dated, retailer-attributed prices.
+  The benchmark showed the original slowness came from application code (an
+  O(n²) loop), not the database, and that the composite index doesn't help yet
+  at tens of thousands of rows. It's kept for larger histories.

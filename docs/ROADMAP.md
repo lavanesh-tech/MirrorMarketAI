@@ -232,3 +232,11 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] LLM engine with `answerable` flag; every sentence citation-validated, unsupported ones dropped; abstain if none remain
 - [x] QA benchmark with tuning and held-out sets (`benchmarks/qa_extractive.py`)
 - [x] Verified on the developer Mac and CI green (run 36806831760, commit d66ecc2)
+
+## Phase 18 exit criteria
+
+- [x] `price_snapshots` (migration `0010`): NUMERIC amounts, ISO currency, constraints, idempotent unique key
+- [x] Batch recording (ON CONFLICT DO NOTHING) and bucketed history (date_trunc in SQL) with statistics
+- [x] Value Agent prefers fresh in-stock snapshots in the budget currency (`PRICE_MAX_AGE_DAYS`)
+- [x] DB benchmark with/without the history index (`benchmarks/price_history_db.py`); O(n²) stats bug found and fixed
+- [ ] Verified on the developer Mac and CI green

@@ -150,6 +150,7 @@ Run `make help` for every command.
 | POST | `/api/v1/workspaces/{id}/compare` | Comparison matrix: weighted scores, hard constraints, sensitivity 🔒 |
 | POST | `/api/v1/workspaces/{id}/ask` | Ask MirrorMarket: grounded answer with enforced [E#] citations, or abstain 🔒 |
 | GET | `/api/v1/workspaces/{id}/agent-runs[/{run_id}]` | Agent run history with output and citation validation 🔒 |
+| POST/GET | `/api/v1/products/{id}/prices` | Record price observations (idempotent) / bucketed history + stats 🔒 |
 | POST | `/api/v1/workspaces/{id}/search` | Hybrid search (full-text + vector, RRF) over the workspace's evidence, with filters 🔒 |
 
 🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape

@@ -21,6 +21,7 @@ from app.models.identity import (
     User,
     WorkspaceMember,
 )
+from app.models.prices import PriceSnapshot
 from app.models.requirements import PurchaseRequirement, RequirementVersion
 from app.models.retrieval import ChunkEmbedding, DocumentChunk, EmbeddingJob
 from app.models.sources import ProductSource, SourceDocument, SourceSnapshot
@@ -36,6 +37,7 @@ __all__ = [
     "EvidencePack",
     "Organization",
     "OrganizationMember",
+    "PriceSnapshot",
     "Product",
     "ProductIdentifier",
     "ProductSource",

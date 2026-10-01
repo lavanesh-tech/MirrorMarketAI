@@ -133,6 +133,8 @@ class Settings(BaseSettings):
     orchestration_time_budget_seconds: float = Field(default=120.0, gt=0, le=900)
     orchestration_max_products: int = Field(default=10, ge=1, le=50)
     orchestration_token_budget: int = Field(default=50_000, ge=0)
+    # Price snapshots older than this are ignored by the Value Agent.
+    price_max_age_days: int = Field(default=30, ge=1, le=365)
 
     # --- Kafka (placeholders; introduced in Phase 21) ------------------------
     kafka_enabled: bool = False
