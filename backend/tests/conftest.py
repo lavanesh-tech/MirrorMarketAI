@@ -6,6 +6,9 @@ they never depend on a developer's local `.env` or shell environment.
 Redis is OFF by default (`redis_url=None`), so ordinary tests never share rate
 limit counters. Tests that need it use `redis_url`: TEST_REDIS_URL if set,
 otherwise a throwaway Testcontainers Redis; the database is flushed after each test.
+
+Kafka tests use `kafka_settings`: TEST_KAFKA_BOOTSTRAP (host:port) if set, otherwise
+a throwaway single-node KRaft broker from Testcontainers.
 """
 
 from __future__ import annotations
@@ -85,6 +88,36 @@ def redis_url(redis_server_url: str) -> Iterator[str]:
     yield redis_server_url
     with redis.Redis.from_url(redis_server_url) as sync_client:
         sync_client.flushdb()
+
+
+KAFKA_IMAGE = "confluentinc/cp-kafka:7.6.0"
+STARTUP_TIMEOUT_SECONDS = 180
+
+
+@pytest.fixture(scope="session")
+def kafka_bootstrap() -> Iterator[str]:
+    explicit = os.environ.get("TEST_KAFKA_BOOTSTRAP")
+    if explicit:
+        yield explicit
+        return
+
+    from testcontainers.community.kafka import KafkaContainer  # noqa: PLC0415
+
+    container = KafkaContainer(KAFKA_IMAGE).with_kraft()
+    container.start(timeout=STARTUP_TIMEOUT_SECONDS)
+    try:
+        yield container.get_bootstrap_server()
+    finally:
+        container.stop()
+
+
+@pytest.fixture
+def kafka_settings(make_settings: Callable[..., Settings], kafka_bootstrap: str) -> Settings:
+    return make_settings(
+        kafka_enabled=True,
+        kafka_bootstrap_servers=kafka_bootstrap,
+        kafka_consumer_backoff_seconds=0,
+    )
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
