@@ -44,8 +44,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | # | Phase | Status |
 | --- | --- | --- |
 | 19 | Redis: caching, rate limiting, idempotency, OAuth state | ✅ |
-| 20 | WebSockets: presence, comments, votes, realtime updates | 🔜 |
-| 21 | Kafka: outbox, workers, idempotent consumers, DLQ | ⬜ |
+| 20 | WebSockets: presence, comments, votes, realtime updates | ✅ |
+| 21 | Kafka: outbox, workers, idempotent consumers, DLQ | 🔜 |
 | 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | ⬜ |
 | 23 | OpenAPI, Postman collection, API documentation | ⬜ |
 
@@ -65,9 +65,9 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 28 | OpenTelemetry, Prometheus, Grafana | ⬜ |
 | 29 | Load and performance benchmarks (k6) | ⬜ |
 | 30 | Production Docker, CI/CD | ⬜ |
-| 31 | Terraform + AWS core deployment | ⬜ |
-| 32 | EKS (only if justified) | ⬜ |
-| 33 | Recruiter demo lifecycle: deploy, seed, smoke test, demo, benchmark, destroy, recreate | ⬜ |
+| 31 | Terraform for AWS (code + validate only; nothing is applied) | ⬜ |
+| 32 | EKS: dropped (no AWS deployment) | ➖ |
+| 33 | Recruiter demo lifecycle on local Docker Compose: start, seed, smoke test, demo, benchmark, destroy, recreate | ⬜ |
 | 34 | README, diagrams, screenshots, demo, benchmark report, resume evidence | ⬜ |
 | 35 | Full project walkthrough for interviews | ⬜ |
 
@@ -259,4 +259,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Cross-replica fan-out through Redis pub/sub with local fallback; presence in a Redis sorted set with TTL
 - [x] Events for comments, votes, agent runs and presence; tenant isolation tested; two-replica test
 - [x] Fan-out benchmark (`benchmarks/realtime_fanout.py`); protocol documented in `docs/REALTIME.md`
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36934271121, commit 02710f1)

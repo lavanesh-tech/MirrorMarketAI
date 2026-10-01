@@ -5,9 +5,10 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-19. Phase 20 (WebSockets) is built; waiting for Mac + CI.
+- Completed: 1-20.
 - Next: **21, Kafka (outbox, workers, idempotent consumers, DLQ).**
-- Last verified: Phase 19, CI run 36811623348, commit 7247b7f (2026-09-30).
+- Last verified: Phase 20, CI run 36934271121, commit 02710f1 (2026-10-01).
+- Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
 
@@ -76,7 +77,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 558 tests, 98% coverage (Phase 20, cloud workspace). Phase 19: 538 (Mac + CI). `make check` runs everything CI runs.
+- 558 tests, 98% coverage (Phase 20; Mac + CI). `make check` runs everything CI runs.
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
@@ -114,7 +115,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 - Realtime fan-out (cloud workspace, Redis 7.0, in-memory queues, no socket I/O): publish → queued for all connections,
   median 0.19 / 0.24 / 0.65 ms for rooms of 10 / 100 / 1000 through Redis pub/sub; 0.02 / 0.04 / 0.28 ms single-process.
-  Evidence: `backend/benchmarks/results/realtime_fanout.json` (re-run on the Mac).
+  Mac (arm64, Redis 7.4): 0.42 / 0.46 / 0.64 ms through Redis; 0.006 / 0.025 / 0.22 ms single-process. Evidence: `backend/benchmarks/results/realtime_fanout.json`.
 
 ## Known issues / limits
 
