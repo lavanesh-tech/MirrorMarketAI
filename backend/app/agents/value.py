@@ -25,7 +25,7 @@ from app.domain.citations import split_sentences
 from app.domain.requirements import Budget, Priority, RequirementSpec
 from app.models.catalog import Product, ProductSpecification
 
-PRICE_QUERY = "price cost USD MSRP"
+PRICE_QUERY = "price or prices or priced or costs or retails or msrp or sale"
 MUST_WEIGHT = 5
 CENT = Decimal("0.01")
 

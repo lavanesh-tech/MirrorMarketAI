@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-13.
-- Next: **14, the Risk Agent.**
+- Completed: 1-13. Phase 14 (Risk Agent) is built; waiting for Mac + CI.
+- Next: **15, Synthesis Agent, orchestration and bounded execution.**
 - Last verified: Phase 13, CI run 36802148225, commit b916de0 (2026-10-01).
 
 ## Working rules
@@ -41,6 +41,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Review agent: all visible REVIEW chunks of the product (`scoped_chunks`) → evidence pack (mode `scope`) → aspect/polarity per clause (lexicon + negation, or LLM labels that must quote their item verbatim) → counts, MIXED/POSITIVE/NEGATIVE, praises, complaints (≥2 negative mentions) computed in code; the summary has no digits, so the citation check passes.
 - Compatibility agent: owned devices (requirements `owned_devices`, or the request body) → capabilities mapped in code (USB-C, HDMI, iOS, ...; headphones also need Bluetooth/AAC) → product-filtered search per capability → SUPPORTED/NOT_SUPPORTED (negation scoped to the clause) or the catalog has_* fallback → verdict COMPATIBLE/INCOMPATIBLE/UNCERTAIN computed in code.
 - Value agent (rules only by design, no LLM): price from product-filtered evidence (sale over "was" price, EU thousands format; cents-quantized Decimal) or catalog `price` spec → budget fit (WITHIN/OVER/UNDER_MIN/NO_BUDGET/UNKNOWN_PRICE/CURRENCY_MISMATCH, no FX) → requirement fit from the latest research run at the same requirement version (MUST weight 5) → value index = fit / (price / budget max), plus price per unit.
+- Risk agent (rules only): an OR-style product search per category (warranty, returns, safety, reliability, repairability, support) → sentence patterns with negation → risks merged per (category, title); reliability is HIGH when 2+ items report it. It also adds risks from the latest research (MUST UNMET → HIGH, unverified → MEDIUM), compatibility (NOT_SUPPORTED → HIGH) and value (OVER → MEDIUM) runs at the same requirement version. Level = max severity; only cited evidence risks go into the summary.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0009)
@@ -58,12 +59,12 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - POST workspaces/{id}/search (hybrid|lexical|vector + filters)
 - workspaces/{id}/requirements: POST extract, PUT save, GET current, versions[/{n}], diff?from=&to=
 - workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
-- POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+); POST .../compatibility (optional body {owned_devices}); POST .../value
+- POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+); POST .../compatibility (optional body {owned_devices}); POST .../value; POST .../risk
 - POST workspaces/{id}/products/{pid}/research (MEMBER+); GET workspaces/{id}/agent-runs[/{run}] (?agent=&product_id=)
 
 ## Tests
 
-- 467 tests, 97% coverage (Phase 13; Mac + CI). `make check` runs everything CI runs.
+- 472 tests, 98% coverage (Phase 14, cloud workspace). Phase 13: 467 (Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
@@ -80,6 +81,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   held-out set written after tuning: 1.0 (8/8). Evidence: `backend/benchmarks/results/compatibility.json`.
 - Price extraction (synthetic, 14 labelled sentences): 0.8571 → 0.9286 after supporting EU thousands separators ("€1.299").
   Remaining miss: two products priced in one sentence. Evidence: `backend/benchmarks/results/price_extraction.json`.
+- Risk detection (synthetic, 22 labelled sentences incl. negated and benign ones, not tuned on): precision 1.0, recall 1.0.
+  The patterns and cases have the same author, so this isn't an independent evaluation. Evidence: `backend/benchmarks/results/risk_detection.json`.
 
 ## Known issues / limits
 
@@ -93,7 +96,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 ## Important commands
 
 ```bash
-cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && uv run python -m benchmarks.price_extraction && cd ..
+cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && uv run python -m benchmarks.price_extraction && uv run python -m benchmarks.risk_detection && cd ..
 make check
 make up
 make ps

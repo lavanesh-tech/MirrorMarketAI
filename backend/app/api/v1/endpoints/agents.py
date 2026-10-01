@@ -101,6 +101,27 @@ async def assess_value(
     return AgentRunResponse.model_validate(run)
 
 
+@router.post(
+    "/products/{product_id}/risk",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run the Risk Agent: warranty, returns, safety, reliability + other agents' flags",
+)
+async def assess_risk(
+    workspace_id: uuid.UUID,
+    product_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    llm: LLMDep,
+) -> AgentRunResponse:
+    run = await AgentService(session, settings, embedder, llm).assess_risk(
+        workspace_id, user, product_id
+    )
+    return AgentRunResponse.model_validate(run)
+
+
 @router.get("/agent-runs", response_model=AgentRunListResponse)
 async def list_agent_runs(
     workspace_id: uuid.UUID,

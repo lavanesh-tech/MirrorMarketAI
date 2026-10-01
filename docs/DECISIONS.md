@@ -385,3 +385,16 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   arithmetic. Accurate value scores need a research run first (Phase 15
   orchestration will sequence them). Prices are point-in-time evidence until
   Phase 18 adds price history.
+
+## ADR-033: Risks combine evidence with other agents' stored verdicts
+
+- **Status:** Accepted (Phase 14)
+- **Decision:** The Risk Agent doesn't recompute other agents' work. It reads the
+  latest successful research, compatibility and value runs for the same
+  requirement version and turns their failures into risks. Evidence risks come
+  from negation-aware sentence patterns. Severities are fixed in code (e.g. safety
+  is HIGH; reliability is HIGH when two or more evidence items report failures).
+  Full-text queries use `or` so any single term can match.
+- **Consequences:** Risk output is only as fresh as the runs it reads. Phase 15
+  orchestration runs the agents in dependency order: research, compatibility and
+  value before risk.

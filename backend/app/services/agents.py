@@ -22,6 +22,10 @@ from app.agents.product_research import (
     research_targets,
 )
 from app.agents.review_intelligence import aggregate, llm_mentions, rule_mentions
+from app.agents.risk import QUERIES as RISK_QUERIES
+from app.agents.risk import agent_risks
+from app.agents.risk import build_output as build_risk
+from app.agents.risk import evidence_hits as risk_evidence_hits
 from app.agents.value import PRICE_QUERY, Price, catalog_price, extract_price
 from app.agents.value import build_output as build_value
 from app.core.config import Settings
@@ -49,6 +53,7 @@ PRODUCT_RESEARCH = "product_research"
 REVIEW_INTELLIGENCE = "review_intelligence"
 COMPATIBILITY = "compatibility"
 VALUE = "value"
+RISK = "risk"
 RULES_ENGINE = "rules-v1"
 
 
@@ -365,17 +370,8 @@ class AgentService:
             )
             price = catalog_price(list(catalog))
 
-        research = await self.session.scalar(
-            select(AgentRun)
-            .where(
-                AgentRun.workspace_id == workspace_id,
-                AgentRun.product_id == product_id,
-                AgentRun.agent == PRODUCT_RESEARCH,
-                AgentRun.status == "SUCCEEDED",
-                AgentRun.requirement_version.is_not_distinct_from(requirement_version),
-            )
-            .order_by(AgentRun.created_at.desc(), AgentRun.id)
-            .limit(1)
+        research = await self._latest_run(
+            workspace_id, product_id, PRODUCT_RESEARCH, requirement_version
         )
         output = build_value(
             product,
@@ -400,7 +396,90 @@ class AgentService:
             started,
         )
 
+    async def assess_risk(
+        self, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
+    ) -> AgentRun:
+        started = time.perf_counter()
+        product = await self._workspace_product(workspace_id, user, product_id)
+        spec, requirement_version = await self._current_spec(workspace_id)
+        search = SearchService(self.session, self.embedder)
+        ordered: dict[uuid.UUID, SearchHit] = {}
+        embedding_model: str | None = None
+        degraded = False
+        for query in RISK_QUERIES.values():
+            result = await search.search(
+                workspace_id,
+                user,
+                query,
+                mode="hybrid",
+                limit=self.settings.agent_evidence_per_criterion,
+                filters=SearchFilters(product_ids=[product_id]),
+            )
+            embedding_model = embedding_model or result.model
+            degraded = degraded or result.degraded
+            for hit in result.hits:
+                ordered.setdefault(hit.chunk.id, hit)
+        pack = None
+        if ordered:
+            pack = await EvidenceService(self.session, self.embedder).freeze(
+                workspace_id,
+                user,
+                f"{RISK}: {product.brand} {product.name}",
+                mode="hybrid",
+                hits=list(ordered.values()),
+                embedding_model=embedding_model,
+                degraded=degraded,
+            )
+        evidence = {i: hit.chunk.text for i, hit in enumerate(ordered.values(), start=1)}
+
+        runs = {
+            agent: await self._latest_run(workspace_id, product_id, agent, requirement_version)
+            for agent in (PRODUCT_RESEARCH, COMPATIBILITY, VALUE)
+        }
+        others = agent_risks(
+            spec,
+            *(run.output if run else None for run in runs.values()),
+        )
+        output = build_risk(product, risk_evidence_hits(evidence), others)
+        return await self._record(
+            workspace_id,
+            user,
+            RISK,
+            product_id,
+            pack.id if pack else None,
+            requirement_version,
+            AgentResult(
+                output=output,
+                validation=validate_citations(output.summary, evidence),
+                engine=RULES_ENGINE,
+                degraded=degraded,
+            ),
+            started,
+        )
+
     # ---------------------------------------------------------------- helpers
+    async def _latest_run(
+        self,
+        workspace_id: uuid.UUID,
+        product_id: uuid.UUID,
+        agent: str,
+        requirement_version: int | None,
+    ) -> AgentRun | None:
+        """Most recent successful run of `agent` against the same requirement version."""
+        run: AgentRun | None = await self.session.scalar(
+            select(AgentRun)
+            .where(
+                AgentRun.workspace_id == workspace_id,
+                AgentRun.product_id == product_id,
+                AgentRun.agent == agent,
+                AgentRun.status == "SUCCEEDED",
+                AgentRun.requirement_version.is_not_distinct_from(requirement_version),
+            )
+            .order_by(AgentRun.created_at.desc(), AgentRun.id)
+            .limit(1)
+        )
+        return run
+
     async def _workspace_product(
         self, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
     ) -> Product:

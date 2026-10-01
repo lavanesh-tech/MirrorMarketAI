@@ -197,3 +197,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `POST /workspaces/{id}/products/{pid}/value`
 - [x] Price extraction benchmark (`benchmarks/price_extraction.py`)
 - [x] Verified on the developer Mac and CI green (run 36802148225, commit b916de0)
+
+## Phase 14 exit criteria
+
+- [x] Risk Agent: warranty length, returns, safety and recalls, reliability, repairability, software support (negation-aware)
+- [x] Cross-agent risks from the latest research, compatibility and value runs at the same requirement version
+- [x] Severity and level computed in code; cited summary of evidence risks
+- [x] `POST /workspaces/{id}/products/{pid}/risk`; Value Agent price query made OR-style (was missing prices)
+- [x] Risk detection benchmark (`benchmarks/risk_detection.py`)
+- [ ] Verified on the developer Mac and CI green

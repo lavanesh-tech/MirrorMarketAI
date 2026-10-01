@@ -144,6 +144,7 @@ Run `make help` for every command.
 | POST | `/api/v1/workspaces/{id}/products/{product_id}/reviews/analyze` | Review Intelligence Agent: aspect sentiment, praises, complaints (cited) 🔒 |
 | POST | `/api/v1/workspaces/{id}/products/{product_id}/compatibility` | Compatibility Agent: owned devices → capabilities → cited verdict 🔒 |
 | POST | `/api/v1/workspaces/{id}/products/{product_id}/value` | Value Agent: cited price, budget fit, requirement fit, value index 🔒 |
+| POST | `/api/v1/workspaces/{id}/products/{product_id}/risk` | Risk Agent: warranty/returns/safety/reliability + flags from other agents 🔒 |
 | GET | `/api/v1/workspaces/{id}/agent-runs[/{run_id}]` | Agent run history with output and citation validation 🔒 |
 | POST | `/api/v1/workspaces/{id}/search` | Hybrid search (full-text + vector, RRF) over the workspace's evidence, with filters 🔒 |
 
