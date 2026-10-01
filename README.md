@@ -32,6 +32,7 @@ every factual claim cites its source. Collaborators see the research happen live
 | Cache / coordination | Redis 7: GCRA rate limits, price cache, Idempotency-Key replay, one-time tokens (fail open) |
 | Events | Kafka (KRaft): transactional outbox, idempotent consumers, dead-letter topic; see `docs/EVENTS.md` |
 | AI | OpenAI chat + embeddings, LangChain where it helps |
+| API docs | OpenAPI 3.1, endpoint index and Postman collection generated from code and drift-tested; see `docs/API.md` |
 | Security | Rotating refresh tokens, append-only audit log, prompt-injection and upload defences, authorization matrix test; see `docs/SECURITY.md` |
 | Realtime | WebSockets (push-only events, Redis pub/sub fan-out, presence); see `docs/REALTIME.md` |
 | Frontend | Next.js, React, TypeScript |

@@ -527,3 +527,19 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   is already loaded). A stolen refresh token is usable at most once before the
   session dies. Detection heuristics miss paraphrased attacks (measured), which is
   why they are only one of four layers.
+
+## ADR-042: API documentation is generated from code and tested for drift
+
+- **Status:** Accepted (Phase 23)
+- **Decision:** The OpenAPI document comes from the FastAPI routes plus one module
+  that adds the API-wide conventions (error envelope, common errors, idempotency
+  and request-id headers). The committed contract, the endpoint index and the
+  Postman collection are generated from it by `tools/api_docs.py`. Tests fail when
+  the committed files are stale, when an operation lacks a summary/tag/stable id,
+  when an example body violates its schema, or when the collection's example
+  journey stops working against the real API.
+- **Alternatives rejected:** hand-written reference docs or a hand-maintained
+  Postman collection (they drift); publishing only the live `/openapi.json` (no
+  reviewable diff of API changes in pull requests).
+- **Consequences:** Every API change shows up as a diff of `docs/api/openapi.json`
+  and needs `make api-docs`. Operation ids are now part of the public contract.

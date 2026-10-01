@@ -1,0 +1,2374 @@
+{
+  "auth": {
+    "bearer": [
+      {
+        "key": "token",
+        "type": "string",
+        "value": "{{access_token}}"
+      }
+    ],
+    "type": "bearer"
+  },
+  "info": {
+    "_postman_id": "7eabe7c2-de2a-5edb-a747-5fb2d8812003",
+    "description": "Generated from the OpenAPI document; do not edit by hand.\n\nRun `auth > Create an account`, then `auth > Exchange email + password for an access token`. Tokens and ids of things you create are stored in collection variables and used by the requests that follow.",
+    "name": "MirrorMarket AI",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "description": "Liveness and readiness probes (no authentication).",
+      "item": [
+        {
+          "id": "907a668b-33ff-5967-a2be-de945527add3",
+          "name": "Liveness probe",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Returns 200 while the API process is running. Does not check dependencies.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "health"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/health"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "55328fc3-2290-5bb8-9dbc-e20935817960",
+          "name": "Readiness probe",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Returns 200 only when PostgreSQL is reachable and its schema is at the migration revision this build expects; otherwise 503. Redis is reported (required=false) but does not affect readiness: its features fail open. Load balancers should route traffic only to ready instances.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ready"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/ready"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "health"
+    },
+    {
+      "description": "Accounts, sessions (access + refresh tokens), own audit trail.",
+      "item": [
+        {
+          "id": "e725583e-f320-586e-9c8f-a8ee69a0e8a1",
+          "name": "Create an account",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"email\": \"demo@example.com\",\n  \"password\": \"correct-horse-battery-staple\",\n  \"display_name\": \"Demo User\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/auth/register"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set(\"access_token\", data.access_token);",
+                  "    pm.collectionVariables.set(\"refresh_token\", data.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "fb89eb49-4164-5ba1-b30d-f330d61f74cb",
+          "name": "Exchange email + password for an access token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"email\": \"demo@example.com\",\n  \"password\": \"correct-horse-battery-staple\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/auth/login"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set(\"access_token\", data.access_token);",
+                  "    pm.collectionVariables.set(\"refresh_token\", data.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "db47be01-f3d0-5f75-84a9-4e5bd6821647",
+          "name": "Exchange a refresh token for a new access + refresh token (rotation)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "description": "The presented refresh token becomes invalid. Presenting it again revokes the whole session (stolen-token detection).",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/auth/refresh"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "e17c5ba1-241b-5f2d-94d8-c85d1497917c",
+          "name": "End this session (revokes its refresh tokens)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/auth/logout"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "092d1c66-1436-5037-a8e7-14a2075c330f",
+          "name": "End every session on every device (access tokens stop working too)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout-all"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/auth/logout-all"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set(\"access_token\", data.access_token);",
+                  "    pm.collectionVariables.set(\"refresh_token\", data.refresh_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "98c4f393-795a-55d4-b611-69258d61483c",
+          "name": "Change the password; all other sessions are ended and a new one is returned",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"current_password\": \"correct-horse-battery-staple\",\n  \"new_password\": \"a-brand-new-passphrase\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "change-password"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/auth/change-password"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "88a758b0-e74d-5fdc-9fe5-62cc418f668f",
+          "name": "Your own security events, newest first",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/auth/audit-logs"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "418220b7-2df0-5314-ac82-c9831715b115",
+          "name": "The authenticated user",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/auth/me"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "auth"
+    },
+    {
+      "description": "Comparison workspaces, members, workspace audit trail.",
+      "item": [
+        {
+          "id": "168d4da2-55d0-5157-9a3d-776eaea49689",
+          "name": "Workspaces you are a member of",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"workspace_id\", pm.response.json().id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "295bfa50-2f2c-50d0-9550-b42f0d895e35",
+          "name": "Create Workspace",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"name\": \"example\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5291c5d8-e58d-5939-ba85-31f9d52d1889",
+          "name": "Get Workspace",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "efdf8617-fd1b-555d-bbec-0179bffe907d",
+          "name": "Update workspace details (OWNER or EDITOR)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "description": "",
+            "header": [],
+            "method": "PATCH",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "591f23c6-c4f9-5776-a7cc-28205c5111ec",
+          "name": "List Members",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "members"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/members"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "2ff3a0c2-cf11-5c59-9ffc-68fdf25f4b2c",
+          "name": "Security-relevant events in this workspace, newest first (OWNER only)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/audit-logs"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "workspaces"
+    },
+    {
+      "description": "Products being compared in a workspace.",
+      "item": [
+        {
+          "id": "df2d66e8-699c-56b0-b7ae-e944818d79f1",
+          "name": "List Products",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "8d59860a-b201-5c4a-89ab-29fd6da4ccc1",
+          "name": "Add a catalog product to the workspace (OWNER or EDITOR)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"product_id\": \"{{product_id}}\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5ef8c4de-d4bc-51bd-9d4b-aec82497977a",
+          "name": "Remove a product from the workspace (OWNER or EDITOR)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "workspace products"
+    },
+    {
+      "description": "Global product catalog: variants, identifiers, specs.",
+      "item": [
+        {
+          "id": "282ef1b7-b40f-503c-a55c-5c41c3ae9822",
+          "name": "Search the catalog",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "q",
+                  "value": "example"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "category",
+                  "value": "laptop"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/products"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"product_id\", pm.response.json().id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "0a1e912a-4e46-511d-9834-6a171c6f1111",
+          "name": "Create Product",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"brand\": \"Acme\",\n  \"name\": \"example\",\n  \"category\": \"laptop\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "3360e8f4-bae0-559c-a403-a570f02e9873",
+          "name": "Find a product by GTIN/UPC/EAN, MPN, ASIN or SKU",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "by-identifier"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": false,
+                  "key": "scheme",
+                  "value": "GTIN"
+                },
+                {
+                  "description": "",
+                  "disabled": false,
+                  "key": "value",
+                  "value": "example"
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/products/by-identifier"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "92c77292-9754-555e-825a-57a400dea705",
+          "name": "Get Product",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ef55d6d6-707e-5d16-a39d-fe0d9b01751c",
+          "name": "Add Variant",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"name\": \"example\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "variants"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/variants"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "6b50633b-06db-5ec4-ac05-3b8e54746f1a",
+          "name": "Add Identifier",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"scheme\": \"GTIN\",\n  \"value\": \"example\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "identifiers"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/identifiers"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ed55a51d-ecb0-5f55-b726-8ab4e05dd340",
+          "name": "Insert or replace specification values (all-or-nothing)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"specifications\": [\n    {\n      \"key\": \"example\"\n    }\n  ]\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "specifications"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/specifications"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "products"
+    },
+    {
+      "description": "Price observations and bucketed price history.",
+      "item": [
+        {
+          "id": "e96283c4-9773-5b00-b988-4b990a5aff18",
+          "name": "Price history (bucketed per retailer) and statistics",
+          "request": {
+            "description": "Cached in Redis for PRICE_CACHE_TTL_SECONDS; recording new prices invalidates it. `X-Cache: HIT|MISS` tells which.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "prices"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "currency",
+                  "value": "USD"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "bucket",
+                  "value": "day"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "since",
+                  "value": "2026-01-15T12:00:00Z"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "until",
+                  "value": "2026-01-15T12:00:00Z"
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/prices"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "8ed7333a-cbd4-538e-ad1c-695912031cc3",
+          "name": "Record price observations (idempotent per retailer/currency/timestamp)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"observations\": [\n    {\n      \"retailer\": \"Example Store\",\n      \"amount\": \"1299.00\",\n      \"currency\": \"USD\",\n      \"observed_at\": \"2026-01-15T12:00:00Z\"\n    }\n  ]\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "prices"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/prices"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "prices"
+    },
+    {
+      "description": "Evidence sources: safe URL ingestion and uploads.",
+      "item": [
+        {
+          "id": "020ec0de-e7dc-57f7-bf88-de75a9a3b32e",
+          "name": "Shared sources plus sources from your workspaces",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "sources"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/sources"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"source_id\", pm.response.json().id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "ac39b1fb-50f1-512e-906b-a4f3da7aab44",
+          "name": "Register a source (URL or placeholder) for a product",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"source_type\": \"MANUFACTURER_PAGE\",\n  \"title\": \"example\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "sources"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/sources"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "229746ca-5964-56f0-af4d-72e8838f1957",
+          "name": "Upload a PDF, HTML, Markdown or text document as a source",
+          "request": {
+            "body": {
+              "formdata": [
+                {
+                  "key": "file",
+                  "src": "",
+                  "type": "file"
+                },
+                {
+                  "disabled": true,
+                  "key": "source_type",
+                  "type": "text",
+                  "value": "MANUFACTURER_PAGE"
+                },
+                {
+                  "disabled": true,
+                  "key": "title",
+                  "type": "text",
+                  "value": "example"
+                },
+                {
+                  "disabled": true,
+                  "key": "workspace_id",
+                  "type": "text",
+                  "value": "{{workspace_id}}"
+                }
+              ],
+              "mode": "formdata"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "sources",
+                "upload"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/sources/upload"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "cd3a1b3a-ac8c-5696-b95b-c18daa4df431",
+          "name": "Fetch the source URL safely, snapshot it and extract text",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sources",
+                "{{source_id}}",
+                "ingest"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/sources/{{source_id}}/ingest"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "218f05f8-2b4e-5d27-836d-247a121d906c",
+          "name": "Get Source",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sources",
+                "{{source_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/sources/{{source_id}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "c6dc5a8f-3b88-58ad-b80a-1239daee1eb8",
+          "name": "Get Document",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sources",
+                "{{source_id}}",
+                "document"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/sources/{{source_id}}/document"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "sources"
+    },
+    {
+      "description": "Chunking and embedding jobs for ingested documents.",
+      "item": [
+        {
+          "id": "a0a47510-5689-5f89-9b7f-0f1c25d33809",
+          "name": "Chunk and embed the source's latest document now (idempotent)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sources",
+                "{{source_id}}",
+                "embed"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/sources/{{source_id}}/embed"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "985fefc4-de4f-5768-b4fe-94b5c64eeeb4",
+          "name": "List Chunks",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sources",
+                "{{source_id}}",
+                "chunks"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/sources/{{source_id}}/chunks"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "68c1c243-c756-574d-8886-ef57dae27852",
+          "name": "Get Embedding Job",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "embedding-jobs",
+                "{{job_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/embedding-jobs/{{job_id}}"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "embeddings"
+    },
+    {
+      "description": "Hybrid (lexical + vector) search over workspace evidence.",
+      "item": [
+        {
+          "id": "9cbe1b64-f0cf-5a59-81bd-5b3d3c1569f2",
+          "name": "Hybrid (full-text + vector, RRF) search over the workspace's sources",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"query\": \"battery life\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "search"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/search"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "search"
+    },
+    {
+      "description": "Purchase requirements with immutable versions.",
+      "item": [
+        {
+          "id": "aebf8a65-7817-5b16-aeb8-665e139c2597",
+          "name": "Preview the structured spec for a free-text brief (nothing is saved)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"text\": \"I need a laptop under $1500 with at least 16 GB RAM and a 14 inch screen.\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "requirements",
+                "extract"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/requirements/extract"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "337dceaf-9262-52e6-8c53-f0eb8b4ca725",
+          "name": "Current requirements",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "requirements"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/requirements"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "f1230717-3ffc-5d93-831b-a321fdb57842",
+          "name": "Save a new requirements version (optimistic locking via expected_version)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"expected_version\": 0,\n  \"text\": \"I need a laptop under $1500 with at least 16 GB RAM and a 14 inch screen.\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "requirements"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/requirements"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "7d5cffe9-27fd-590a-9ad8-aa5daeaf0d01",
+          "name": "List Requirement Versions",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "requirements",
+                "versions"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/requirements/versions"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "55328940-6840-5bdc-8a40-168a7ca01a26",
+          "name": "Get Requirement Version",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "requirements",
+                "versions",
+                "{{version}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/requirements/versions/{{version}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "ab49bda7-334c-5f87-98c6-c7da7c9c3d1a",
+          "name": "What changed between two versions",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "requirements",
+                "diff"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": false,
+                  "key": "from",
+                  "value": "1"
+                },
+                {
+                  "description": "",
+                  "disabled": false,
+                  "key": "to",
+                  "value": "1"
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/requirements/diff"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "requirements"
+    },
+    {
+      "description": "Evidence packs and citation validation.",
+      "item": [
+        {
+          "id": "1dcf1b2a-8609-5fa7-8f28-64b401243534",
+          "name": "List Evidence Packs",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "evidence-packs"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/evidence-packs"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"pack_id\", pm.response.json().id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "251dda78-d107-5486-b51e-ebfa2303b5ba",
+          "name": "Search and freeze the results as citable evidence (E1..En)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"query\": \"battery life\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "evidence-packs"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/evidence-packs"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "e712728a-fd69-5cf6-a34d-a66b7edce601",
+          "name": "Get Evidence Pack",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "evidence-packs",
+                "{{pack_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/evidence-packs/{{pack_id}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "6d2cc17b-042a-51da-b170-bedd0d944fe6",
+          "name": "Check that text cites this pack correctly ([E1] markers, numbers, quotes)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"text\": \"I need a laptop under $1500 with at least 16 GB RAM and a 14 inch screen.\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "evidence-packs",
+                "{{pack_id}}",
+                "validate"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/evidence-packs/{{pack_id}}/validate"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "evidence"
+    },
+    {
+      "description": "Agent runs: research, reviews, compatibility, value, risk, synthesis, orchestration, comparison and Ask.",
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"run_id\", pm.response.json().id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "4e157c3c-bec9-5488-9f70-24adde50d574",
+          "name": "Run the Product Research Agent for a workspace product (cited facts)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}",
+                "research"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}/research"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5a09db3b-31fc-5370-bf31-cefea2e6187c",
+          "name": "Run the Review Intelligence Agent (aspect sentiment over REVIEW sources)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}",
+                "reviews",
+                "analyze"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}/reviews/analyze"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "bad82b5f-0f3c-53cf-894e-cc8bd3fbaa3d",
+          "name": "Run the Compatibility Agent against owned devices (request or requirements)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}",
+                "compatibility"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}/compatibility"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "0ecac225-1ef6-5b2d-a354-15c275d6418c",
+          "name": "Run the Value Agent: price, budget fit, requirement fit, value index",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}",
+                "value"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}/value"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5b45a6c9-06ed-544e-a4b2-441ff34bcbad",
+          "name": "Run the Risk Agent: warranty, returns, safety, reliability + other agents' flags",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}",
+                "risk"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}/risk"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "80db9168-6f37-588d-8c79-9e0c7f105001",
+          "name": "Synthesis Agent: one verdict from the latest runs (no agents are re-run)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}",
+                "synthesize"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}/synthesize"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "0f0bd946-829a-589b-a82d-2118334caea0",
+          "name": "Run all agents for the workspace's products (bounded) and rank them",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "analyze"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/analyze"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "f93c6f95-a783-55fb-aae5-346829b2106e",
+          "name": "Comparison matrix: weighted scores, hard constraints, sensitivity",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "compare"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/compare"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "41afb03a-749e-5c51-9eed-3038c74c9756",
+          "name": "Ask MirrorMarket: grounded answer with enforced [E#] citations (or abstain)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"question\": \"How long does the battery last?\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "ask"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/ask"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5ea5018a-08f5-5ba1-bbaf-fbf71e0fa578",
+          "name": "List Agent Runs",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "agent-runs"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "agent",
+                  "value": "example"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "product_id",
+                  "value": "{{product_id}}"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/agent-runs"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "57039ade-bb11-5691-aaff-4b191637a241",
+          "name": "Get Agent Run",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "agent-runs",
+                "{{run_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/agent-runs/{{run_id}}"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "agents"
+    },
+    {
+      "description": "Comments, votes, presence and the activity feed.",
+      "item": [
+        {
+          "id": "6e71e854-2b4d-5b28-927b-0789594ad390",
+          "name": "Comments, oldest first (deleted ones are kept as placeholders)",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "comments"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "product_id",
+                  "value": "{{product_id}}"
+                },
+                {
+                  "description": "Only comments that are not about a product",
+                  "disabled": true,
+                  "key": "workspace_level_only",
+                  "value": ""
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/comments"
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"comment_id\", pm.response.json().id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "f7c69f72-4641-5078-8601-1c6778fa3ece",
+          "name": "Comment on the workspace or on one of its products (MEMBER+)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"body\": \"The battery life looks better on this one.\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "comments"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/comments"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "5ec5a384-705e-5b84-84d8-92f821bbddb4",
+          "name": "Edit your own comment",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"body\": \"The battery life looks better on this one.\"\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "PATCH",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "comments",
+                "{{comment_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/comments/{{comment_id}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "f0d20177-ad26-5f6f-861c-de85ada0a08d",
+          "name": "Delete a comment (author or workspace OWNER); the text is erased",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "comments",
+                "{{comment_id}}"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/comments/{{comment_id}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "4d45d116-18aa-55e7-b943-6646271ea333",
+          "name": "Vote a workspace product up (1) or down (-1), or remove your vote (0) (MEMBER+)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"value\": -1\n}"
+            },
+            "description": "",
+            "header": [],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "products",
+                "{{product_id}}",
+                "vote"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/products/{{product_id}}/vote"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "6ebbd64a-a064-5831-8bb9-dfdaecc58f6b",
+          "name": "Vote totals per product + my vote",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "votes"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/votes"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "d793e03f-826b-583d-b630-fb5da580de41",
+          "name": "Members currently connected",
+          "request": {
+            "description": "",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "presence"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/presence"
+            }
+          },
+          "response": []
+        },
+        {
+          "id": "f5e15dc0-5726-5338-ae54-7015d48aaec2",
+          "name": "Activity feed, newest first (built from events by a Kafka consumer)",
+          "request": {
+            "description": "Eventually consistent: an entry appears once the event worker has processed the event, normally within a second or two. Empty when no worker runs.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "activity"
+              ],
+              "query": [
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "offset",
+                  "value": ""
+                }
+              ],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/activity"
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "collaboration"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "workspace_id",
+      "value": ""
+    },
+    {
+      "key": "product_id",
+      "value": ""
+    },
+    {
+      "key": "source_id",
+      "value": ""
+    },
+    {
+      "key": "job_id",
+      "value": ""
+    },
+    {
+      "key": "version",
+      "value": ""
+    },
+    {
+      "key": "pack_id",
+      "value": ""
+    },
+    {
+      "key": "run_id",
+      "value": ""
+    },
+    {
+      "key": "comment_id",
+      "value": ""
+    }
+  ]
+}

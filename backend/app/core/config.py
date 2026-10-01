@@ -92,6 +92,8 @@ class Settings(BaseSettings):
 
     # --- HTTP hardening -----------------------------------------------------------
     security_headers_enabled: bool = True
+    # Swagger UI and /openapi.json. Turn off where the API contract should not be public.
+    docs_enabled: bool = True
     hsts_max_age_seconds: int = Field(default=31_536_000, ge=0)
     # Larger bodies are rejected with 413 before they reach a handler.
     max_request_body_bytes: int = Field(default=6 * 1024 * 1024, ge=1_024, le=64 * 1024 * 1024)

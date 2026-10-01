@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-22.
-- Next: **23, OpenAPI, Postman collection, API documentation.**
+- Completed: 1-22. Phase 23 (API documentation) is built; waiting for Mac + CI.
+- Next: **24, Next.js / React / TypeScript foundation.**
 - Last verified: Phase 22, CI run 36942149562, commit fe33016 (2026-10-01).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -52,6 +52,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Realtime (`app/realtime`, `docs/REALTIME.md`): push-only WebSocket per workspace, JWT in the first message, membership check with a short DB session, closes on token expiry. Hub with bounded per-socket queues (slow consumer → 1013), limits on connections/size/rate/idle, origin allow-list. EventBus → Redis pub/sub `mm:rt:<ws>` with local fallback; presence in a TTL'd Redis sorted set. Comments (one-level replies, soft delete) and votes (upsert) are REST writes that publish events; agent runs publish `agent_run.completed`.
 - Events (`app/events`, `docs/EVENTS.md`): transactional outbox (`new_event()` added in the same transaction as comments, votes, agent runs, prices) → relay (SKIP LOCKED, in order, backoff, give-up, purge) → Kafka topic `mirrormarket.events.v1` keyed by workspace/product (aiokafka, acks=all, idempotent producer) → idempotent consumer (inbox `processed_events` in the handler's transaction, manual offset commit, retries, `.dlq` topic, rewind on failure) → `workspace_activity` read model. Broker ports with an in-memory implementation for tests. Worker: `python -m app.workers.event_worker`.
 - Security (`docs/SECURITY.md`): opaque refresh tokens (SHA-256 at rest, rotated on every use, re-use revokes the family, absolute session cap); logout / logout-all / change-password; `users.token_version` in the JWT `ver` claim for instant access-token revocation; `JWT_PREVIOUS_SECRET_KEY` for key rotation. Append-only `audit_logs` (trigger, no FKs) written in the action's transaction. Prompt safety (`app/security/prompt_safety.py`): `render_evidence` neutralises items and withholds instruction-like sentences from the LLM. Upload checks (`app/security/files.py`). Security headers + body-limit middleware (`app/core/http_hardening.py`). `tests/db/test_authz_matrix.py` checks every OpenAPI route.
+- API docs (`docs/API.md`, `docs/api/`): `app/core/openapi.py` finishes the OpenAPI 3.1 document (function-name operation ids, `ErrorResponse` on every error, common 401/403/404/413/422, `Idempotency-Key`, `X-Request-ID`). `tools/api_docs.py` (`make api-docs`) generates `openapi.json`, `ENDPOINTS.md` and the Postman collection; tests fail on drift, validate example bodies against schemas and run the collection journey against the API. After any API change: `make api-docs` and commit.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0013)
@@ -79,7 +80,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 665 tests, 97% coverage (Phase 22; Mac + CI). `make check` runs everything CI runs.
+- 677 tests (Phase 23): 675 pass in the cloud workspace; the 2 real-Kafka tests need Docker (Mac + CI). Phase 22: 665 (Mac + CI).
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
@@ -155,6 +156,7 @@ make check
 make up
 make ps
 make down
+make api-docs
 make migration m="msg"
 make migrate
 ```

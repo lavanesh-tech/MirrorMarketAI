@@ -280,3 +280,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Upload hardening (executables, archives, active PDFs, filename sanitising, text cap); security headers; request body limit
 - [x] Authorization matrix test generated from the OpenAPI schema (auth required everywhere, no workspace leaks)
 - [x] Verified on the developer Mac and CI green (run 36942149562, commit fe33016)
+
+## Phase 23 exit criteria
+
+- [x] OpenAPI 3.1 document finished in code: stable operation ids, one error schema everywhere, common errors, `Idempotency-Key` and `X-Request-ID`, tag descriptions; validated by a spec validator
+- [x] Generated and committed: `docs/api/openapi.json`, `ENDPOINTS.md`, Postman collection and environment (`make api-docs`)
+- [x] Drift test: committed artefacts must equal what the code generates
+- [x] Postman example bodies validate against the request schemas, and the collection's journey runs against the real API
+- [x] API guide (`docs/API.md`): quickstart, conventions, error table, versioning policy; `DOCS_ENABLED` switch
+- [ ] Verified on the developer Mac and CI green

@@ -139,6 +139,10 @@ health: ## Call the liveness endpoint
 ready: ## Call the readiness endpoint (checks database + migration state)
 	@curl -sS -i $(API_URL)/api/v1/ready; echo
 
+.PHONY: api-docs
+api-docs: ## Regenerate docs/api (OpenAPI, endpoint index, Postman collection) from the code
+	cd $(BACKEND) && $(UV) run python -m tools.api_docs
+
 .PHONY: smoke-events
 smoke-events: ## End-to-end check: comment -> outbox -> Kafka -> consumer -> activity feed
 	@python3 infrastructure/scripts/smoke_events.py $(API_URL)

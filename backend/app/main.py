@@ -24,6 +24,7 @@ from app.api.v1.router import api_router
 from app.coordination.cache import JsonCache
 from app.coordination.idempotency import IdempotencyMiddleware
 from app.coordination.rate_limit import RateLimiter
+from app.core import openapi
 from app.core.config import Environment, Settings, get_settings
 from app.core.database import Database
 from app.core.errors import register_exception_handlers
@@ -110,9 +111,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=__version__,
         debug=settings.debug,
         lifespan=lifespan,
-        openapi_url=f"{settings.api_v1_prefix}/openapi.json",
-        docs_url=f"{settings.api_v1_prefix}/docs",
+        openapi_url=f"{settings.api_v1_prefix}/openapi.json" if settings.docs_enabled else None,
+        docs_url=f"{settings.api_v1_prefix}/docs" if settings.docs_enabled else None,
         redoc_url=None,
+        generate_unique_id_function=openapi.operation_id,
     )
     app.state.settings = settings
 
@@ -154,4 +156,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+    openapi.install(app)
     return app
