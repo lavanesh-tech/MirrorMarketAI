@@ -29,6 +29,7 @@ from app.core.middleware import RequestContextMiddleware
 from app.ingestion.safe_fetch import SafeFetcher
 from app.providers.embeddings import create_embedding_provider
 from app.providers.extraction import create_requirement_extractor
+from app.providers.llm import OpenAIChatClient
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.embedder = embedder
     extractor = create_requirement_extractor(settings)
     app.state.extractor = extractor
+    llm = OpenAIChatClient(settings) if settings.agent_engine == "openai" else None
+    app.state.llm = llm
     logger.info(
         "application startup",
         extra={
@@ -62,6 +65,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        if llm is not None:
+            await llm.aclose()
         await extractor.aclose()
         await embedder.aclose()
         await fetcher.aclose()

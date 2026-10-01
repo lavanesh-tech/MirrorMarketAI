@@ -124,6 +124,11 @@ class Settings(BaseSettings):
     requirements_extractor: Literal["openai", "rules"] = "rules"
     requirements_max_text_chars: int = Field(default=4000, ge=200, le=20_000)
 
+    # --- Agents --------------------------------------------------------------------
+    # "rules" = deterministic offline agents; "openai" = OPENAI_CHAT_MODEL with citations.
+    agent_engine: Literal["openai", "rules"] = "rules"
+    agent_evidence_per_criterion: int = Field(default=3, ge=1, le=10)
+
     # --- Kafka (placeholders; introduced in Phase 21) ------------------------
     kafka_enabled: bool = False
     kafka_bootstrap_servers: str = "localhost:9092"
@@ -173,6 +178,8 @@ class Settings(BaseSettings):
             raise ValueError("embedding_provider=openai requires OPENAI_API_KEY")
         if self.requirements_extractor == "openai" and not self.openai_configured:
             raise ValueError("requirements_extractor=openai requires OPENAI_API_KEY")
+        if self.agent_engine == "openai" and not self.openai_configured:
+            raise ValueError("agent_engine=openai requires OPENAI_API_KEY")
         return self
 
     @model_validator(mode="after")

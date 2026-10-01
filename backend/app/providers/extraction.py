@@ -8,9 +8,6 @@ as user content and the system prompt tells the model to treat it as data.
 
 from __future__ import annotations
 
-import asyncio
-import json
-import logging
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -21,10 +18,7 @@ from app.core.config import Settings
 from app.domain.requirements import MAX_CRITERIA, Operator, Priority, RequirementSpec
 from app.extraction.rules import extract_requirements
 from app.models.catalog import PRODUCT_CATEGORIES
-
-logger = logging.getLogger(__name__)
-
-_RETRYABLE = {408, 409, 429, 500, 502, 503, 504}
+from app.providers.llm import LLMError, OpenAIChatClient
 
 
 class ExtractionError(RuntimeError):
@@ -152,69 +146,29 @@ class OpenAIRequirementExtractor:
     def __init__(
         self, settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None
     ) -> None:
-        if settings.openai_api_key is None or not settings.openai_configured:
-            raise ExtractionError("OPENAI_API_KEY is not configured")
-        self._model = settings.openai_chat_model
-        self._max_retries = settings.embedding_max_retries
-        self._client = httpx.AsyncClient(
-            base_url=settings.openai_base_url,
-            transport=transport,
-            timeout=httpx.Timeout(settings.openai_request_timeout_seconds),
-            headers={"Authorization": f"Bearer {settings.openai_api_key.get_secret_value()}"},
-        )
+        try:
+            self._llm = OpenAIChatClient(settings, transport=transport)
+        except LLMError as exc:
+            raise ExtractionError(str(exc)) from exc
 
     @property
     def name(self) -> str:
-        return f"openai:{self._model}"
+        return f"openai:{self._llm.model}"
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        await self._llm.aclose()
 
     async def extract(self, text: str) -> Extraction:
-        payload = {
-            "model": self._model,
-            "temperature": 0,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": text},
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": "requirements", "strict": True, "schema": RESPONSE_SCHEMA},
-            },
-        }
-        body = await self._post_with_retries(payload)
         try:
-            message = body["choices"][0]["message"]
-            if message.get("refusal"):
-                raise ExtractionError("model refused to extract requirements")
-            parsed = json.loads(message["content"])
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-            raise ExtractionError("unexpected response shape from chat API") from exc
-        if not isinstance(parsed, dict):
-            raise ExtractionError("model output is not a JSON object")
-        spec, unparsed = _to_spec(parsed)
-        tokens = int(body.get("usage", {}).get("total_tokens", 0))
-        return Extraction(spec=spec, extractor=self.name, unparsed=unparsed, tokens_used=tokens)
-
-    async def _post_with_retries(self, payload: dict[str, Any]) -> dict[str, Any]:
-        attempt = 0
-        while True:
-            try:
-                response = await self._client.post("/chat/completions", json=payload)
-            except httpx.TransportError as exc:
-                if attempt >= self._max_retries:
-                    raise ExtractionError(f"chat request failed: {type(exc).__name__}") from exc
-            else:
-                if response.status_code == httpx.codes.OK:
-                    result: dict[str, Any] = response.json()
-                    return result
-                if response.status_code not in _RETRYABLE or attempt >= self._max_retries:
-                    raise ExtractionError(f"chat API returned HTTP {response.status_code}")
-            attempt += 1
-            delay = min(8.0, 0.5 * 2**attempt)
-            logger.warning("extraction request retry", extra={"attempt": attempt, "delay_s": delay})
-            await asyncio.sleep(delay)
+            completion = await self._llm.complete_json(
+                system=SYSTEM_PROMPT, user=text, schema=RESPONSE_SCHEMA, name="requirements"
+            )
+        except LLMError as exc:
+            raise ExtractionError(str(exc)) from exc
+        spec, unparsed = _to_spec(completion.data)
+        return Extraction(
+            spec=spec, extractor=self.name, unparsed=unparsed, tokens_used=completion.tokens_used
+        )
 
 
 def create_requirement_extractor(settings: Settings) -> RequirementExtractor:

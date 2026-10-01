@@ -14,7 +14,7 @@ from app.models.evidence import EvidenceItem, EvidencePack
 from app.models.identity import User
 from app.models.requirements import PurchaseRequirement
 from app.providers.embeddings import EmbeddingProvider
-from app.services.search import SearchFilters, SearchMode, SearchService
+from app.services.search import SearchFilters, SearchHit, SearchMode, SearchService
 from app.services.workspaces import WorkspaceService
 
 
@@ -40,6 +40,28 @@ class EvidenceService:
         )
         if not result.hits:
             raise NoEvidenceFoundError
+        return await self.freeze(
+            workspace_id,
+            user,
+            query,
+            mode=mode,
+            hits=result.hits,
+            embedding_model=result.model,
+            degraded=result.degraded,
+        )
+
+    async def freeze(
+        self,
+        workspace_id: uuid.UUID,
+        user: User,
+        query: str,
+        *,
+        mode: str,
+        hits: list[SearchHit],
+        embedding_model: str | None,
+        degraded: bool,
+    ) -> EvidencePack:
+        """Persist hits (already authorized and ranked) as a pack with markers E1..En."""
         requirement_version = await self.session.scalar(
             select(PurchaseRequirement.current_version).where(
                 PurchaseRequirement.workspace_id == workspace_id,
@@ -49,11 +71,11 @@ class EvidenceService:
         pack = EvidencePack(
             workspace_id=workspace_id,
             created_by_id=user.id,
-            query=query,
+            query=query[:500],
             mode=mode,
-            embedding_model=result.model,
+            embedding_model=embedding_model,
             requirement_version=requirement_version,
-            degraded=result.degraded,
+            degraded=degraded,
             items=[
                 EvidenceItem(
                     position=position,
@@ -70,7 +92,7 @@ class EvidenceService:
                     source_type=hit.source.source_type,
                     score=hit.score,
                 )
-                for position, hit in enumerate(result.hits, start=1)
+                for position, hit in enumerate(hits, start=1)
             ],
         )
         self.session.add(pack)

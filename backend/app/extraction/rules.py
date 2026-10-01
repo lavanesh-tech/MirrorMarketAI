@@ -162,7 +162,7 @@ def _quantity_criteria(clause: str, sentence: str) -> list[Criterion]:
         if key in found:
             continue
         pattern = re.compile(
-            rf"(?:({_LOWER}|{_UPPER})\s*)?{_NUMBER}\s*(?:{unit_re})(?![a-z])"
+            rf"(?:({_LOWER}|{_UPPER})\s*)?{_NUMBER}\s*-?\s*(?:{unit_re})(?![a-z])"
             r"\s*(or more|\+|or less)?",
             re.I,
         )

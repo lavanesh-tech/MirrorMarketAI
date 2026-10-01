@@ -331,3 +331,16 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   Hallucinated figures behind real citations are caught without an LLM judge.
   The validator is lexical: paraphrased claims aren't semantically checked
   (Phase 27 evaluates that).
+
+## ADR-029: Agents produce cited facts; verdicts are computed in code
+
+- **Status:** Accepted (Phase 10)
+- **Decision:** An agent gathers evidence (one product-filtered hybrid search
+  per criterion), freezes it as an evidence pack and extracts values. Values
+  come from the rule patterns, or from the LLM, where a value counts only if it
+  cites an existing pack item. MET/UNMET against the requirement is always
+  computed deterministically (`satisfies()`), never by the model. Every run is
+  stored with its citation-validation report, engine, duration and token count.
+- **Consequences:** Results are auditable and reproducible offline. A model
+  can't flip a verdict or cite evidence that doesn't exist, and fabricated
+  numbers in summaries show up as validation issues.

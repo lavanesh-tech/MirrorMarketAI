@@ -136,6 +136,24 @@ class RequirementSpec(BaseModel):
         return self.model_dump(mode="json")
 
 
+def satisfies(criterion: Criterion, number: Decimal | None, text: str | None) -> bool | None:
+    """True/False when a value can be compared with the criterion, None when it can't."""
+    if criterion.value_number is not None:
+        if number is None:
+            return None
+        target = criterion.value_number
+        return {
+            Operator.LTE: number <= target,
+            Operator.GTE: number >= target,
+            Operator.EQ: number == target,
+            Operator.NEQ: number != target,
+        }[criterion.operator]
+    if text is None or criterion.operator not in (Operator.EQ, Operator.NEQ):
+        return None
+    equal = text.casefold().strip() == (criterion.value_text or "").casefold().strip()
+    return equal if criterion.operator is Operator.EQ else not equal
+
+
 # --------------------------------------------------------------------------- diff
 class FieldChange(BaseModel):
     field: str

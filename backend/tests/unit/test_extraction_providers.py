@@ -71,7 +71,7 @@ def no_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _no_sleep(_: float) -> None:
         return None
 
-    monkeypatch.setattr("app.providers.extraction.asyncio.sleep", _no_sleep)
+    monkeypatch.setattr("app.providers.llm.asyncio.sleep", _no_sleep)
 
 
 def _extractor(

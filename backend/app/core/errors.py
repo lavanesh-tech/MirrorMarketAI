@@ -183,6 +183,11 @@ class NoEvidenceFoundError(UnprocessableError):
     message = "No evidence in this workspace matches the query."
 
 
+class AgentRunNotFoundError(NotFoundError):
+    code = "agent_run_not_found"
+    message = "Agent run not found."
+
+
 class SearchUnavailableError(AppError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "search_unavailable"

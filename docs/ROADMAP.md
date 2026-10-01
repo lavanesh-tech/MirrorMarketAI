@@ -161,3 +161,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Citation validator: unknown markers, uncited sentences, unsupported numbers and quotes
 - [x] Labelled synthetic benchmark (`benchmarks/citations.py`) with committed result JSON
 - [x] Verified on the developer Mac and CI green (run 36789472754, commit 93964b3)
+
+## Phase 10 exit criteria
+
+- [x] Shared `OpenAIChatClient` (strict JSON schema, retries); the requirement extractor refactored onto it
+- [x] Product Research Agent: per-criterion product-filtered retrieval, evidence pack, value extraction, catalog fallback
+- [x] MET/UNMET/UNKNOWN/NOT_COMPARABLE computed in code; LLM values need valid citations; summary citation-validated
+- [x] `agent_runs` table (migration `0009`); run, list, get endpoints; LLM failure degrades to rules
+- [x] Fact-extraction benchmark (`benchmarks/fact_extraction.py`) with committed results
+- [ ] Verified on the developer Mac and CI green

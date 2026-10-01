@@ -16,6 +16,7 @@ from app.ingestion.safe_fetch import SafeFetcher
 from app.models.identity import User
 from app.providers.embeddings import EmbeddingProvider
 from app.providers.extraction import RequirementExtractor
+from app.providers.llm import OpenAIChatClient
 from app.repositories.identity import UserRepository
 from app.security.tokens import decode_access_token
 
@@ -80,6 +81,11 @@ def get_extractor(request: Request) -> RequirementExtractor:
     return extractor
 
 
+def get_llm(request: Request) -> OpenAIChatClient | None:
+    llm: OpenAIChatClient | None = request.app.state.llm
+    return llm
+
+
 def get_embedder(request: Request) -> EmbeddingProvider:
     embedder: EmbeddingProvider = request.app.state.embedder
     return embedder
@@ -88,6 +94,7 @@ def get_embedder(request: Request) -> EmbeddingProvider:
 FetcherDep = Annotated[SafeFetcher, Depends(get_fetcher)]
 EmbedderDep = Annotated[EmbeddingProvider, Depends(get_embedder)]
 ExtractorDep = Annotated[RequirementExtractor, Depends(get_extractor)]
+LLMDep = Annotated[OpenAIChatClient | None, Depends(get_llm)]
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 CurrentUser = Annotated[User, Depends(get_current_user)]

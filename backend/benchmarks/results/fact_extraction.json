@@ -1,0 +1,13 @@
+{
+  "benchmark": "fact_extraction_rules",
+  "dataset": "synthetic, 24 labelled spec sentences (incl. spelled-out numbers)",
+  "cases": 24,
+  "accuracy": 0.875,
+  "correct": 21,
+  "misses": [
+    "ram_gb: 'Sixteen gigabytes of memory.' -> None",
+    "storage_gb: 'Half a terabyte of storage.' -> None",
+    "weight_kg: 'Weighs one and a half kilograms.' -> None"
+  ],
+  "commit": "2558738"
+}

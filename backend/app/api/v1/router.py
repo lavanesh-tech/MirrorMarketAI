@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    agents,
     auth,
     embeddings,
     evidence,
@@ -28,3 +29,4 @@ api_router.include_router(embeddings.router)
 api_router.include_router(search.router)
 api_router.include_router(requirements.router)
 api_router.include_router(evidence.router)
+api_router.include_router(agents.router)
