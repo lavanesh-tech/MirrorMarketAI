@@ -68,3 +68,9 @@ class CompareRequest(BaseModel):
         if len(value) > MAX_WEIGHTS or any(not 0 <= w <= MAX_WEIGHT for w in value.values()):
             raise ValueError(f"at most {MAX_WEIGHTS} weights, each between 0 and {MAX_WEIGHT}")
         return value
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+    product_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+    limit: int = Field(default=8, ge=1, le=20)

@@ -13,11 +13,13 @@ from app.schemas.agents import (
     AgentRunListResponse,
     AgentRunResponse,
     AnalyzeRequest,
+    AskRequest,
     CompareRequest,
     CompatibilityRequest,
 )
 from app.schemas.workspaces import PageMeta
 from app.services.agents import AgentService
+from app.services.ask import AskService
 from app.services.comparison import ComparisonService
 from app.services.orchestrator import Orchestrator
 
@@ -193,6 +195,27 @@ async def compare_products(
         product_ids=request.product_ids,
         weights=request.weights,
         budget_is_hard=request.budget_is_hard,
+    )
+    return AgentRunResponse.model_validate(run)
+
+
+@router.post(
+    "/ask",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Ask MirrorMarket: grounded answer with enforced [E#] citations (or abstain)",
+)
+async def ask(
+    workspace_id: uuid.UUID,
+    body: AskRequest,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    llm: LLMDep,
+) -> AgentRunResponse:
+    run = await AskService(session, settings, embedder, llm).ask(
+        workspace_id, user, body.question, product_ids=body.product_ids, limit=body.limit
     )
     return AgentRunResponse.model_validate(run)
 

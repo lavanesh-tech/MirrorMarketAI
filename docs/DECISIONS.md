@@ -428,3 +428,18 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   is. Min-max normalisation is relative to the products being compared, so
   adding a product can shift scores; the score is for ranking within a
   comparison, not an absolute grade.
+
+## ADR-036: Ask MirrorMarket = citation-enforced answers that may abstain
+
+- **Status:** Accepted (Phase 17)
+- **Decision:** Answers are built only from a frozen evidence pack. The offline
+  engine returns verbatim evidence sentences, so they're supported by
+  construction. Model answers are checked sentence by sentence with the citation
+  validator, and any sentence with an unknown marker, an unsupported number or
+  quote, or no citation is dropped and reported. When no supported sentence
+  remains, or retrieval finds nothing relevant, the API abstains with a fixed
+  message instead of guessing.
+- **Consequences:** Hallucinated figures can't reach the user, and the
+  abstention rate becomes a measurable quality signal (Phase 27). The extractive
+  engine misses paraphrases ("fast charge" vs "10 minute charge"); the measured
+  held-out accuracy reflects that.

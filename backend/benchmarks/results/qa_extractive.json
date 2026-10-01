@@ -1,0 +1,17 @@
+{
+  "benchmark": "qa_extractive",
+  "dataset": "synthetic, 18 questions (13 answerable) over 7 items",
+  "min_coverage": 0.5,
+  "accuracy": 1.0,
+  "answerable_accuracy": 1.0,
+  "abstention_accuracy": 1.0,
+  "misses": [],
+  "note": "tuned on `cases` (accuracy 0.7222 before stopword/suffix changes)",
+  "held_out_cases": 11,
+  "held_out_accuracy": 0.8182,
+  "held_out_misses": [
+    "'Is LDAC available?': cited [] (coverage 0.416), want 2",
+    "'How fast does it charge?': cited [] (coverage 0.416), want 5"
+  ],
+  "commit": "7739330"
+}

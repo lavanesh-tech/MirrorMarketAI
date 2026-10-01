@@ -224,3 +224,11 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `POST /workspaces/{id}/compare`, stored as a `comparison` run
 - [x] Latency benchmark (`benchmarks/comparison_scale.py`); sensitivity optimised with a cached utility matrix
 - [x] Verified on the developer Mac and CI green (run 36805594258, commit 343970a)
+
+## Phase 17 exit criteria
+
+- [x] `POST /workspaces/{id}/ask`: retrieval (optional product scope) → evidence pack → grounded answer → stored `ask` run
+- [x] Offline extractive engine (IDF term coverage, verbatim cited sentences, abstention threshold)
+- [x] LLM engine with `answerable` flag; every sentence citation-validated, unsupported ones dropped; abstain if none remain
+- [x] QA benchmark with tuning and held-out sets (`benchmarks/qa_extractive.py`)
+- [ ] Verified on the developer Mac and CI green

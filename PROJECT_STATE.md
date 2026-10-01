@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-16.
-- Next: **17, Ask MirrorMarket (RAG Q&A).**
+- Completed: 1-16. Phase 17 (Ask MirrorMarket) is built; waiting for Mac + CI.
+- Next: **18, price snapshots and price history.**
 - Last verified: Phase 16, CI run 36805594258, commit 343970a (2026-10-01).
 
 ## Working rules
@@ -45,6 +45,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Synthesis (rules): the latest runs at the same requirement version produce a verdict. NOT_RECOMMENDED if a MUST is UNMET or the product is INCOMPATIBLE; CONSIDER if a MUST is unverified, it is OVER budget, or there is a HIGH evidence risk; RECOMMENDED otherwise; INSUFFICIENT_DATA if there is no research. Score = 60·fit + 20·reviews + 20·budget − 3·risk score (max 30). Ranking is by verdict, then score.
 - Orchestrator (`POST /workspaces/{id}/analyze`): research → reviews → compatibility (only with owned devices) → value → risk → synthesis per product, run sequentially. Each step runs in its own savepoint; a failure is recorded as a FAILED run (error = exception class) and the pipeline carries on. Budgets: time (remaining steps SKIPPED, never cut mid-query), tokens (switches to rules), max products. The result is stored as an `orchestration` agent run.
 - Comparison engine (`POST /workspaces/{id}/compare`): a matrix built from the latest research and value runs. Utility = 0.7·MET + 0.3·min-max position in the criterion's direction (unknown → 0). Score = 100·Σw·u/Σw (MUST weight 5, price 3, weights can be overridden 0-10). A MUST that is UNMET (or over budget when the budget is hard) makes a product ineligible. The winner must be eligible with all hard constraints verified. Sensitivity re-ranks with each weight ×0.5/×2, reusing the cached utility matrix. Stored as a `comparison` run with its source run ids.
+- Ask (`POST /workspaces/{id}/ask`): hybrid search (optional product filter) → evidence pack → answer. The offline engine is extractive (IDF-weighted term coverage ≥ 0.5, up to 3 verbatim sentences with [E#]); the LLM engine uses a JSON schema {answerable, answer}. Every sentence must pass the citation validator or is dropped (`dropped_sentences`). If nothing is left, it abstains. LLM failure falls back to extractive with `degraded`. Stored as an `ask` run.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0009)
@@ -63,12 +64,12 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - workspaces/{id}/requirements: POST extract, PUT save, GET current, versions[/{n}], diff?from=&to=
 - workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
 - POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+); POST .../compatibility (optional body {owned_devices}); POST .../value; POST .../risk; POST .../synthesize
-- POST workspaces/{id}/analyze (MEMBER+, optional body {product_ids}); POST workspaces/{id}/compare (body {product_ids, weights, budget_is_hard})
+- POST workspaces/{id}/analyze (MEMBER+, optional body {product_ids}); POST workspaces/{id}/compare (body {product_ids, weights, budget_is_hard}); POST workspaces/{id}/ask (body {question, product_ids, limit})
 - POST workspaces/{id}/products/{pid}/research (MEMBER+); GET workspaces/{id}/agent-runs[/{run}] (?agent=&product_id=)
 
 ## Tests
 
-- 487 tests, 98% coverage (Phase 16; Mac + CI). `make check` runs everything CI runs.
+- 495 tests, 98% coverage (Phase 17, cloud workspace). Phase 16: 487 (Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
@@ -90,6 +91,10 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Comparison engine latency (synthetic seeded 50 products × 20 criteria, incl. sensitivity, cloud workspace): median 288.98 ms
   → 24.69 ms (11.7×) after caching the weight-independent utility matrix. Evidence: `backend/benchmarks/results/comparison_scale.json` (Mac M-series arm64: 12.47 ms median, 20.34 ms p95).
 
+- Extractive QA (synthetic): 18 tuning questions (13 answerable + 5 unanswerable) 0.7222 → 1.0 after stopword/suffix changes;
+  held-out set written afterwards (11 questions, other product): 0.8182; misses: "Is LDAC available?", "How fast does it charge?".
+  Evidence: `backend/benchmarks/results/qa_extractive.json`.
+
 ## Known issues / limits
 
 - The hashing embedder is lexical, not semantic (OpenAI needs a key). Chunk size is measured in characters.
@@ -102,7 +107,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 ## Important commands
 
 ```bash
-cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && uv run python -m benchmarks.price_extraction && uv run python -m benchmarks.risk_detection && uv run python -m benchmarks.comparison_scale && cd ..
+cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && uv run python -m benchmarks.price_extraction && uv run python -m benchmarks.risk_detection && uv run python -m benchmarks.comparison_scale && uv run python -m benchmarks.qa_extractive && cd ..
 make check
 make up
 make ps
