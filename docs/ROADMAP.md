@@ -30,8 +30,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | # | Phase | Status |
 | --- | --- | --- |
 | 10 | Product Research Agent | ✅ |
-| 11 | Review Intelligence Agent | 🔜 |
-| 12 | Compatibility Agent | ⬜ |
+| 11 | Review Intelligence Agent | ✅ |
+| 12 | Compatibility Agent | 🔜 |
 | 13 | Value Agent | ⬜ |
 | 14 | Risk Agent | ⬜ |
 | 15 | Synthesis Agent, orchestration, bounded execution | ⬜ |
@@ -178,4 +178,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Aggregates in code: per-aspect counts, POSITIVE/NEGATIVE/MIXED, praises, complaints, overall score; cited summary
 - [x] `POST /workspaces/{id}/products/{pid}/reviews/analyze`; LLM failure degrades to rules
 - [x] Review sentiment benchmark (`benchmarks/review_sentiment.py`) with committed results
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36799656902, commit cb3a9a9)

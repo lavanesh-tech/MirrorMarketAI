@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-10. Phase 11 (Review Intelligence Agent) is built; waiting for Mac + CI.
+- Completed: 1-11.
 - Next: **12, the Compatibility Agent.**
-- Last verified: Phase 10, CI run 36798687173, commit 7c7545c (2026-10-01).
+- Last verified: Phase 11, CI run 36799656902, commit cb3a9a9 (2026-10-01).
 
 ## Working rules
 
@@ -61,7 +61,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 443 tests, 97% coverage (Phase 11, cloud workspace). Phase 10: 430 (Mac + CI). `make check` runs everything CI runs.
+- 443 tests, 97% coverage (Phase 11; Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
