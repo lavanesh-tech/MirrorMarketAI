@@ -46,8 +46,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 19 | Redis: caching, rate limiting, idempotency, OAuth state | ✅ |
 | 20 | WebSockets: presence, comments, votes, realtime updates | ✅ |
 | 21 | Kafka: outbox, workers, idempotent consumers, DLQ | ✅ |
-| 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | 🔜 |
-| 23 | OpenAPI, Postman collection, API documentation | ⬜ |
+| 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | ✅ |
+| 23 | OpenAPI, Postman collection, API documentation | 🔜 |
 
 ## Frontend
 
@@ -279,4 +279,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Prompt-injection layers: neutralised evidence, sentence-level withholding, benchmark with a held-out set
 - [x] Upload hardening (executables, archives, active PDFs, filename sanitising, text cap); security headers; request body limit
 - [x] Authorization matrix test generated from the OpenAPI schema (auth required everywhere, no workspace leaks)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36942149562, commit fe33016)

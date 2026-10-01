@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-21. Phase 22 (security hardening) is built; waiting for Mac + CI.
+- Completed: 1-22.
 - Next: **23, OpenAPI, Postman collection, API documentation.**
-- Last verified: Phase 21, CI run 36938010067, commit 88e3893 (2026-10-01).
+- Last verified: Phase 22, CI run 36942149562, commit fe33016 (2026-10-01).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
@@ -79,7 +79,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 665 tests (Phase 22): 663 pass in the cloud workspace at 97% coverage; the 2 real-Kafka tests need Docker (Mac + CI). Phase 21: 584 (Mac + CI).
+- 665 tests, 97% coverage (Phase 22; Mac + CI). `make check` runs everything CI runs.
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
