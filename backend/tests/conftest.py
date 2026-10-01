@@ -71,7 +71,7 @@ def redis_server_url() -> Iterator[str]:
         yield explicit
         return
 
-    from testcontainers.redis import RedisContainer  # noqa: PLC0415
+    from testcontainers.community.redis import RedisContainer  # noqa: PLC0415
 
     with RedisContainer(REDIS_IMAGE) as container:
         host = container.get_container_host_ip()
