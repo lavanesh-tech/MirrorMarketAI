@@ -45,8 +45,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | --- | --- | --- |
 | 19 | Redis: caching, rate limiting, idempotency, OAuth state | ✅ |
 | 20 | WebSockets: presence, comments, votes, realtime updates | ✅ |
-| 21 | Kafka: outbox, workers, idempotent consumers, DLQ | 🔜 |
-| 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | ⬜ |
+| 21 | Kafka: outbox, workers, idempotent consumers, DLQ | ✅ |
+| 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | 🔜 |
 | 23 | OpenAPI, Postman collection, API documentation | ⬜ |
 
 ## Frontend
@@ -269,4 +269,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Idempotent consumer (`processed_events` inbox), retries, dead-letter topic with error headers, rewind on failure
 - [x] Activity feed read model and `GET /workspaces/{id}/activity`; Kafka + event-worker in Compose
 - [x] Real-broker tests (Testcontainers Kafka), CI smoke test through Kafka, throughput benchmark (`benchmarks/event_pipeline.py`)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36938010067, commit 88e3893)

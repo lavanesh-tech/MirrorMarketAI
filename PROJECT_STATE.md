@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-20. Phase 21 (Kafka) is built; waiting for Mac + CI.
+- Completed: 1-21.
 - Next: **22, Security hardening (refresh tokens, audit logs, prompt-injection and file defences).**
-- Last verified: Phase 20, CI run 36934271121, commit 02710f1 (2026-10-01).
+- Last verified: Phase 21, CI run 36938010067, commit 88e3893 (2026-10-01).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
@@ -78,7 +78,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 584 tests (Phase 21): 582 pass in the cloud workspace at 97% coverage; the 2 real-Kafka tests (`-m kafka`) need Docker and run only on the Mac and in CI. Phase 20: 558 (Mac + CI).
+- 584 tests, 97% coverage (Phase 21; Mac + CI), including 2 real-Kafka tests (Testcontainers). `make check` runs everything CI runs.
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
@@ -120,7 +120,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 - Event pipeline (cloud workspace, PostgreSQL 16, IN-MEMORY broker, so PostgreSQL side only; 2000 synthetic events):
   relay 9,869 events/s; consumer 410 events/s (one transaction per event); 2000/2000 redelivered duplicates rejected.
-  Evidence: `backend/benchmarks/results/event_pipeline.json` (re-run on the Mac against real Kafka).
+  Mac (arm64, real Kafka 4.0.0): relay 1,168 events/s; consumer 102 events/s; 2000/2000 duplicates rejected; smoke test 1.08 s end to end. Evidence: `backend/benchmarks/results/event_pipeline.json`.
 
 ## Known issues / limits
 
