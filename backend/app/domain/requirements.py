@@ -102,6 +102,11 @@ class RequirementSpec(BaseModel):
     criteria: list[Criterion] = Field(default_factory=list, max_length=MAX_CRITERIA)
     excluded_brands: list[str] = Field(default_factory=list, max_length=MAX_LIST_ITEMS)
     use_cases: list[str] = Field(default_factory=list, max_length=MAX_LIST_ITEMS)
+    owned_devices: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_LIST_ITEMS,
+        description="Gear the product must work with, e.g. 'iPhone 15', 'USB-C dock'",
+    )
     notes: str | None = Field(default=None, max_length=2000)
 
     @field_validator("category")
@@ -111,7 +116,7 @@ class RequirementSpec(BaseModel):
             raise ValueError(f"category must be one of {', '.join(PRODUCT_CATEGORIES)}")
         return value
 
-    @field_validator("excluded_brands", "use_cases")
+    @field_validator("excluded_brands", "use_cases", "owned_devices")
     @classmethod
     def _dedupe(cls, values: list[str]) -> list[str]:
         return _clean_list(values)
@@ -178,7 +183,7 @@ def diff_specs(before: RequirementSpec, after: RequirementSpec) -> RequirementDi
     """Field-level diff; criteria are matched by (key, operator)."""
     changes = [
         FieldChange(field=name, before=old, after=new)
-        for name in ("category", "budget", "excluded_brands", "use_cases", "notes")
+        for name in ("category", "budget", "excluded_brands", "use_cases", "owned_devices", "notes")
         if (old := _jsonable(getattr(before, name))) != (new := _jsonable(getattr(after, name)))
     ]
     old = {(c.key, c.operator): c for c in before.criteria}

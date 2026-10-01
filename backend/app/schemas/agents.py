@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.workspaces import PageMeta
 
@@ -34,3 +34,12 @@ class AgentRunResponse(BaseModel):
 class AgentRunListResponse(BaseModel):
     items: list[AgentRunResponse]
     page: PageMeta
+
+
+class CompatibilityRequest(BaseModel):
+    owned_devices: list[str] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Overrides the requirements' owned_devices when non-empty",
+        examples=[["iPhone 15", "USB-C dock", "Sony TV"]],
+    )

@@ -188,6 +188,14 @@ class AgentRunNotFoundError(NotFoundError):
     message = "Agent run not found."
 
 
+class NoCompatibilityTargetsError(UnprocessableError):
+    code = "no_compatibility_targets"
+    message = (
+        "Nothing to check: add owned devices to the requirements or the request "
+        "(e.g. 'iPhone 15', 'USB-C dock')."
+    )
+
+
 class SearchUnavailableError(AppError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "search_unavailable"

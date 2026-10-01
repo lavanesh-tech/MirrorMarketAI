@@ -11,5 +11,5 @@
     "'I barely notice the fan.': got [], want [('thermals', 'POSITIVE')]",
     "'You will be charging this thing twice a day.': got [], want [('battery', 'NEGATIVE')]"
   ],
-  "commit": "4646e21"
+  "commit": "49e56b4"
 }

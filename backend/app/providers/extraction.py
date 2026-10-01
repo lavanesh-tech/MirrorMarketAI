@@ -73,7 +73,15 @@ def _nullable(schema: dict[str, Any]) -> dict[str, Any]:
 RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["category", "budget", "criteria", "excluded_brands", "use_cases", "unparsed"],
+    "required": [
+        "category",
+        "budget",
+        "criteria",
+        "excluded_brands",
+        "use_cases",
+        "owned_devices",
+        "unparsed",
+    ],
     "properties": {
         "category": _nullable({"type": "string", "enum": list(PRODUCT_CATEGORIES)}),
         "budget": _nullable(
@@ -116,6 +124,7 @@ RESPONSE_SCHEMA: dict[str, Any] = {
         },
         "excluded_brands": {"type": "array", "items": {"type": "string"}},
         "use_cases": {"type": "array", "items": {"type": "string"}},
+        "owned_devices": {"type": "array", "items": {"type": "string"}},
         "unparsed": {"type": "array", "items": {"type": "string"}},
     },
 }

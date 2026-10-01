@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-11.
-- Next: **12, the Compatibility Agent.**
+- Completed: 1-11. Phase 12 (Compatibility Agent) is built; waiting for Mac + CI.
+- Next: **13, the Value Agent.**
 - Last verified: Phase 11, CI run 36799656902, commit cb3a9a9 (2026-10-01).
 
 ## Working rules
@@ -39,6 +39,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Evidence packs freeze search hits as snapshot items E1..En. A deterministic validator checks markers, uncited sentences, numbers and quotes.
 - Agents: workspace product + current requirement version → one hybrid search per criterion (product-filtered) → evidence pack → values (rules extractor, or LLM with validated citations) → MET/UNMET/UNKNOWN computed in code → `agent_runs` row. Shared `OpenAIChatClient` (strict JSON schema, retries); LLM failure → rules + `degraded`.
 - Review agent: all visible REVIEW chunks of the product (`scoped_chunks`) → evidence pack (mode `scope`) → aspect/polarity per clause (lexicon + negation, or LLM labels that must quote their item verbatim) → counts, MIXED/POSITIVE/NEGATIVE, praises, complaints (≥2 negative mentions) computed in code; the summary has no digits, so the citation check passes.
+- Compatibility agent: owned devices (requirements `owned_devices`, or the request body) → capabilities mapped in code (USB-C, HDMI, iOS, ...; headphones also need Bluetooth/AAC) → product-filtered search per capability → SUPPORTED/NOT_SUPPORTED (negation scoped to the clause) or the catalog has_* fallback → verdict COMPATIBLE/INCOMPATIBLE/UNCERTAIN computed in code.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0009)
@@ -56,12 +57,12 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - POST workspaces/{id}/search (hybrid|lexical|vector + filters)
 - workspaces/{id}/requirements: POST extract, PUT save, GET current, versions[/{n}], diff?from=&to=
 - workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
-- POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+)
+- POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+); POST .../compatibility (optional body {owned_devices})
 - POST workspaces/{id}/products/{pid}/research (MEMBER+); GET workspaces/{id}/agent-runs[/{run}] (?agent=&product_id=)
 
 ## Tests
 
-- 443 tests, 97% coverage (Phase 11; Mac + CI). `make check` runs everything CI runs.
+- 453 tests, 97% coverage (Phase 12, cloud workspace). Phase 11: 443 (Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
@@ -74,6 +75,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   hyphenated units ("14.2-inch"). The 3 misses are spelled-out numbers. Evidence: `backend/benchmarks/results/fact_extraction.json`.
 - Review aspect sentiment, rules engine (synthetic, 24 labelled sentences): pair F1 0.8889 → 0.9333 (precision 1.0,
   recall 0.875) and exact match 0.8333 → 0.875 after adding "well" and "dies" to the lexicon. Misses: sarcasm and implicit opinions. Evidence: `backend/benchmarks/results/review_sentiment.json`.
+- Compatibility capability detection, rules (synthetic): 0.8182 → 1.0 on 22 tuning cases after scoping negation to the clause;
+  held-out set written after tuning: 1.0 (8/8). Evidence: `backend/benchmarks/results/compatibility.json`.
 
 ## Known issues / limits
 
@@ -87,7 +90,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 ## Important commands
 
 ```bash
-cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && cd ..
+cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && cd ..
 make check
 make up
 make ps

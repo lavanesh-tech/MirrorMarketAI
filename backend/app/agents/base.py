@@ -74,7 +74,7 @@ class ReviewOutput(BaseModel):
 
 
 class AgentResult(BaseModel):
-    output: ResearchOutput | ReviewOutput
+    output: BaseModel
     validation: CitationReport
     engine: str
     degraded: bool = False

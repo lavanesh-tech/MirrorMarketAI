@@ -179,3 +179,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `POST /workspaces/{id}/products/{pid}/reviews/analyze`; LLM failure degrades to rules
 - [x] Review sentiment benchmark (`benchmarks/review_sentiment.py`) with committed results
 - [x] Verified on the developer Mac and CI green (run 36799656902, commit cb3a9a9)
+
+## Phase 12 exit criteria
+
+- [x] `RequirementSpec.owned_devices` (rules + LLM extraction: "I have…", "works with my…")
+- [x] Compatibility Agent: devices → capabilities in code; per-capability product search; clause-scoped negation; catalog fallback
+- [x] Verdict computed in code; LLM judgements need verbatim quotes; LLM failure degrades to rules
+- [x] `POST /workspaces/{id}/products/{pid}/compatibility` (body overrides requirements; 422 when nothing to check)
+- [x] Benchmark with tuning and held-out sets (`benchmarks/compatibility.py`)
+- [ ] Verified on the developer Mac and CI green

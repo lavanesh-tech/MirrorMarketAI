@@ -10,6 +10,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.base import AgentResult
+from app.agents.compatibility import Finding, detect, llm_findings, required_capabilities
+from app.agents.compatibility import build_output as build_compatibility
+from app.agents.compatibility import search_query as compat_query
 from app.agents.product_research import (
     Candidate,
     build_output,
@@ -20,7 +23,11 @@ from app.agents.product_research import (
 )
 from app.agents.review_intelligence import aggregate, llm_mentions, rule_mentions
 from app.core.config import Settings
-from app.core.errors import AgentRunNotFoundError, WorkspaceProductNotFoundError
+from app.core.errors import (
+    AgentRunNotFoundError,
+    NoCompatibilityTargetsError,
+    WorkspaceProductNotFoundError,
+)
 from app.domain.citations import validate_citations
 from app.domain.requirements import RequirementSpec
 from app.domain.roles import WorkspaceRole
@@ -38,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 PRODUCT_RESEARCH = "product_research"
 REVIEW_INTELLIGENCE = "review_intelligence"
+COMPATIBILITY = "compatibility"
 RULES_ENGINE = "rules-v1"
 
 
@@ -203,6 +211,99 @@ class AgentService:
             workspace_id,
             user,
             REVIEW_INTELLIGENCE,
+            product_id,
+            pack.id if pack else None,
+            requirement_version,
+            AgentResult(
+                output=output,
+                validation=validate_citations(output.summary, evidence),
+                engine=engine,
+                degraded=degraded,
+                tokens_used=tokens,
+            ),
+            started,
+        )
+
+    async def check_compatibility(
+        self,
+        workspace_id: uuid.UUID,
+        user: User,
+        product_id: uuid.UUID,
+        owned_devices: list[str] | None,
+    ) -> AgentRun:
+        started = time.perf_counter()
+        product = await self._workspace_product(workspace_id, user, product_id)
+        spec, requirement_version = await self._current_spec(workspace_id)
+        owned = owned_devices if owned_devices else (spec.owned_devices if spec else [])
+        if not owned:
+            raise NoCompatibilityTargetsError
+        requirements = required_capabilities(owned, product.category)
+
+        search = SearchService(self.session, self.embedder)
+        per_cap: dict[str, list[SearchHit]] = {}
+        ordered: dict[uuid.UUID, SearchHit] = {}
+        embedding_model: str | None = None
+        search_degraded = False
+        for req in requirements:
+            result = await search.search(
+                workspace_id,
+                user,
+                compat_query(req.capability),
+                mode="hybrid",
+                limit=self.settings.agent_evidence_per_criterion,
+                filters=SearchFilters(product_ids=[product_id]),
+            )
+            per_cap[req.capability] = result.hits
+            embedding_model = embedding_model or result.model
+            search_degraded = search_degraded or result.degraded
+            for hit in result.hits:
+                ordered.setdefault(hit.chunk.id, hit)
+
+        pack = None
+        if ordered:
+            pack = await EvidenceService(self.session, self.embedder).freeze(
+                workspace_id,
+                user,
+                f"{COMPATIBILITY}: {product.brand} {product.name}",
+                mode="hybrid",
+                hits=list(ordered.values()),
+                embedding_model=embedding_model,
+                degraded=search_degraded,
+            )
+        position = {chunk_id: i for i, chunk_id in enumerate(ordered, start=1)}
+        evidence = {i: hit.chunk.text for i, hit in enumerate(ordered.values(), start=1)}
+
+        engine, degraded, tokens = RULES_ENGINE, search_degraded, 0
+        findings: dict[str, Finding] | None = None
+        if self.llm is not None and evidence:
+            try:
+                findings, tokens = await llm_findings(
+                    self.llm, product, [r.capability for r in requirements], evidence
+                )
+                engine = f"openai:{self.llm.model}"
+            except LLMError as exc:
+                logger.warning("compatibility degraded to rules", extra={"error": str(exc)})
+                degraded = True
+        if findings is None:
+            findings = {}
+            for req in requirements:
+                for hit in per_cap[req.capability]:
+                    detected = detect(req.capability, hit.chunk.text)
+                    if detected is not None:
+                        support, quote = detected
+                        findings[req.capability] = Finding(support, position[hit.chunk.id], quote)
+                        break
+
+        catalog = list(
+            await self.session.scalars(
+                select(ProductSpecification).where(ProductSpecification.product_id == product_id)
+            )
+        )
+        output = build_compatibility(product, owned, requirements, findings, catalog)
+        return await self._record(
+            workspace_id,
+            user,
+            COMPATIBILITY,
             product_id,
             pack.id if pack else None,
             requirement_version,

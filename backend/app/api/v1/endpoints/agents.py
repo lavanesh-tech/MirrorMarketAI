@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser, EmbedderDep, LLMDep, SessionDep, SettingsDep
 from app.repositories.base import MAX_PAGE_SIZE
-from app.schemas.agents import AgentRunListResponse, AgentRunResponse
+from app.schemas.agents import AgentRunListResponse, AgentRunResponse, CompatibilityRequest
 from app.schemas.workspaces import PageMeta
 from app.services.agents import AgentService
 
@@ -54,6 +54,28 @@ async def analyze_reviews(
 ) -> AgentRunResponse:
     run = await AgentService(session, settings, embedder, llm).analyze_reviews(
         workspace_id, user, product_id
+    )
+    return AgentRunResponse.model_validate(run)
+
+
+@router.post(
+    "/products/{product_id}/compatibility",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run the Compatibility Agent against owned devices (request or requirements)",
+)
+async def check_compatibility(
+    workspace_id: uuid.UUID,
+    product_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    llm: LLMDep,
+    body: CompatibilityRequest | None = None,
+) -> AgentRunResponse:
+    run = await AgentService(session, settings, embedder, llm).check_compatibility(
+        workspace_id, user, product_id, body.owned_devices if body else None
     )
     return AgentRunResponse.model_validate(run)
 

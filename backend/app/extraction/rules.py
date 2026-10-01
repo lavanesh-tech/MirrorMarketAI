@@ -112,6 +112,12 @@ _EXCLUDED_BRAND = re.compile(
     r"\b(?i:avoid|avoiding|excluding|except|not from|no|nothing from|don't want|anything but)"
     r"\s+([A-Z][A-Za-z0-9&-]{1,30})"
 )
+_OWNED = re.compile(
+    r"\b(?:i (?:have|own|use|already have)|works? with|compatible with|connects? to|pair with)"
+    r"\s+(?:an?\s+|my\s+|the\s+)?([A-Za-z0-9][^,.;!?]{1,60})",
+    re.I,
+)
+_OWNED_SPLIT = re.compile(r"\s+and\s+(?:an?\s+|my\s+|the\s+)?", re.I)
 _CLAUSE_SPLIT = re.compile(r"[;,]\s+(?:and\s+|but\s+)?|\s+but\s+")
 
 
@@ -237,6 +243,13 @@ def extract_requirements(text: str) -> RuleExtraction:
         if not _feature_word(brand) and brand.lower() not in {"i", "the", "a", "more", "less"}
     ]
 
+    owned = [
+        item.strip()
+        for match in _OWNED.findall(normalized)
+        for item in _OWNED_SPLIT.split(match)
+        if item.strip()
+    ]
+
     criteria: dict[tuple[str, Operator], Criterion] = {}
     unparsed: list[str] = []
     sentences = [s for s in re.split(r"(?<=[.!?\n])\s+", normalized) if s.strip()]
@@ -249,6 +262,7 @@ def extract_requirements(text: str) -> RuleExtraction:
                 found
                 or _BUDGET_BARE.search(clause)
                 or any(brand in clause for brand in excluded)
+                or _OWNED.search(clause)
                 or any(
                     re.search(rf"\b{re.escape(w)}\b", clause.lower())
                     for words in (*_CATEGORY_WORDS.values(), *_USE_CASES.values())
@@ -264,5 +278,6 @@ def extract_requirements(text: str) -> RuleExtraction:
         criteria=list(criteria.values()),
         excluded_brands=excluded,
         use_cases=use_cases,
+        owned_devices=owned,
     )
     return RuleExtraction(spec=spec, unparsed=unparsed)

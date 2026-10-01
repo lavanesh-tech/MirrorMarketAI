@@ -358,3 +358,17 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   invent quotes. The rules engine misses sarcasm and implicit opinions (measured in
   `benchmarks/review_sentiment.py`). Analysis is capped at
   `AGENT_MAX_REVIEW_CHUNKS` chunks.
+
+## ADR-031: Compatibility = code-derived capabilities + evidence checks
+
+- **Status:** Accepted (Phase 12)
+- **Decision:** Owned devices are stored in the versioned requirements
+  (`owned_devices`) and mapped to a fixed capability vocabulary in code (no
+  model decides what "Sony TV" needs). Each capability is checked against
+  product-filtered evidence, with negation limited to the capability's own clause,
+  falling back to catalog has_* specs. INCOMPATIBLE if any capability is NOT_SUPPORTED,
+  COMPATIBLE only if all are SUPPORTED, otherwise UNCERTAIN.
+- **Consequences:** Verdicts are explainable (device → capability → cited
+  sentence). Devices outside the vocabulary are listed as `unmapped_devices`
+  rather than guessed. The benchmark reports a held-out set because the rules were
+  tuned on the main set.

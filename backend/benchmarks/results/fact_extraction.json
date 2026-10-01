@@ -9,5 +9,5 @@
     "storage_gb: 'Half a terabyte of storage.' -> None",
     "weight_kg: 'Weighs one and a half kilograms.' -> None"
   ],
-  "commit": "4646e21"
+  "commit": "49e56b4"
 }
