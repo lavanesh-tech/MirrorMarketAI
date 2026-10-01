@@ -29,8 +29,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 10 | Product Research Agent | 🔜 |
-| 11 | Review Intelligence Agent | ⬜ |
+| 10 | Product Research Agent | ✅ |
+| 11 | Review Intelligence Agent | 🔜 |
 | 12 | Compatibility Agent | ⬜ |
 | 13 | Value Agent | ⬜ |
 | 14 | Risk Agent | ⬜ |
@@ -169,4 +169,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] MET/UNMET/UNKNOWN/NOT_COMPARABLE computed in code; LLM values need valid citations; summary citation-validated
 - [x] `agent_runs` table (migration `0009`); run, list, get endpoints; LLM failure degrades to rules
 - [x] Fact-extraction benchmark (`benchmarks/fact_extraction.py`) with committed results
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36798687173, commit 7c7545c)
