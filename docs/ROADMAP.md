@@ -34,8 +34,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 12 | Compatibility Agent | ✅ |
 | 13 | Value Agent | ✅ |
 | 14 | Risk Agent | ✅ |
-| 15 | Synthesis Agent, orchestration, bounded execution | 🔜 |
-| 16 | Comparison engine: criteria, weights, hard constraints | ⬜ |
+| 15 | Synthesis Agent, orchestration, bounded execution | ✅ |
+| 16 | Comparison engine: criteria, weights, hard constraints | 🔜 |
 | 17 | Ask MirrorMarket (RAG Q&A) | ⬜ |
 | 18 | Price snapshots and price history | ⬜ |
 
@@ -214,4 +214,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Bounded execution: time budget (skip, never cut mid-query), token budget (fall back to rules), product cap
 - [x] Failure isolation per step (savepoint + FAILED run with exception class only)
 - [x] `POST /workspaces/{id}/analyze`, `POST /workspaces/{id}/products/{pid}/synthesize`; ranking test on a synthetic 3-product workspace
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36804675797, commit c880290)

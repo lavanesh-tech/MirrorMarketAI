@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-14. Phase 15 (synthesis, orchestration, bounded execution) is built; waiting for Mac + CI.
+- Completed: 1-15.
 - Next: **16, the comparison engine (criteria, weights, hard constraints).**
-- Last verified: Phase 14, CI run 36803337625, commit 0702a34 (2026-10-01).
+- Last verified: Phase 15, CI run 36804675797, commit c880290 (2026-10-01).
 
 ## Working rules
 
@@ -67,7 +67,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 481 tests, 98% coverage (Phase 15, cloud workspace). Phase 14: 472 (Mac + CI). `make check` runs everything CI runs.
+- 481 tests, 98% coverage (Phase 15; Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
