@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-15. Phase 16 (comparison engine) is built; waiting for Mac + CI.
+- Completed: 1-16.
 - Next: **17, Ask MirrorMarket (RAG Q&A).**
-- Last verified: Phase 15, CI run 36804675797, commit c880290 (2026-10-01).
+- Last verified: Phase 16, CI run 36805594258, commit 343970a (2026-10-01).
 
 ## Working rules
 
@@ -68,7 +68,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 487 tests, 98% coverage (Phase 16, cloud workspace). Phase 15: 481 (Mac + CI). `make check` runs everything CI runs.
+- 487 tests, 98% coverage (Phase 16; Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
@@ -88,7 +88,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Risk detection (synthetic, 22 labelled sentences incl. negated and benign ones, not tuned on): precision 1.0, recall 1.0.
   The patterns and cases have the same author, so this isn't an independent evaluation. Evidence: `backend/benchmarks/results/risk_detection.json`.
 - Comparison engine latency (synthetic seeded 50 products × 20 criteria, incl. sensitivity, cloud workspace): median 288.98 ms
-  → 24.69 ms (11.7×) after caching the weight-independent utility matrix. Evidence: `backend/benchmarks/results/comparison_scale.json` (re-measured on the Mac).
+  → 24.69 ms (11.7×) after caching the weight-independent utility matrix. Evidence: `backend/benchmarks/results/comparison_scale.json` (Mac M-series arm64: 12.47 ms median, 20.34 ms p95).
 
 ## Known issues / limits
 

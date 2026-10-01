@@ -35,8 +35,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 13 | Value Agent | ✅ |
 | 14 | Risk Agent | ✅ |
 | 15 | Synthesis Agent, orchestration, bounded execution | ✅ |
-| 16 | Comparison engine: criteria, weights, hard constraints | 🔜 |
-| 17 | Ask MirrorMarket (RAG Q&A) | ⬜ |
+| 16 | Comparison engine: criteria, weights, hard constraints | ✅ |
+| 17 | Ask MirrorMarket (RAG Q&A) | 🔜 |
 | 18 | Price snapshots and price history | ⬜ |
 
 ## Platform
@@ -223,4 +223,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Winner only among eligible products with verified hard constraints; margin; per-weight sensitivity (×0.5/×2)
 - [x] `POST /workspaces/{id}/compare`, stored as a `comparison` run
 - [x] Latency benchmark (`benchmarks/comparison_scale.py`); sensitivity optimised with a cached utility matrix
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36805594258, commit 343970a)
