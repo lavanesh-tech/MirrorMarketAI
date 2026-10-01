@@ -188,3 +188,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `POST /workspaces/{id}/products/{pid}/compatibility` (body overrides requirements; 422 when nothing to check)
 - [x] Benchmark with tuning and held-out sets (`benchmarks/compatibility.py`)
 - [x] Verified on the developer Mac and CI green (run 36801095777, commit 2c7e123)
+
+## Phase 13 exit criteria
+
+- [x] Value Agent: cited evidence price (sale vs list, EU format) with catalog `price` fallback; cents-quantized Decimals
+- [x] Budget fit including currency mismatch (no FX guessing); over-budget amount
+- [x] Requirement fit from the latest Product Research run at the same requirement version; value index; price per unit
+- [x] `POST /workspaces/{id}/products/{pid}/value`
+- [x] Price extraction benchmark (`benchmarks/price_extraction.py`)
+- [ ] Verified on the developer Mac and CI green

@@ -372,3 +372,16 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   sentence). Devices outside the vocabulary are listed as `unmapped_devices`
   rather than guessed. The benchmark reports a held-out set because the rules were
   tuned on the main set.
+
+## ADR-032: The Value Agent is deterministic (no LLM)
+
+- **Status:** Accepted (Phase 13)
+- **Decision:** Pricing and value math use exact Decimals in code. The price comes
+  from cited evidence (or the catalog), budget fit never converts currencies, and
+  requirement fit reuses the latest Product Research run for the same requirement
+  version instead of re-deriving facts. MUST criteria weigh 5; SHOULD criteria use
+  their 1-5 weight.
+- **Consequences:** Value numbers are reproducible and auditable, with no LLM
+  arithmetic. Accurate value scores need a research run first (Phase 15
+  orchestration will sequence them). Prices are point-in-time evidence until
+  Phase 18 adds price history.

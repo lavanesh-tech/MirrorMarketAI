@@ -1,0 +1,11 @@
+{
+  "benchmark": "price_extraction",
+  "dataset": "synthetic, 14 labelled sentences (sale vs list prices, EU format)",
+  "cases": 14,
+  "accuracy": 0.9286,
+  "correct": 13,
+  "misses": [
+    "'Accessories start at $29 and the laptop at $1,099.' -> (Decimal('29'), 'USD'), want (Decimal('1099'), 'USD')"
+  ],
+  "commit": "17adc34"
+}

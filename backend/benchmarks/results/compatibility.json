@@ -9,5 +9,5 @@
   "held_out_accuracy": 1.0,
   "held_out_misses": [],
   "note": "rules were tuned on `cases` (0.8182 before tuning); held_out was written after",
-  "commit": "49e56b4"
+  "commit": "17adc34"
 }

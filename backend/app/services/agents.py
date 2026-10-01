@@ -22,6 +22,8 @@ from app.agents.product_research import (
     research_targets,
 )
 from app.agents.review_intelligence import aggregate, llm_mentions, rule_mentions
+from app.agents.value import PRICE_QUERY, Price, catalog_price, extract_price
+from app.agents.value import build_output as build_value
 from app.core.config import Settings
 from app.core.errors import (
     AgentRunNotFoundError,
@@ -46,6 +48,7 @@ logger = logging.getLogger(__name__)
 PRODUCT_RESEARCH = "product_research"
 REVIEW_INTELLIGENCE = "review_intelligence"
 COMPATIBILITY = "compatibility"
+VALUE = "value"
 RULES_ENGINE = "rules-v1"
 
 
@@ -313,6 +316,86 @@ class AgentService:
                 engine=engine,
                 degraded=degraded,
                 tokens_used=tokens,
+            ),
+            started,
+        )
+
+    async def assess_value(
+        self, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
+    ) -> AgentRun:
+        started = time.perf_counter()
+        product = await self._workspace_product(workspace_id, user, product_id)
+        spec, requirement_version = await self._current_spec(workspace_id)
+        result = await SearchService(self.session, self.embedder).search(
+            workspace_id,
+            user,
+            PRICE_QUERY,
+            mode="hybrid",
+            limit=self.settings.agent_evidence_per_criterion,
+            filters=SearchFilters(product_ids=[product_id]),
+        )
+        price: Price | None = None
+        pack = None
+        evidence: dict[int, str] = {}
+        if result.hits:
+            pack = await EvidenceService(self.session, self.embedder).freeze(
+                workspace_id,
+                user,
+                f"{VALUE}: {product.brand} {product.name}",
+                mode="hybrid",
+                hits=result.hits,
+                embedding_model=result.model,
+                degraded=result.degraded,
+            )
+            evidence = {i: hit.chunk.text for i, hit in enumerate(result.hits, start=1)}
+            for position, text in evidence.items():
+                if (found := extract_price(text)) is not None:
+                    amount, currency, quote = found
+                    price = Price(
+                        amount=amount,
+                        currency=currency,
+                        source="evidence",
+                        citations=[f"E{position}"],
+                        quote=quote,
+                    )
+                    break
+        if price is None:
+            catalog = await self.session.scalars(
+                select(ProductSpecification).where(ProductSpecification.product_id == product_id)
+            )
+            price = catalog_price(list(catalog))
+
+        research = await self.session.scalar(
+            select(AgentRun)
+            .where(
+                AgentRun.workspace_id == workspace_id,
+                AgentRun.product_id == product_id,
+                AgentRun.agent == PRODUCT_RESEARCH,
+                AgentRun.status == "SUCCEEDED",
+                AgentRun.requirement_version.is_not_distinct_from(requirement_version),
+            )
+            .order_by(AgentRun.created_at.desc(), AgentRun.id)
+            .limit(1)
+        )
+        output = build_value(
+            product,
+            price,
+            spec,
+            research.output if research else None,
+            str(research.id) if research else None,
+        )
+        return await self._record(
+            workspace_id,
+            user,
+            VALUE,
+            product_id,
+            pack.id if pack else None,
+            requirement_version,
+            AgentResult(
+                output=output,
+                validation=validate_citations(output.summary, evidence),
+                engine=RULES_ENGINE,
+                degraded=result.degraded,
             ),
             started,
         )
