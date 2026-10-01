@@ -37,13 +37,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 15 | Synthesis Agent, orchestration, bounded execution | ✅ |
 | 16 | Comparison engine: criteria, weights, hard constraints | ✅ |
 | 17 | Ask MirrorMarket (RAG Q&A) | ✅ |
-| 18 | Price snapshots and price history | 🔜 |
+| 18 | Price snapshots and price history | ✅ |
 
 ## Platform
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 19 | Redis: caching, rate limiting, idempotency, OAuth state | ⬜ |
+| 19 | Redis: caching, rate limiting, idempotency, OAuth state | 🔜 |
 | 20 | WebSockets: presence, comments, votes, realtime updates | ⬜ |
 | 21 | Kafka: outbox, workers, idempotent consumers, DLQ | ⬜ |
 | 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | ⬜ |
@@ -239,4 +239,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Batch recording (ON CONFLICT DO NOTHING) and bucketed history (date_trunc in SQL) with statistics
 - [x] Value Agent prefers fresh in-stock snapshots in the budget currency (`PRICE_MAX_AGE_DAYS`)
 - [x] DB benchmark with/without the history index (`benchmarks/price_history_db.py`); O(n²) stats bug found and fixed
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36808476931, commit 0069f7a)

@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-17. Phase 18 (price snapshots and history) is built; waiting for Mac + CI.
+- Completed: 1-18. Next: Phase 19 (Redis: caching, rate limiting, idempotency).
 - Next: **19, Redis (caching, rate limiting, idempotency, OAuth state).**
-- Last verified: Phase 17, CI run 36806831760, commit d66ecc2 (2026-10-01).
+- Last verified: Phase 18, CI run 36808476931, commit 0069f7a (2026-09-30). Mac price-history benchmark: median 8.07 ms (index) vs 7.88 ms (no index), 50k synthetic rows.
 
 ## Working rules
 
@@ -71,7 +71,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 501 tests, 98% coverage (Phase 18, cloud workspace). Phase 17: 495 (Mac + CI). `make check` runs everything CI runs.
+- 501 tests, 98% coverage (Phase 18; Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
