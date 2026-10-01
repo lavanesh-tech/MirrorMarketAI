@@ -36,8 +36,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 14 | Risk Agent | ✅ |
 | 15 | Synthesis Agent, orchestration, bounded execution | ✅ |
 | 16 | Comparison engine: criteria, weights, hard constraints | ✅ |
-| 17 | Ask MirrorMarket (RAG Q&A) | 🔜 |
-| 18 | Price snapshots and price history | ⬜ |
+| 17 | Ask MirrorMarket (RAG Q&A) | ✅ |
+| 18 | Price snapshots and price history | 🔜 |
 
 ## Platform
 
@@ -231,4 +231,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Offline extractive engine (IDF term coverage, verbatim cited sentences, abstention threshold)
 - [x] LLM engine with `answerable` flag; every sentence citation-validated, unsupported ones dropped; abstain if none remain
 - [x] QA benchmark with tuning and held-out sets (`benchmarks/qa_extractive.py`)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36806831760, commit d66ecc2)

@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-16. Phase 17 (Ask MirrorMarket) is built; waiting for Mac + CI.
+- Completed: 1-17.
 - Next: **18, price snapshots and price history.**
-- Last verified: Phase 16, CI run 36805594258, commit 343970a (2026-10-01).
+- Last verified: Phase 17, CI run 36806831760, commit d66ecc2 (2026-10-01).
 
 ## Working rules
 
@@ -69,7 +69,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 495 tests, 98% coverage (Phase 17, cloud workspace). Phase 16: 487 (Mac + CI). `make check` runs everything CI runs.
+- 495 tests, 98% coverage (Phase 17; Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
