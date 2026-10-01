@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-8. Phase 9 (evidence packs and citations) is built; waiting for Mac + CI.
+- Completed: 1-9.
 - Next: **10, the Product Research Agent.**
-- Last verified: Phase 8, CI run 36788330694, commit 9ac5155 (2026-09-30).
+- Last verified: Phase 9, CI run 36789472754, commit 93964b3 (2026-09-30).
 
 ## Working rules
 

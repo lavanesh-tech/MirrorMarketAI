@@ -23,13 +23,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 6 | Chunking, OpenAI embeddings, pgvector, embedding jobs | ✅ |
 | 7 | Postgres full-text, vector search, hybrid retrieval, metadata filters, retrieval tests | ✅ |
 | 8 | Purchase requirements, structured extraction, requirement versions | ✅ |
-| 9 | Evidence packs, citations, citation validator | 🔜 |
+| 9 | Evidence packs, citations, citation validator | ✅ |
 
 ## Agents
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 10 | Product Research Agent | ⬜ |
+| 10 | Product Research Agent | 🔜 |
 | 11 | Review Intelligence Agent | ⬜ |
 | 12 | Compatibility Agent | ⬜ |
 | 13 | Value Agent | ⬜ |
@@ -160,4 +160,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Create pack from hybrid search (pins current requirement version); get, list; MEMBER+ creates
 - [x] Citation validator: unknown markers, uncited sentences, unsupported numbers and quotes
 - [x] Labelled synthetic benchmark (`benchmarks/citations.py`) with committed result JSON
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36789472754, commit 93964b3)
