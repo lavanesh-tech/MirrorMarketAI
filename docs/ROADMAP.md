@@ -206,3 +206,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `POST /workspaces/{id}/products/{pid}/risk`; Value Agent price query made OR-style (was missing prices)
 - [x] Risk detection benchmark (`benchmarks/risk_detection.py`)
 - [x] Verified on the developer Mac and CI green (run 36803337625, commit 0702a34)
+
+## Phase 15 exit criteria
+
+- [x] Synthesis Agent: code-computed verdict (hard-constraint gates), score, blockers/concerns/strengths naming their source agent
+- [x] Orchestrator with dependency order; compatibility skipped without owned devices
+- [x] Bounded execution: time budget (skip, never cut mid-query), token budget (fall back to rules), product cap
+- [x] Failure isolation per step (savepoint + FAILED run with exception class only)
+- [x] `POST /workspaces/{id}/analyze`, `POST /workspaces/{id}/products/{pid}/synthesize`; ranking test on a synthetic 3-product workspace
+- [ ] Verified on the developer Mac and CI green

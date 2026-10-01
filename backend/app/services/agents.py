@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ from app.agents.risk import QUERIES as RISK_QUERIES
 from app.agents.risk import agent_risks
 from app.agents.risk import build_output as build_risk
 from app.agents.risk import evidence_hits as risk_evidence_hits
+from app.agents.synthesis import synthesize
 from app.agents.value import PRICE_QUERY, Price, catalog_price, extract_price
 from app.agents.value import build_output as build_value
 from app.core.config import Settings
@@ -54,6 +56,8 @@ REVIEW_INTELLIGENCE = "review_intelligence"
 COMPATIBILITY = "compatibility"
 VALUE = "value"
 RISK = "risk"
+SYNTHESIS = "synthesis"
+ORCHESTRATION = "orchestration"
 RULES_ENGINE = "rules-v1"
 
 
@@ -71,7 +75,7 @@ class AgentService:
         self.llm = llm
         self.workspaces = WorkspaceService(session)
 
-    async def _current_spec(
+    async def current_spec(
         self, workspace_id: uuid.UUID
     ) -> tuple[RequirementSpec | None, int | None]:
         row = await self.session.execute(
@@ -93,7 +97,7 @@ class AgentService:
         started = time.perf_counter()
         product = await self._workspace_product(workspace_id, user, product_id)
 
-        spec, requirement_version = await self._current_spec(workspace_id)
+        spec, requirement_version = await self.current_spec(workspace_id)
         targets = research_targets(product, spec)
 
         search = SearchService(self.session, self.embedder)
@@ -160,7 +164,7 @@ class AgentService:
         output = build_output(product, targets, values, catalog)
         if llm_summary:
             output = output.model_copy(update={"summary": llm_summary})
-        return await self._record(
+        return await self.record(
             workspace_id,
             user,
             PRODUCT_RESEARCH,
@@ -182,7 +186,7 @@ class AgentService:
     ) -> AgentRun:
         started = time.perf_counter()
         product = await self._workspace_product(workspace_id, user, product_id)
-        _, requirement_version = await self._current_spec(workspace_id)
+        _, requirement_version = await self.current_spec(workspace_id)
         hits = await SearchService(self.session, self.embedder).scoped_chunks(
             workspace_id,
             user,
@@ -215,7 +219,7 @@ class AgentService:
             mentions = rule_mentions(evidence)
 
         output = aggregate(product, mentions, review_chunks=len(hits))
-        return await self._record(
+        return await self.record(
             workspace_id,
             user,
             REVIEW_INTELLIGENCE,
@@ -241,7 +245,7 @@ class AgentService:
     ) -> AgentRun:
         started = time.perf_counter()
         product = await self._workspace_product(workspace_id, user, product_id)
-        spec, requirement_version = await self._current_spec(workspace_id)
+        spec, requirement_version = await self.current_spec(workspace_id)
         owned = owned_devices if owned_devices else (spec.owned_devices if spec else [])
         if not owned:
             raise NoCompatibilityTargetsError
@@ -308,7 +312,7 @@ class AgentService:
             )
         )
         output = build_compatibility(product, owned, requirements, findings, catalog)
-        return await self._record(
+        return await self.record(
             workspace_id,
             user,
             COMPATIBILITY,
@@ -330,7 +334,7 @@ class AgentService:
     ) -> AgentRun:
         started = time.perf_counter()
         product = await self._workspace_product(workspace_id, user, product_id)
-        spec, requirement_version = await self._current_spec(workspace_id)
+        spec, requirement_version = await self.current_spec(workspace_id)
         result = await SearchService(self.session, self.embedder).search(
             workspace_id,
             user,
@@ -380,7 +384,7 @@ class AgentService:
             research.output if research else None,
             str(research.id) if research else None,
         )
-        return await self._record(
+        return await self.record(
             workspace_id,
             user,
             VALUE,
@@ -401,7 +405,7 @@ class AgentService:
     ) -> AgentRun:
         started = time.perf_counter()
         product = await self._workspace_product(workspace_id, user, product_id)
-        spec, requirement_version = await self._current_spec(workspace_id)
+        spec, requirement_version = await self.current_spec(workspace_id)
         search = SearchService(self.session, self.embedder)
         ordered: dict[uuid.UUID, SearchHit] = {}
         embedding_model: str | None = None
@@ -441,7 +445,7 @@ class AgentService:
             *(run.output if run else None for run in runs.values()),
         )
         output = build_risk(product, risk_evidence_hits(evidence), others)
-        return await self._record(
+        return await self.record(
             workspace_id,
             user,
             RISK,
@@ -456,6 +460,62 @@ class AgentService:
             ),
             started,
         )
+
+    async def synthesize_product(
+        self, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
+    ) -> AgentRun:
+        """Combine the latest runs (same requirement version) into one verdict. No re-runs."""
+        started = time.perf_counter()
+        product = await self._workspace_product(workspace_id, user, product_id)
+        spec, requirement_version = await self.current_spec(workspace_id)
+        outputs: dict[str, dict[str, Any]] = {}
+        run_ids: dict[str, str] = {}
+        for agent in (PRODUCT_RESEARCH, REVIEW_INTELLIGENCE, COMPATIBILITY, VALUE, RISK):
+            run = await self._latest_run(workspace_id, product_id, agent, requirement_version)
+            if run is not None and run.output is not None:
+                outputs[agent] = run.output
+                run_ids[agent] = str(run.id)
+        result = synthesize(product, spec, outputs, run_ids)
+        return await self.record(
+            workspace_id,
+            user,
+            SYNTHESIS,
+            product_id,
+            None,
+            requirement_version,
+            AgentResult(
+                output=result,
+                # The synthesis cites agent runs, not evidence items: nothing to validate.
+                validation=validate_citations("", {}),
+                engine=RULES_ENGINE,
+            ),
+            started,
+        )
+
+    async def record_failure(
+        self,
+        workspace_id: uuid.UUID,
+        user: User,
+        agent: str,
+        product_id: uuid.UUID | None,
+        error: str,
+        duration_ms: int,
+    ) -> AgentRun:
+        _, requirement_version = await self.current_spec(workspace_id)
+        run = AgentRun(
+            workspace_id=workspace_id,
+            agent=agent,
+            product_id=product_id,
+            requirement_version=requirement_version,
+            status="FAILED",
+            engine=RULES_ENGINE,
+            error=error[:500],
+            duration_ms=duration_ms,
+            created_by_id=user.id,
+        )
+        self.session.add(run)
+        await self.session.flush()
+        return run
 
     # ---------------------------------------------------------------- helpers
     async def _latest_run(
@@ -495,12 +555,12 @@ class AgentService:
             raise WorkspaceProductNotFoundError
         return product
 
-    async def _record(
+    async def record(
         self,
         workspace_id: uuid.UUID,
         user: User,
         agent: str,
-        product_id: uuid.UUID,
+        product_id: uuid.UUID | None,
         evidence_pack_id: uuid.UUID | None,
         requirement_version: int | None,
         result: AgentResult,

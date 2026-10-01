@@ -9,9 +9,15 @@ from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser, EmbedderDep, LLMDep, SessionDep, SettingsDep
 from app.repositories.base import MAX_PAGE_SIZE
-from app.schemas.agents import AgentRunListResponse, AgentRunResponse, CompatibilityRequest
+from app.schemas.agents import (
+    AgentRunListResponse,
+    AgentRunResponse,
+    AnalyzeRequest,
+    CompatibilityRequest,
+)
 from app.schemas.workspaces import PageMeta
 from app.services.agents import AgentService
+from app.services.orchestrator import Orchestrator
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["agents"])
 
@@ -118,6 +124,48 @@ async def assess_risk(
 ) -> AgentRunResponse:
     run = await AgentService(session, settings, embedder, llm).assess_risk(
         workspace_id, user, product_id
+    )
+    return AgentRunResponse.model_validate(run)
+
+
+@router.post(
+    "/products/{product_id}/synthesize",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Synthesis Agent: one verdict from the latest runs (no agents are re-run)",
+)
+async def synthesize_product(
+    workspace_id: uuid.UUID,
+    product_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    llm: LLMDep,
+) -> AgentRunResponse:
+    run = await AgentService(session, settings, embedder, llm).synthesize_product(
+        workspace_id, user, product_id
+    )
+    return AgentRunResponse.model_validate(run)
+
+
+@router.post(
+    "/analyze",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run all agents for the workspace's products (bounded) and rank them",
+)
+async def analyze_workspace(
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    llm: LLMDep,
+    body: AnalyzeRequest | None = None,
+) -> AgentRunResponse:
+    run = await Orchestrator(session, settings, embedder, llm).analyze(
+        workspace_id, user, body.product_ids if body else None
     )
     return AgentRunResponse.model_validate(run)
 

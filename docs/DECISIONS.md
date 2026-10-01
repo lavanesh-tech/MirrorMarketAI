@@ -398,3 +398,17 @@ Newest at the bottom. A superseded decision is marked, not deleted.
 - **Consequences:** Risk output is only as fresh as the runs it reads. Phase 15
   orchestration runs the agents in dependency order: research, compatibility and
   value before risk.
+
+## ADR-034: Deterministic synthesis + bounded, failure-isolated orchestration
+
+- **Status:** Accepted (Phase 15)
+- **Decision:** The final recommendation is computed in code from stored agent
+  outputs. Hard constraints (a MUST criterion UNMET, INCOMPATIBLE) gate the verdict
+  before any score is considered, and every reason names its source agent. The
+  orchestrator runs agents sequentially in dependency order on one DB session. Each
+  step runs in a savepoint, so one agent's failure becomes a FAILED run and doesn't
+  abort the analysis. Budgets are enforced between steps (time → skip, tokens →
+  offline engines, product cap) and never by cancelling an in-flight DB query.
+- **Consequences:** Results are reproducible and explainable, and a broken agent
+  degrades the analysis instead of failing it. Analysis runs inside the request
+  for now; Phase 21 moves it to Kafka-driven workers using the same orchestrator.

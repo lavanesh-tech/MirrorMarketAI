@@ -43,3 +43,9 @@ class CompatibilityRequest(BaseModel):
         description="Overrides the requirements' owned_devices when non-empty",
         examples=[["iPhone 15", "USB-C dock", "Sony TV"]],
     )
+
+
+class AnalyzeRequest(BaseModel):
+    product_ids: list[uuid.UUID] = Field(
+        default_factory=list, max_length=50, description="Default: every workspace product"
+    )

@@ -129,6 +129,10 @@ class Settings(BaseSettings):
     agent_engine: Literal["openai", "rules"] = "rules"
     agent_evidence_per_criterion: int = Field(default=3, ge=1, le=10)
     agent_max_review_chunks: int = Field(default=60, ge=1, le=500)
+    # Bounded orchestration: steps are skipped (never cut mid-query) once a budget is spent.
+    orchestration_time_budget_seconds: float = Field(default=120.0, gt=0, le=900)
+    orchestration_max_products: int = Field(default=10, ge=1, le=50)
+    orchestration_token_budget: int = Field(default=50_000, ge=0)
 
     # --- Kafka (placeholders; introduced in Phase 21) ------------------------
     kafka_enabled: bool = False
