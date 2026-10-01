@@ -31,8 +31,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | --- | --- | --- |
 | 10 | Product Research Agent | ✅ |
 | 11 | Review Intelligence Agent | ✅ |
-| 12 | Compatibility Agent | 🔜 |
-| 13 | Value Agent | ⬜ |
+| 12 | Compatibility Agent | ✅ |
+| 13 | Value Agent | 🔜 |
 | 14 | Risk Agent | ⬜ |
 | 15 | Synthesis Agent, orchestration, bounded execution | ⬜ |
 | 16 | Comparison engine: criteria, weights, hard constraints | ⬜ |
@@ -187,4 +187,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Verdict computed in code; LLM judgements need verbatim quotes; LLM failure degrades to rules
 - [x] `POST /workspaces/{id}/products/{pid}/compatibility` (body overrides requirements; 422 when nothing to check)
 - [x] Benchmark with tuning and held-out sets (`benchmarks/compatibility.py`)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36801095777, commit 2c7e123)
