@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-20.
-- Next: **21, Kafka (outbox, workers, idempotent consumers, DLQ).**
+- Completed: 1-20. Phase 21 (Kafka) is built; waiting for Mac + CI.
+- Next: **22, Security hardening (refresh tokens, audit logs, prompt-injection and file defences).**
 - Last verified: Phase 20, CI run 36934271121, commit 02710f1 (2026-10-01).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -23,7 +23,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 - macOS on Apple Silicon, zsh, Docker Desktop. Python 3.12 with uv (`uv.lock` committed).
 - Repo: `~/Desktop/MirrorMarketAI` → `github.com/lavanesh-tech/MirrorMarketAI` (main).
-- Compose: postgres (PG17 + pgvector 0.8.6) :5433, redis :6380, migrate, api :8000, embedding-worker.
+- Compose: postgres (PG17 + pgvector 0.8.6) :5433, redis :6380, kafka (apache/kafka 4.0.0, KRaft) :9094, migrate, api :8000, embedding-worker, event-worker.
 
 ## Architecture decisions (ADR-001 to ADR-027)
 
@@ -50,13 +50,14 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Prices: global `price_snapshots` (product, retailer, NUMERIC amount, ISO currency, observed_at, in_stock, source). Batch insert uses ON CONFLICT DO NOTHING (idempotent). History is bucketed in SQL (date_trunc day/week/month, min/max per retailer) plus stats (latest per retailer, lowest current in stock, all-time low/high, 30-day average/low, change %, volatility, lowest-in-window). The Value Agent prefers the cheapest fresh (≤ PRICE_MAX_AGE_DAYS) in-stock snapshot in the budget currency, then evidence, then catalog.
 - Redis (`app/coordination`): one pool per process; empty `REDIS_URL` disables everything and all features fail open on Redis errors. GCRA rate limits in one Lua script using Redis TIME (auth per IP + per email, agent POSTs per user; 429 + Retry-After). Price-history read-through cache with version-key invalidation (`X-Cache`). `Idempotency-Key` middleware for POST/PATCH (scoped per caller+path, SET NX claim, replay < 500, 409 in progress, 422 body mismatch). One-time tokens via GETDEL (OAuth state + PKCE). `/ready` reports Redis with `required=false`.
 - Realtime (`app/realtime`, `docs/REALTIME.md`): push-only WebSocket per workspace, JWT in the first message, membership check with a short DB session, closes on token expiry. Hub with bounded per-socket queues (slow consumer → 1013), limits on connections/size/rate/idle, origin allow-list. EventBus → Redis pub/sub `mm:rt:<ws>` with local fallback; presence in a TTL'd Redis sorted set. Comments (one-level replies, soft delete) and votes (upsert) are REST writes that publish events; agent runs publish `agent_run.completed`.
+- Events (`app/events`, `docs/EVENTS.md`): transactional outbox (`new_event()` added in the same transaction as comments, votes, agent runs, prices) → relay (SKIP LOCKED, in order, backoff, give-up, purge) → Kafka topic `mirrormarket.events.v1` keyed by workspace/product (aiokafka, acks=all, idempotent producer) → idempotent consumer (inbox `processed_events` in the handler's transaction, manual offset commit, retries, `.dlq` topic, rewind on failure) → `workspace_activity` read model. Broker ports with an in-memory implementation for tests. Worker: `python -m app.workers.event_worker`.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
-## Database migrations (head 0011)
+## Database migrations (head 0012)
 
 0001 pgvector · 0002 users/orgs/workspaces/members · 0003 catalog + workspace_products ·
 0004 sources/snapshots/documents · 0005 chunks/embeddings/jobs · 0006 chunk tsvector + GIN ·
-0007 purchase_requirements/requirement_versions · 0008 evidence_packs/evidence_items · 0009 agent_runs · 0010 price_snapshots · 0011 workspace_comments/product_votes
+0007 purchase_requirements/requirement_versions · 0008 evidence_packs/evidence_items · 0009 agent_runs · 0010 price_snapshots · 0011 workspace_comments/product_votes · 0012 outbox_events/processed_events/workspace_activity
 
 ## Major endpoints (/api/v1)
 
@@ -71,13 +72,13 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
 - POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+); POST .../compatibility (optional body {owned_devices}); POST .../value; POST .../risk; POST .../synthesize
 - POST workspaces/{id}/analyze (MEMBER+, optional body {product_ids}); POST workspaces/{id}/compare (body {product_ids, weights, budget_is_hard}); POST workspaces/{id}/ask (body {question, product_ids, limit})
-- workspaces/{id}/comments: POST (MEMBER+), GET (?product_id=&workspace_level_only=), PATCH/DELETE {comment}; PUT workspaces/{id}/products/{pid}/vote {value: 1|-1|0}; GET workspaces/{id}/votes; GET workspaces/{id}/presence
+- workspaces/{id}/comments: POST (MEMBER+), GET (?product_id=&workspace_level_only=), PATCH/DELETE {comment}; PUT workspaces/{id}/products/{pid}/vote {value: 1|-1|0}; GET workspaces/{id}/votes; GET workspaces/{id}/presence; GET workspaces/{id}/activity (eventually consistent feed)
 - WebSocket `/api/v1/ws/workspaces/{id}` (events: presence.*, comment.*, vote.changed, agent_run.completed)
 - POST workspaces/{id}/products/{pid}/research (MEMBER+); GET workspaces/{id}/agent-runs[/{run}] (?agent=&product_id=)
 
 ## Tests
 
-- 558 tests, 98% coverage (Phase 20; Mac + CI). `make check` runs everything CI runs.
+- 584 tests (Phase 21): 582 pass in the cloud workspace at 97% coverage; the 2 real-Kafka tests (`-m kafka`) need Docker and run only on the Mac and in CI. Phase 20: 558 (Mac + CI).
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
@@ -117,12 +118,17 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   median 0.19 / 0.24 / 0.65 ms for rooms of 10 / 100 / 1000 through Redis pub/sub; 0.02 / 0.04 / 0.28 ms single-process.
   Mac (arm64, Redis 7.4): 0.42 / 0.46 / 0.64 ms through Redis; 0.006 / 0.025 / 0.22 ms single-process. Evidence: `backend/benchmarks/results/realtime_fanout.json`.
 
+- Event pipeline (cloud workspace, PostgreSQL 16, IN-MEMORY broker, so PostgreSQL side only; 2000 synthetic events):
+  relay 9,869 events/s; consumer 410 events/s (one transaction per event); 2000/2000 redelivered duplicates rejected.
+  Evidence: `backend/benchmarks/results/event_pipeline.json` (re-run on the Mac against real Kafka).
+
 ## Known issues / limits
 
 - The hashing embedder is lexical, not semantic (OpenAI needs a key). Chunk size is measured in characters.
 - The rule extractor is English-only pattern matching; what it can't use is returned as `unparsed`.
 - Ingestion runs in the request; raw bytes are stored in Postgres (S3 comes in Phase 31).
 - Not yet: refresh tokens, invitations, security headers, OAuth login flow (Phase 22 uses the one-time token store).
+- Events: no dead-letter replay tool, no schema registry; Kafka data is not persisted across `make down` (the outbox is the source).
 - Realtime: at-most-once, no replay (clients refetch on reconnect); membership is checked only at connect.
 - Rate limits key on the socket peer IP; behind a proxy, uvicorn `--forwarded-allow-ips` is needed (Phase 29).
 - Before Phase 30: pin the CI runner (ubuntu-latest moves to 26 on 2026-10-19).
@@ -136,6 +142,8 @@ make up
 cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket uv run python -m benchmarks.price_history_db && cd ..
 cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket REDIS_URL=redis://localhost:6380/0 uv run python -m benchmarks.redis_paths && cd ..
 cd backend && REDIS_URL=redis://localhost:6380/0 uv run python -m benchmarks.realtime_fanout && cd ..
+make smoke-events
+docker compose stop event-worker && cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket KAFKA_BOOTSTRAP_SERVERS=localhost:9094 uv run python -m benchmarks.event_pipeline && cd ..
 make check
 make up
 make ps

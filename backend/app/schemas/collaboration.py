@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -68,3 +68,21 @@ class VoteTallyList(BaseModel):
 class PresenceResponse(BaseModel):
     workspace_id: uuid.UUID
     user_ids: list[uuid.UUID]
+
+
+class ActivityItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    event_id: uuid.UUID
+    event_type: str
+    actor_id: uuid.UUID | None
+    product_id: uuid.UUID | None
+    summary: str
+    data: dict[str, Any]
+    occurred_at: datetime
+
+
+class ActivityListResponse(BaseModel):
+    items: list[ActivityItem]
+    page: PageMeta

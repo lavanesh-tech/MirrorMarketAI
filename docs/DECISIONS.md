@@ -489,3 +489,22 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   Delivery is at-most-once with no replay, so clients must refetch after
   reconnecting; durable event delivery is Kafka's job (Phase 21). Membership
   changes do not close existing sockets yet.
+
+## ADR-040: Transactional outbox, at-least-once Kafka, idempotent consumers
+
+- **Status:** Accepted (Phase 21)
+- **Decision:** A change and its event are written in one PostgreSQL transaction
+  (outbox table); a relay publishes to Kafka afterwards and marks rows published
+  only after the broker acknowledged them. Delivery is therefore at-least-once,
+  and every consumer deduplicates with an inbox row `(consumer, event_id)` that
+  commits together with its side effects. Offsets are committed manually after
+  that transaction. Failed messages are retried, then copied to a dead-letter
+  topic. Relay and consumer code depend on two small broker protocols; Kafka is
+  one adapter and tests use an in-memory one plus a real broker in CI.
+- **Alternatives rejected:** publishing from the request handler (events lost or
+  phantom on crash); Kafka transactions for exactly-once (does not cover the
+  PostgreSQL write); change data capture with Debezium (more moving parts than
+  this project needs).
+- **Consequences:** No lost or phantom events, and duplicates are harmless.
+  The feed is eventually consistent. Ordering is per key (workspace), not global.
+  Redis pub/sub stays for transient WebSocket hints.

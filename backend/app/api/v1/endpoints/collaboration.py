@@ -10,6 +10,8 @@ from fastapi import APIRouter, Query, status
 from app.api.deps import CurrentUser, EventsDep, PresenceDep, SessionDep
 from app.repositories.base import MAX_PAGE_SIZE
 from app.schemas.collaboration import (
+    ActivityItem,
+    ActivityListResponse,
     CommentBody,
     CommentCreate,
     CommentListResponse,
@@ -168,3 +170,26 @@ async def presence(
     await WorkspaceService(session).authorize(workspace_id, user)
     users = await online.users(workspace_id)
     return PresenceResponse(workspace_id=workspace_id, user_ids=[uuid.UUID(u) for u in users])
+
+
+@router.get(
+    "/activity",
+    response_model=ActivityListResponse,
+    summary="Activity feed, newest first (built from events by a Kafka consumer)",
+    description="Eventually consistent: an entry appears once the event worker has "
+    "processed the event, normally within a second or two. Empty when no worker runs.",
+)
+async def activity(
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ActivityListResponse:
+    rows, total = await CollaborationService(session).activity(
+        workspace_id, user, limit=limit, offset=offset
+    )
+    return ActivityListResponse(
+        items=[ActivityItem.model_validate(r) for r in rows],
+        page=PageMeta(total=total, limit=limit, offset=offset),
+    )

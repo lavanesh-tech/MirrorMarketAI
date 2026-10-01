@@ -1,1 +1,1 @@
-"""Event definitions, transactional outbox and Kafka producers (Phase 21)."""
+"""Domain events: outbox, Kafka adapters, relay, idempotent consumers, dead letters."""

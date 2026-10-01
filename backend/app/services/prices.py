@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ProductNotFoundError
 from app.domain.prices import Observation, summarize
+from app.events.envelope import PRICES_RECORDED, new_event
 from app.models.catalog import Product
 from app.models.identity import User
 from app.models.prices import PriceSnapshot
@@ -66,6 +67,15 @@ class PriceService:
             .returning(PriceSnapshot.id)
         )
         inserted = len(list(await self.session.scalars(stmt)))
+        if inserted:
+            self.session.add(
+                new_event(
+                    PRICES_RECORDED,
+                    {"inserted": inserted, "source": batch.source},
+                    actor_id=user.id,
+                    product_id=product_id,
+                )
+            )
         await self.session.commit()
         return PriceBatchResult(
             received=len(rows), inserted=inserted, duplicates=len(rows) - inserted

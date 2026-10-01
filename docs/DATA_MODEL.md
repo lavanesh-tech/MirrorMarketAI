@@ -33,6 +33,9 @@ phase (see [ROADMAP.md](ROADMAP.md)).
 | `price_snapshots` | `0010` | global price observations: product (CASCADE), optional variant, `retailer`, `amount` NUMERIC(12,2) > 0, `currency` ^[A-Z]{3}$, `observed_at`, `in_stock`, `url`, `source` MANUAL/IMPORT/EVIDENCE; unique (product, retailer, currency, observed_at); index (product, currency, observed_at) |
 | `workspace_comments` | `0011` | workspace (CASCADE), optional product (NULL = workspace-level), author (RESTRICT), `parent_id` self FK (replies one level deep, enforced in the service), `body` CHECK 1-4000 chars, `edited_at`, `deleted_at` (soft delete, body overwritten); index (workspace, product, created_at) |
 | `product_votes` | `0011` | one row per (workspace, product, user) UNIQUE; `value` CHECK IN (-1, 1); upsert with ON CONFLICT DO UPDATE, value 0 deletes the row |
+| `outbox_events` | `0012` | transactional outbox: `id` (= event id), `sequence` identity (publish order), `topic`, `key`, `event_type`, `payload` JSONB, `attempts`, `last_error`, `next_attempt_at`, `published_at`, `failed_at`; partial index (next_attempt_at, sequence) WHERE unpublished and not failed |
+| `processed_events` | `0012` | consumer inbox: PK (`consumer`, `event_id`); inserted in the handler's transaction so redeliveries are skipped |
+| `workspace_activity` | `0012` | read model built by the Kafka consumer: workspace (CASCADE), `event_id` UNIQUE, `event_type`, actor/product (SET NULL), `summary`, `data` JSONB, `occurred_at`; index (workspace, occurred_at) |
 | `alembic_version` | Alembic | the migration revision currently applied |
 
 Foreign keys are indexed. Deleting a workspace cascades to its members.

@@ -16,8 +16,10 @@ from app.core.errors import (
     WorkspaceProductNotFoundError,
 )
 from app.domain.roles import WorkspaceRole, has_at_least
+from app.events.envelope import COMMENT_CREATED, COMMENT_DELETED, VOTE_CHANGED, new_event
 from app.models.catalog import WorkspaceProduct
 from app.models.collaboration import ProductVote, WorkspaceComment
+from app.models.events import WorkspaceActivity
 from app.models.identity import User
 from app.schemas.collaboration import CommentResponse, VoteTally
 from app.services.workspaces import WorkspaceService
@@ -26,6 +28,7 @@ EVENT_COMMENT_CREATED = "comment.created"
 EVENT_COMMENT_UPDATED = "comment.updated"
 EVENT_COMMENT_DELETED = "comment.deleted"
 EVENT_VOTE_CHANGED = "vote.changed"
+EXCERPT_CHARS = 120
 
 
 def comment_response(comment: WorkspaceComment) -> CommentResponse:
@@ -93,6 +96,7 @@ class CollaborationService:
             ):
                 raise InvalidCommentParentError
         comment = WorkspaceComment(
+            id=uuid.uuid4(),  # needed before flush: the event below refers to it
             workspace_id=workspace_id,
             product_id=product_id,
             parent_id=parent_id,
@@ -100,6 +104,20 @@ class CollaborationService:
             body=body,
         )
         self.session.add(comment)
+        # Same transaction as the comment: the event exists iff the comment does.
+        self.session.add(
+            new_event(
+                COMMENT_CREATED,
+                {
+                    "comment_id": str(comment.id),
+                    "parent_id": str(parent_id) if parent_id else None,
+                    "excerpt": body[:EXCERPT_CHARS],
+                },
+                workspace_id=workspace_id,
+                actor_id=user.id,
+                product_id=product_id,
+            )
+        )
         await self.session.commit()
         await self.session.refresh(comment)
         return comment
@@ -159,6 +177,15 @@ class CollaborationService:
         if comment.deleted_at is None:
             comment.deleted_at = datetime.now(UTC)
             comment.body = "[deleted]"  # the text itself is erased, not just hidden
+            self.session.add(
+                new_event(
+                    COMMENT_DELETED,
+                    {"comment_id": str(comment.id)},
+                    workspace_id=workspace_id,
+                    actor_id=user.id,
+                    product_id=comment.product_id,
+                )
+            )
             await self.session.commit()
             await self.session.refresh(comment)
         return comment
@@ -215,6 +242,15 @@ class CollaborationService:
                     set_={"value": stmt.excluded.value, "updated_at": func.now()},
                 )
             )
+        self.session.add(
+            new_event(
+                VOTE_CHANGED,
+                {"value": value},
+                workspace_id=workspace_id,
+                actor_id=user.id,
+                product_id=product_id,
+            )
+        )
         await self.session.commit()
         tallies = await self._tallies(workspace_id, user.id, product_id)
         return (
@@ -226,3 +262,21 @@ class CollaborationService:
     async def tallies(self, workspace_id: uuid.UUID, user: User) -> list[VoteTally]:
         await self.workspaces.authorize(workspace_id, user)
         return await self._tallies(workspace_id, user.id)
+
+    async def activity(
+        self, workspace_id: uuid.UUID, user: User, *, limit: int, offset: int
+    ) -> tuple[list[WorkspaceActivity], int]:
+        """Newest first. Built asynchronously from events, so it lags writes slightly."""
+        await self.workspaces.authorize(workspace_id, user)
+        where = WorkspaceActivity.workspace_id == workspace_id
+        total = await self.session.scalar(
+            select(func.count()).select_from(WorkspaceActivity).where(where)
+        )
+        rows = await self.session.scalars(
+            select(WorkspaceActivity)
+            .where(where)
+            .order_by(WorkspaceActivity.occurred_at.desc(), WorkspaceActivity.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(rows), total or 0

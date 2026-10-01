@@ -21,6 +21,7 @@ dependencies = [
     "pypdf>=6.19.0",
     "pgvector>=0.5.0",
     "redis>=6.4",
+    "aiokafka>=0.12",
 ]
 
 [dependency-groups]
@@ -30,7 +31,7 @@ dev = [
     "pytest>=9.1",
     "pytest-asyncio>=1.4",
     "pytest-cov>=7.1",
-    "testcontainers[postgres,redis]>=4.15.0",
+    "testcontainers[kafka,postgres,redis]>=4.15.0",
     "reportlab>=5.0.1",
 ]
 
@@ -105,8 +106,8 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 files = ["app", "tests", "migrations", "benchmarks"]
 
 [[tool.mypy.overrides]]
-# asyncpg ships no type information; it is only used directly in test setup.
-module = ["asyncpg", "asyncpg.*", "reportlab", "reportlab.*"]
+# asyncpg and aiokafka ship no type information.
+module = ["asyncpg", "asyncpg.*", "reportlab", "reportlab.*", "aiokafka", "aiokafka.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
@@ -128,6 +129,7 @@ filterwarnings = [
     "error",
     # Third-party noise from the Testcontainers/Docker SDK, not from our code.
     "ignore::DeprecationWarning:testcontainers.*",
+    "ignore::DeprecationWarning:aiokafka.*",
     "ignore:unclosed <socket.socket:ResourceWarning",
 ]
 markers = [
@@ -135,6 +137,7 @@ markers = [
     "api: HTTP-level tests against the ASGI app (in-process, no network)",
     "db: needs PostgreSQL (Testcontainers, or TEST_DATABASE_URL if set)",
     "redis: needs Redis (Testcontainers, or TEST_REDIS_URL if set)",
+    "kafka: needs a Kafka broker (Testcontainers, or TEST_KAFKA_BOOTSTRAP if set)",
 ]
 
 [tool.coverage.run]

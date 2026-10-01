@@ -31,6 +31,8 @@ x-app-service: &app-service
     # on their container ports, not via the host ports.
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mirrormarket}:${POSTGRES_PASSWORD:-mirrormarket}@postgres:5432/${POSTGRES_DB:-mirrormarket}
     REDIS_URL: redis://redis:6379/0
+    KAFKA_ENABLED: "true"
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     LOG_FORMAT: json
   read_only: true
   tmpfs:
@@ -69,6 +71,37 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  # Single-node Kafka in KRaft mode (no ZooKeeper). Data is not persisted: events
+  # are derived from PostgreSQL (the outbox), so a fresh broker loses nothing durable.
+  # INTERNAL is for containers (kafka:9092); EXTERNAL is for tools on the host.
+  kafka:
+    <<: *hardening
+    image: apache/kafka:4.0.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${KAFKA_HOST_PORT:-9094}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "127.0.0.1:${KAFKA_HOST_PORT:-9094}:9094"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
 
   # One-shot job: apply Alembic migrations, then exit. The api waits for it to
   # succeed, so the API never starts against an out-of-date schema.
@@ -114,6 +147,29 @@ services:
       start_period: 10s
     depends_on:
       postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Publishes the outbox to Kafka and runs the Kafka consumers (activity feed).
+  event-worker:
+    <<: *app-service
+    command: ["python", "-m", "app.workers.event_worker"]
+    ports: []
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, sys, time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/event-worker.heartbeat') < 60 else 1)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully

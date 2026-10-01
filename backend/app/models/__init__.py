@@ -14,6 +14,7 @@ from app.models.catalog import (
     WorkspaceProduct,
 )
 from app.models.collaboration import ProductVote, WorkspaceComment
+from app.models.events import OutboxEvent, ProcessedEvent, WorkspaceActivity
 from app.models.evidence import EvidenceItem, EvidencePack
 from app.models.identity import (
     ComparisonWorkspace,
@@ -38,7 +39,9 @@ __all__ = [
     "EvidencePack",
     "Organization",
     "OrganizationMember",
+    "OutboxEvent",
     "PriceSnapshot",
+    "ProcessedEvent",
     "Product",
     "ProductIdentifier",
     "ProductSource",
@@ -52,6 +55,7 @@ __all__ = [
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",
     "User",
+    "WorkspaceActivity",
     "WorkspaceComment",
     "WorkspaceMember",
     "WorkspaceProduct",

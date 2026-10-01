@@ -61,7 +61,7 @@ jobs:
         run: docker compose config --quiet
 
       - name: Build and start stack
-        run: docker compose up -d --build --wait --wait-timeout 180
+        run: docker compose up -d --build --wait --wait-timeout 300
 
       - name: Smoke test health and readiness endpoints
         run: |
@@ -70,6 +70,11 @@ jobs:
           curl -fsS -i http://127.0.0.1:8000/api/v1/ready
           curl -fsS http://127.0.0.1:8000/api/v1/ready | grep -q '"status":"ready"'
           curl -fsS http://127.0.0.1:8000/api/v1/ready | grep -q '"redis":{"status":"ok"'
+
+      # A comment written through the API must reach the activity feed:
+      # outbox -> relay -> Kafka -> consumer -> read model.
+      - name: Smoke test the event pipeline (outbox -> Kafka -> activity feed)
+        run: python3 infrastructure/scripts/smoke_events.py
 
       - name: Verify migrations ran
         run: docker compose logs migrate | grep -q "Running upgrade"

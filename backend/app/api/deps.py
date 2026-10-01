@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
-from contextlib import AbstractAsyncContextManager
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -14,7 +13,7 @@ from starlette.requests import HTTPConnection
 from app.coordination.cache import JsonCache
 from app.coordination.rate_limit import RateLimiter
 from app.core.config import Settings
-from app.core.database import Database
+from app.core.database import Database, SessionFactory
 from app.core.errors import AuthenticationError
 from app.ingestion.safe_fetch import SafeFetcher
 from app.models.identity import User
@@ -115,9 +114,6 @@ def get_event_bus(request: Request) -> EventBus:
 def get_presence(request: Request) -> Presence:
     presence: Presence = request.app.state.presence
     return presence
-
-
-SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 
 def get_session_factory(connection: HTTPConnection) -> SessionFactory:

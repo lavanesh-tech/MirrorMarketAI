@@ -32,6 +32,7 @@ from sqlalchemy.pool import NullPool
 
 from app.api.deps import get_db_session, get_session_factory
 from app.core.config import Settings
+from app.core.database import SessionFactory
 from app.core.migrations import alembic_config
 from app.domain.roles import WorkspaceRole
 from app.main import create_app
@@ -210,6 +211,17 @@ async def register_user(
     return ApiUser(created.json()["id"], email, login.json()["access_token"])
 
 
+@pytest.fixture
+def session_scope(db_session: AsyncSession) -> SessionFactory:
+    """A `SessionFactory` for workers under test: always the test's rolled-back session."""
+
+    @asynccontextmanager
+    async def _scope() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    return _scope
+
+
 # --- Realtime: an app + HTTP client + WebSocket factory sharing the test's session ---
 
 
@@ -274,3 +286,19 @@ async def join(
     session: AsyncSession, workspace_id: str, user: ApiUser, role: WorkspaceRole
 ) -> None:
     await WorkspaceService(session).add_member(uuid.UUID(workspace_id), uuid.UUID(user.id), role)
+
+
+async def seed(http: httpx.AsyncClient) -> tuple[ApiUser, str, str]:
+    """A workspace with one product; returns (owner, workspace id, product id)."""
+    owner = await register_user(http)
+    ws_id = await workspace(http, owner)
+    product = await http.post(
+        "/api/v1/products",
+        json={"brand": f"Acme-{uuid.uuid4().hex[:6]}", "name": "A", "category": "laptop"},
+        headers=owner.headers,
+    )
+    pid: str = product.json()["id"]
+    await http.post(
+        f"/api/v1/workspaces/{ws_id}/products", json={"product_id": pid}, headers=owner.headers
+    )
+    return owner, ws_id, pid

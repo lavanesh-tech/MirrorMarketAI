@@ -109,7 +109,7 @@ build: ## Build the API image
 
 .PHONY: up
 up: ## Start postgres + redis, run migrations, start api; wait until healthy
-	$(COMPOSE) up -d --build --wait --wait-timeout 180
+	$(COMPOSE) up -d --build --wait --wait-timeout 300
 
 .PHONY: infra
 infra: ## Start only postgres + redis (then `make migrate` and `make run` on the host)
@@ -138,6 +138,10 @@ health: ## Call the liveness endpoint
 .PHONY: ready
 ready: ## Call the readiness endpoint (checks database + migration state)
 	@curl -sS -i $(API_URL)/api/v1/ready; echo
+
+.PHONY: smoke-events
+smoke-events: ## End-to-end check: comment -> outbox -> Kafka -> consumer -> activity feed
+	@python3 infrastructure/scripts/smoke_events.py $(API_URL)
 
 .PHONY: verify-pgvector
 verify-pgvector: ## Confirm the pgvector extension is installed in the local database

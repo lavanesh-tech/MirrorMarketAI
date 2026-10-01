@@ -41,6 +41,7 @@ from app.core.errors import (
 from app.domain.citations import validate_citations
 from app.domain.requirements import RequirementSpec
 from app.domain.roles import WorkspaceRole
+from app.events.envelope import AGENT_RUN_COMPLETED, new_event
 from app.models.agents import AgentRun
 from app.models.catalog import Product, ProductSpecification, WorkspaceProduct
 from app.models.identity import User
@@ -523,6 +524,15 @@ class AgentService:
         )
         self.session.add(run)
         await self.session.flush()
+        self.session.add(
+            new_event(
+                AGENT_RUN_COMPLETED,
+                {"run_id": str(run.id), "agent": agent, "status": run.status},
+                workspace_id=workspace_id,
+                actor_id=user.id,
+                product_id=product_id,
+            )
+        )
         return run
 
     # ---------------------------------------------------------------- helpers
@@ -623,6 +633,15 @@ class AgentService:
         )
         self.session.add(run)
         await self.session.flush()
+        self.session.add(
+            new_event(
+                AGENT_RUN_COMPLETED,
+                {"run_id": str(run.id), "agent": agent, "status": run.status},
+                workspace_id=workspace_id,
+                actor_id=user.id,
+                product_id=product_id,
+            )
+        )
         return run
 
     async def get_run(self, workspace_id: uuid.UUID, user: User, run_id: uuid.UUID) -> AgentRun:

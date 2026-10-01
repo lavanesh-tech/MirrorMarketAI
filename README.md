@@ -30,7 +30,7 @@ every factual claim cites its source. Collaborators see the research happen live
 | API | Python 3.12, FastAPI, Pydantic v2, pydantic-settings |
 | Data | PostgreSQL 17 + pgvector, SQLAlchemy 2.x (async), Alembic |
 | Cache / coordination | Redis 7: GCRA rate limits, price cache, Idempotency-Key replay, one-time tokens (fail open) |
-| Events | Kafka (from Phase 21) |
+| Events | Kafka (KRaft): transactional outbox, idempotent consumers, dead-letter topic; see `docs/EVENTS.md` |
 | AI | OpenAI chat + embeddings, LangChain where it helps |
 | Realtime | WebSockets (push-only events, Redis pub/sub fan-out, presence); see `docs/REALTIME.md` |
 | Frontend | Next.js, React, TypeScript |
@@ -61,7 +61,7 @@ MirrorMarketAI/
 ├── benchmarks/results/       recorded benchmark runs (Phase 29)
 ├── docs/                     architecture, decisions, roadmap
 ├── .github/workflows/ci.yml  CI pipeline
-├── docker-compose.yml        postgres+pgvector, redis, api
+├── docker-compose.yml        postgres+pgvector, redis, kafka, api, workers
 ├── Makefile                  developer commands
 └── .env.example              configuration template (copy to .env)
 ```

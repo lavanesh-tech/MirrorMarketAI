@@ -16,6 +16,8 @@ Session rules used throughout the codebase:
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 
 from sqlalchemy import text
@@ -29,6 +31,10 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import Settings
 
 APPLICATION_NAME = "mirrormarket-api"
+
+# "Give me a short-lived session": used by WebSockets and background workers,
+# which must not hold one session (and its pooled connection) for their lifetime.
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 
 def create_engine(settings: Settings) -> AsyncEngine:

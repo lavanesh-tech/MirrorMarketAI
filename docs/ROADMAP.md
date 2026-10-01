@@ -260,3 +260,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Events for comments, votes, agent runs and presence; tenant isolation tested; two-replica test
 - [x] Fan-out benchmark (`benchmarks/realtime_fanout.py`); protocol documented in `docs/REALTIME.md`
 - [x] Verified on the developer Mac and CI green (run 36934271121, commit 02710f1)
+
+## Phase 21 exit criteria
+
+- [x] Transactional outbox (migration `0012`): events written in the same transaction as comments, votes, agent runs and prices
+- [x] Relay: FOR UPDATE SKIP LOCKED, publish in order, backoff, give up after max attempts, retention purge
+- [x] Kafka adapters (aiokafka): idempotent producer with acks=all, manual offset commits, explicit topic creation
+- [x] Idempotent consumer (`processed_events` inbox), retries, dead-letter topic with error headers, rewind on failure
+- [x] Activity feed read model and `GET /workspaces/{id}/activity`; Kafka + event-worker in Compose
+- [x] Real-broker tests (Testcontainers Kafka), CI smoke test through Kafka, throughput benchmark (`benchmarks/event_pipeline.py`)
+- [ ] Verified on the developer Mac and CI green

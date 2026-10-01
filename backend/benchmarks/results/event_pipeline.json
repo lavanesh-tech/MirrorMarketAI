@@ -1,0 +1,22 @@
+{
+  "benchmark": "event_pipeline",
+  "broker": "kafka",
+  "dataset": "synthetic: 2000 vote.changed events, one workspace, one partition",
+  "relay": {
+    "seconds": 1.713,
+    "events_per_second": 1168,
+    "batch_size": 100
+  },
+  "consumer": {
+    "seconds": 19.57,
+    "events_per_second": 102
+  },
+  "redelivery": {
+    "events_delivered_twice": 2000,
+    "duplicates_rejected": 2000,
+    "activity_rows": 2000
+  },
+  "commit": "f542e18",
+  "python": "3.12.14",
+  "machine": "arm64"
+}

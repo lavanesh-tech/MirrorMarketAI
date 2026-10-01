@@ -158,10 +158,23 @@ class Settings(BaseSettings):
     # Price snapshots older than this are ignored by the Value Agent.
     price_max_age_days: int = Field(default=30, ge=1, le=365)
 
-    # --- Kafka (placeholders; introduced in Phase 21) ------------------------
+    # --- Events: outbox + Kafka -----------------------------------------------
+    # Outbox rows are always written. They are only published when a worker runs
+    # with KAFKA_ENABLED=true (`python -m app.workers.event_worker`).
     kafka_enabled: bool = False
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_client_id: str = "mirrormarket-api"
+    kafka_topic_partitions: int = Field(default=3, ge=1, le=64)
+    kafka_request_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    kafka_consumer_batch_size: int = Field(default=100, ge=1, le=1_000)
+    kafka_consumer_max_attempts: int = Field(default=3, ge=1, le=20)
+    kafka_consumer_backoff_seconds: float = Field(default=0.5, ge=0, le=60)
+    outbox_batch_size: int = Field(default=100, ge=1, le=1_000)
+    outbox_max_attempts: int = Field(default=10, ge=1, le=100)
+    outbox_backoff_seconds: float = Field(default=1.0, ge=0, le=60)
+    outbox_backoff_max_seconds: float = Field(default=300.0, ge=0, le=3_600)
+    outbox_retention_hours: int = Field(default=72, ge=1, le=8_760)
+    outbox_poll_interval_seconds: float = Field(default=1.0, gt=0, le=60)
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
