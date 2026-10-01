@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-18. Phase 19 (Redis) is built; waiting for Mac + CI.
+- Completed: 1-19.
 - Next: **20, WebSockets (presence, comments, votes, realtime updates).**
-- Last verified: Phase 18, CI run 36808476931, commit 0069f7a (2026-09-30). Mac price-history benchmark: median 8.07 ms (index) vs 7.88 ms (no index), 50k synthetic rows.
+- Last verified: Phase 19, CI run 36811623348, commit 7247b7f (2026-09-30).
 
 ## Working rules
 
@@ -73,7 +73,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 538 tests, 98% coverage (Phase 19, cloud workspace). Phase 18: 501 (Mac + CI). `make check` runs everything CI runs.
+- 538 tests, 98% coverage (Phase 19; Mac + CI). `make check` runs everything CI runs.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
 ## Current measured metrics
@@ -106,7 +106,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 - Redis paths (cloud workspace, PostgreSQL 16 + Redis 7.0, same 50k synthetic snapshots): price history from Postgres
   median 14.07 ms vs from the Redis cache 0.79 ms (23 KB payload); one GCRA rate-limit decision 0.11 ms median.
-  Evidence: `backend/benchmarks/results/redis_paths.json` (re-run on the Mac against Compose Postgres + Redis).
+  Mac (arm64, Compose PG17 + Redis 7.4): Postgres 7.69 ms vs cache 1.00 ms median; rate-limit decision 0.36 ms. Evidence: `backend/benchmarks/results/redis_paths.json`.
 
 ## Known issues / limits
 

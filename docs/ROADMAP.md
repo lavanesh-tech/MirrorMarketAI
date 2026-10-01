@@ -43,8 +43,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 19 | Redis: caching, rate limiting, idempotency, OAuth state | 🔜 |
-| 20 | WebSockets: presence, comments, votes, realtime updates | ⬜ |
+| 19 | Redis: caching, rate limiting, idempotency, OAuth state | ✅ |
+| 20 | WebSockets: presence, comments, votes, realtime updates | 🔜 |
 | 21 | Kafka: outbox, workers, idempotent consumers, DLQ | ⬜ |
 | 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | ⬜ |
 | 23 | OpenAPI, Postman collection, API documentation | ⬜ |
@@ -249,4 +249,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `Idempotency-Key` middleware (POST/PATCH): per-caller scope, in-progress 409, body-mismatch 422, 5xx not stored
 - [x] Single-use tokens (GETDEL) + PKCE helper for OAuth state; `/ready` reports Redis as non-required
 - [x] Benchmark of cache hit vs Postgres and rate-limit decision latency (`benchmarks/redis_paths.py`)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36811623348, commit 7247b7f)
