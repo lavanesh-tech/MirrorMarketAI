@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-12. Phase 13 (Value Agent) is built; waiting for Mac + CI.
+- Completed: 1-13.
 - Next: **14, the Risk Agent.**
-- Last verified: Phase 12, CI run 36801095777, commit 2c7e123 (2026-10-01).
+- Last verified: Phase 13, CI run 36802148225, commit b916de0 (2026-10-01).
 
 ## Working rules
 
@@ -63,7 +63,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 467 tests, 97% coverage (Phase 13, cloud workspace). Phase 12: 453 (Mac + CI). `make check` runs everything CI runs.
+- 467 tests, 97% coverage (Phase 13; Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics

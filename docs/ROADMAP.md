@@ -32,8 +32,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 10 | Product Research Agent | ✅ |
 | 11 | Review Intelligence Agent | ✅ |
 | 12 | Compatibility Agent | ✅ |
-| 13 | Value Agent | 🔜 |
-| 14 | Risk Agent | ⬜ |
+| 13 | Value Agent | ✅ |
+| 14 | Risk Agent | 🔜 |
 | 15 | Synthesis Agent, orchestration, bounded execution | ⬜ |
 | 16 | Comparison engine: criteria, weights, hard constraints | ⬜ |
 | 17 | Ask MirrorMarket (RAG Q&A) | ⬜ |
@@ -196,4 +196,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Requirement fit from the latest Product Research run at the same requirement version; value index; price per unit
 - [x] `POST /workspaces/{id}/products/{pid}/value`
 - [x] Price extraction benchmark (`benchmarks/price_extraction.py`)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36802148225, commit b916de0)
