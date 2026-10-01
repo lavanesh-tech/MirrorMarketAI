@@ -196,6 +196,11 @@ class NoCompatibilityTargetsError(UnprocessableError):
     )
 
 
+class NothingToCompareError(UnprocessableError):
+    code = "nothing_to_compare"
+    message = "Add products to the workspace and save requirements (or a budget) to compare."
+
+
 class SearchUnavailableError(AppError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "search_unavailable"

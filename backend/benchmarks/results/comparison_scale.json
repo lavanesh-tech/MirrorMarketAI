@@ -1,0 +1,28 @@
+{
+  "benchmark": "comparison_engine_latency",
+  "dataset": "synthetic seeded matrices; includes 2x-per-criterion sensitivity re-ranking",
+  "runs_per_size": 30,
+  "results": [
+    {
+      "products": 5,
+      "criteria": 5,
+      "median_ms": 0.29,
+      "p95_ms": 0.31
+    },
+    {
+      "products": 20,
+      "criteria": 10,
+      "median_ms": 2.38,
+      "p95_ms": 2.4
+    },
+    {
+      "products": 50,
+      "criteria": 20,
+      "median_ms": 12.47,
+      "p95_ms": 20.34
+    }
+  ],
+  "commit": "e560a73",
+  "python": "3.12.14",
+  "machine": "arm64"
+}

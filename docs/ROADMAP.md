@@ -215,3 +215,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Failure isolation per step (savepoint + FAILED run with exception class only)
 - [x] `POST /workspaces/{id}/analyze`, `POST /workspaces/{id}/products/{pid}/synthesize`; ranking test on a synthetic 3-product workspace
 - [x] Verified on the developer Mac and CI green (run 36804675797, commit c880290)
+
+## Phase 16 exit criteria
+
+- [x] Comparison matrix from the latest research and value runs (same requirement version), with citations per cell
+- [x] Weighted utility scoring (MET + directional min-max), weight overrides, hard constraints (MUST, optional hard budget)
+- [x] Winner only among eligible products with verified hard constraints; margin; per-weight sensitivity (×0.5/×2)
+- [x] `POST /workspaces/{id}/compare`, stored as a `comparison` run
+- [x] Latency benchmark (`benchmarks/comparison_scale.py`); sensitivity optimised with a cached utility matrix
+- [ ] Verified on the developer Mac and CI green

@@ -374,7 +374,7 @@ class AgentService:
             )
             price = catalog_price(list(catalog))
 
-        research = await self._latest_run(
+        research = await self.latest_run(
             workspace_id, product_id, PRODUCT_RESEARCH, requirement_version
         )
         output = build_value(
@@ -437,7 +437,7 @@ class AgentService:
         evidence = {i: hit.chunk.text for i, hit in enumerate(ordered.values(), start=1)}
 
         runs = {
-            agent: await self._latest_run(workspace_id, product_id, agent, requirement_version)
+            agent: await self.latest_run(workspace_id, product_id, agent, requirement_version)
             for agent in (PRODUCT_RESEARCH, COMPATIBILITY, VALUE)
         }
         others = agent_risks(
@@ -471,7 +471,7 @@ class AgentService:
         outputs: dict[str, dict[str, Any]] = {}
         run_ids: dict[str, str] = {}
         for agent in (PRODUCT_RESEARCH, REVIEW_INTELLIGENCE, COMPATIBILITY, VALUE, RISK):
-            run = await self._latest_run(workspace_id, product_id, agent, requirement_version)
+            run = await self.latest_run(workspace_id, product_id, agent, requirement_version)
             if run is not None and run.output is not None:
                 outputs[agent] = run.output
                 run_ids[agent] = str(run.id)
@@ -518,7 +518,7 @@ class AgentService:
         return run
 
     # ---------------------------------------------------------------- helpers
-    async def _latest_run(
+    async def latest_run(
         self,
         workspace_id: uuid.UUID,
         product_id: uuid.UUID,

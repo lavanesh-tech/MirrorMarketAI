@@ -412,3 +412,19 @@ Newest at the bottom. A superseded decision is marked, not deleted.
 - **Consequences:** Results are reproducible and explainable, and a broken agent
   degrades the analysis instead of failing it. Analysis runs inside the request
   for now; Phase 21 moves it to Kafka-driven workers using the same orchestrator.
+
+## ADR-035: Transparent multi-criteria comparison with hard constraints
+
+- **Status:** Accepted (Phase 16)
+- **Decision:** Products are compared with a weighted sum of per-criterion
+  utilities. Meeting a requirement is worth 0.7; how far a product sits in the
+  min-max range of the compared products, in the criterion's direction, is
+  worth 0.3. Unknown values score 0. Hard constraints filter rather than
+  penalise: an ineligible product is shown with its score but ranked last. A
+  product with an unverified MUST can't be declared the winner. Every cell
+  reports its contribution in points, and a sensitivity check reports which
+  weight changes would flip the winner.
+- **Consequences:** Users can see why a product wins and how fragile the result
+  is. Min-max normalisation is relative to the products being compared, so
+  adding a product can shift scores; the score is for ranking within a
+  comparison, not an absolute grade.

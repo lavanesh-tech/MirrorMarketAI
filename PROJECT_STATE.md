@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-15.
-- Next: **16, the comparison engine (criteria, weights, hard constraints).**
+- Completed: 1-15. Phase 16 (comparison engine) is built; waiting for Mac + CI.
+- Next: **17, Ask MirrorMarket (RAG Q&A).**
 - Last verified: Phase 15, CI run 36804675797, commit c880290 (2026-10-01).
 
 ## Working rules
@@ -44,6 +44,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Risk agent (rules only): an OR-style product search per category (warranty, returns, safety, reliability, repairability, support) → sentence patterns with negation → risks merged per (category, title); reliability is HIGH when 2+ items report it. It also adds risks from the latest research (MUST UNMET → HIGH, unverified → MEDIUM), compatibility (NOT_SUPPORTED → HIGH) and value (OVER → MEDIUM) runs at the same requirement version. Level = max severity; only cited evidence risks go into the summary.
 - Synthesis (rules): the latest runs at the same requirement version produce a verdict. NOT_RECOMMENDED if a MUST is UNMET or the product is INCOMPATIBLE; CONSIDER if a MUST is unverified, it is OVER budget, or there is a HIGH evidence risk; RECOMMENDED otherwise; INSUFFICIENT_DATA if there is no research. Score = 60·fit + 20·reviews + 20·budget − 3·risk score (max 30). Ranking is by verdict, then score.
 - Orchestrator (`POST /workspaces/{id}/analyze`): research → reviews → compatibility (only with owned devices) → value → risk → synthesis per product, run sequentially. Each step runs in its own savepoint; a failure is recorded as a FAILED run (error = exception class) and the pipeline carries on. Budgets: time (remaining steps SKIPPED, never cut mid-query), tokens (switches to rules), max products. The result is stored as an `orchestration` agent run.
+- Comparison engine (`POST /workspaces/{id}/compare`): a matrix built from the latest research and value runs. Utility = 0.7·MET + 0.3·min-max position in the criterion's direction (unknown → 0). Score = 100·Σw·u/Σw (MUST weight 5, price 3, weights can be overridden 0-10). A MUST that is UNMET (or over budget when the budget is hard) makes a product ineligible. The winner must be eligible with all hard constraints verified. Sensitivity re-ranks with each weight ×0.5/×2, reusing the cached utility matrix. Stored as a `comparison` run with its source run ids.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0009)
@@ -62,12 +63,12 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - workspaces/{id}/requirements: POST extract, PUT save, GET current, versions[/{n}], diff?from=&to=
 - workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
 - POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+); POST .../compatibility (optional body {owned_devices}); POST .../value; POST .../risk; POST .../synthesize
-- POST workspaces/{id}/analyze (MEMBER+, optional body {product_ids})
+- POST workspaces/{id}/analyze (MEMBER+, optional body {product_ids}); POST workspaces/{id}/compare (body {product_ids, weights, budget_is_hard})
 - POST workspaces/{id}/products/{pid}/research (MEMBER+); GET workspaces/{id}/agent-runs[/{run}] (?agent=&product_id=)
 
 ## Tests
 
-- 481 tests, 98% coverage (Phase 15; Mac + CI). `make check` runs everything CI runs.
+- 487 tests, 98% coverage (Phase 16, cloud workspace). Phase 15: 481 (Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
@@ -86,6 +87,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   Remaining miss: two products priced in one sentence. Evidence: `backend/benchmarks/results/price_extraction.json`.
 - Risk detection (synthetic, 22 labelled sentences incl. negated and benign ones, not tuned on): precision 1.0, recall 1.0.
   The patterns and cases have the same author, so this isn't an independent evaluation. Evidence: `backend/benchmarks/results/risk_detection.json`.
+- Comparison engine latency (synthetic seeded 50 products × 20 criteria, incl. sensitivity, cloud workspace): median 288.98 ms
+  → 24.69 ms (11.7×) after caching the weight-independent utility matrix. Evidence: `backend/benchmarks/results/comparison_scale.json` (re-measured on the Mac).
 
 ## Known issues / limits
 
@@ -99,7 +102,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 ## Important commands
 
 ```bash
-cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && uv run python -m benchmarks.price_extraction && uv run python -m benchmarks.risk_detection && cd ..
+cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && uv run python -m benchmarks.compatibility && uv run python -m benchmarks.price_extraction && uv run python -m benchmarks.risk_detection && uv run python -m benchmarks.comparison_scale && cd ..
 make check
 make up
 make ps

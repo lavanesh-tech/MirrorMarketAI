@@ -13,10 +13,12 @@ from app.schemas.agents import (
     AgentRunListResponse,
     AgentRunResponse,
     AnalyzeRequest,
+    CompareRequest,
     CompatibilityRequest,
 )
 from app.schemas.workspaces import PageMeta
 from app.services.agents import AgentService
+from app.services.comparison import ComparisonService
 from app.services.orchestrator import Orchestrator
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["agents"])
@@ -166,6 +168,31 @@ async def analyze_workspace(
 ) -> AgentRunResponse:
     run = await Orchestrator(session, settings, embedder, llm).analyze(
         workspace_id, user, body.product_ids if body else None
+    )
+    return AgentRunResponse.model_validate(run)
+
+
+@router.post(
+    "/compare",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Comparison matrix: weighted scores, hard constraints, sensitivity",
+)
+async def compare_products(
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    body: CompareRequest | None = None,
+) -> AgentRunResponse:
+    request = body or CompareRequest()
+    run = await ComparisonService(session, settings, embedder).compare(
+        workspace_id,
+        user,
+        product_ids=request.product_ids,
+        weights=request.weights,
+        budget_is_hard=request.budget_is_hard,
     )
     return AgentRunResponse.model_validate(run)
 

@@ -147,6 +147,7 @@ Run `make help` for every command.
 | POST | `/api/v1/workspaces/{id}/products/{product_id}/risk` | Risk Agent: warranty/returns/safety/reliability + flags from other agents 🔒 |
 | POST | `/api/v1/workspaces/{id}/products/{product_id}/synthesize` | Synthesis Agent: one verdict from the latest runs 🔒 |
 | POST | `/api/v1/workspaces/{id}/analyze` | Run every agent (bounded) for the workspace's products and rank them 🔒 |
+| POST | `/api/v1/workspaces/{id}/compare` | Comparison matrix: weighted scores, hard constraints, sensitivity 🔒 |
 | GET | `/api/v1/workspaces/{id}/agent-runs[/{run_id}]` | Agent run history with output and citation validation 🔒 |
 | POST | `/api/v1/workspaces/{id}/search` | Hybrid search (full-text + vector, RRF) over the workspace's evidence, with filters 🔒 |
 
