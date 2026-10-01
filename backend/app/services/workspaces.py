@@ -17,6 +17,7 @@ from app.domain.roles import OrganizationRole, WorkspaceRole, has_at_least
 from app.models.identity import ComparisonWorkspace, OrganizationMember, User, WorkspaceMember
 from app.repositories.base import Page, PageRequest
 from app.repositories.identity import WorkspaceRepository
+from app.security import audit_trail as audit
 
 
 class WorkspaceService:
@@ -62,6 +63,9 @@ class WorkspaceService:
         member = await self.workspaces.add_member(
             WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role=WorkspaceRole.OWNER)
         )
+        audit.record(
+            self.session, audit.WORKSPACE_CREATED, actor_id=user.id, workspace_id=workspace.id
+        )
         await self.session.commit()
         return workspace, member
 
@@ -80,6 +84,13 @@ class WorkspaceService:
         workspace = membership.workspace
         for field, value in changes.items():
             setattr(workspace, field, value)
+        audit.record(
+            self.session,
+            audit.WORKSPACE_UPDATED,
+            actor_id=user.id,
+            workspace_id=workspace_id,
+            details={"fields": sorted(changes)},
+        )
         await self.session.commit()
         await self.session.refresh(workspace)
         return membership

@@ -270,3 +270,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Activity feed read model and `GET /workspaces/{id}/activity`; Kafka + event-worker in Compose
 - [x] Real-broker tests (Testcontainers Kafka), CI smoke test through Kafka, throughput benchmark (`benchmarks/event_pipeline.py`)
 - [x] Verified on the developer Mac and CI green (run 36938010067, commit 88e3893)
+
+## Phase 22 exit criteria
+
+- [x] Refresh tokens (migration `0013`): hashed at rest, rotated on every use, re-use revokes the session, absolute session cap
+- [x] Logout, logout-all and change-password; `token_version` invalidates access tokens at once; JWT key rotation with a previous key
+- [x] Append-only audit trail (database trigger) for auth, workspace, moderation and upload events; owner-only workspace view
+- [x] Prompt-injection layers: neutralised evidence, sentence-level withholding, benchmark with a held-out set
+- [x] Upload hardening (executables, archives, active PDFs, filename sanitising, text cap); security headers; request body limit
+- [x] Authorization matrix test generated from the OpenAPI schema (auth required everywhere, no workspace leaks)
+- [ ] Verified on the developer Mac and CI green

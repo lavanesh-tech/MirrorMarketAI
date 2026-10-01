@@ -36,14 +36,13 @@ from typing import Any
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
-from app.api.deps import SessionFactoryDep
+from app.api.deps import SessionFactoryDep, resolve_user
 from app.core.config import Settings
 from app.core.errors import AppError, AuthenticationError
 from app.domain.roles import WorkspaceRole
 from app.realtime.bus import EventBus
 from app.realtime.hub import Connection, Hub
 from app.realtime.presence import Presence
-from app.repositories.identity import UserRepository
 from app.security.tokens import decode_access_token
 from app.services.workspaces import WorkspaceService
 
@@ -105,9 +104,7 @@ async def _authenticate(
     try:
         claims = decode_access_token(token, settings)
         async with sessions() as session:
-            user = await UserRepository(session).get(claims.user_id)
-            if user is None or not user.is_active:
-                raise AuthenticationError
+            user = await resolve_user(session, token, settings)
             membership = await WorkspaceService(session).authorize(workspace_id, user)
             return Identity(user.id, user.display_name, membership.role, claims.expires_at)
     except AuthenticationError:

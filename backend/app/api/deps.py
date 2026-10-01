@@ -61,6 +61,18 @@ async def get_db_session(request: Request) -> AsyncIterator[AsyncSession]:
 _bearer = HTTPBearer(auto_error=False, description="Access token from POST /api/v1/auth/login")
 
 
+async def resolve_user(session: AsyncSession, token: str, settings: Settings) -> User:
+    """Access token -> active user, or AuthenticationError. Shared by HTTP and WebSockets."""
+    claims = decode_access_token(token, settings)
+    user = await UserRepository(session).get(claims.user_id)
+    if user is None or not user.is_active:
+        raise AuthenticationError("Invalid token.")
+    # "Log out everywhere" / password change: older tokens die before they expire.
+    if claims.token_version != user.token_version:
+        raise AuthenticationError("Token has been revoked.")
+    return user
+
+
 async def get_current_user(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
@@ -69,11 +81,7 @@ async def get_current_user(
     """Resolve the Bearer token to an active user, or fail with 401."""
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise AuthenticationError
-    claims = decode_access_token(credentials.credentials, settings)
-    user = await UserRepository(session).get(claims.user_id)
-    if user is None or not user.is_active:
-        raise AuthenticationError("Invalid token.")
-    return user
+    return await resolve_user(session, credentials.credentials, settings)
 
 
 def get_fetcher(request: Request) -> SafeFetcher:

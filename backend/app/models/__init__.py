@@ -26,10 +26,12 @@ from app.models.identity import (
 from app.models.prices import PriceSnapshot
 from app.models.requirements import PurchaseRequirement, RequirementVersion
 from app.models.retrieval import ChunkEmbedding, DocumentChunk, EmbeddingJob
+from app.models.security import AuditLog, RefreshToken
 from app.models.sources import ProductSource, SourceDocument, SourceSnapshot
 
 __all__ = [
     "AgentRun",
+    "AuditLog",
     "Base",
     "ChunkEmbedding",
     "ComparisonWorkspace",
@@ -49,6 +51,7 @@ __all__ = [
     "ProductVariant",
     "ProductVote",
     "PurchaseRequirement",
+    "RefreshToken",
     "RequirementVersion",
     "SourceDocument",
     "SourceSnapshot",

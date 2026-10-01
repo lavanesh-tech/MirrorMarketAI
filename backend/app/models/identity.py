@@ -13,7 +13,16 @@ from __future__ import annotations
 import uuid
 from enum import StrEnum
 
-from sqlalchemy import Boolean, CheckConstraint, Enum, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.domain.roles import OrganizationRole, WorkspaceRole
@@ -51,6 +60,9 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Embedded in access tokens as `ver`; bumping it rejects every token issued so far
+    # ("log out everywhere", password change) without keeping a token denylist.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):

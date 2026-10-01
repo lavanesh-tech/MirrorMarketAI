@@ -44,6 +44,11 @@ class InvalidCredentialsError(AuthenticationError):
     message = "Incorrect email or password."
 
 
+class InvalidRefreshTokenError(AuthenticationError):
+    code = "invalid_refresh_token"
+    message = "The refresh token is invalid, expired or was already used. Log in again."
+
+
 class PermissionDeniedError(AppError):
     status_code = status.HTTP_403_FORBIDDEN
     code = "permission_denied"
@@ -213,6 +218,12 @@ class InvalidCommentParentError(UnprocessableError):
         "A reply must target a top-level, non-deleted comment on the same product "
         "in this workspace."
     )
+
+
+class RequestTooLargeError(AppError):
+    status_code = status.HTTP_413_CONTENT_TOO_LARGE
+    code = "request_too_large"
+    message = "The request body is too large."
 
 
 class SearchUnavailableError(AppError):

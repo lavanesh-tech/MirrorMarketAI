@@ -103,3 +103,37 @@ def test_non_access_token_type_is_rejected(auth_settings: Settings) -> None:
 def test_garbage_is_rejected(auth_settings: Settings, garbage: str) -> None:
     with pytest.raises(AuthenticationError):
         decode_access_token(garbage, auth_settings)
+
+
+def test_token_carries_the_users_token_version(auth_settings: Settings) -> None:
+    user_id = uuid.uuid4()
+    assert (
+        decode_access_token(
+            create_access_token(user_id, auth_settings).token, auth_settings
+        ).token_version
+        == 0
+    )
+    bumped = create_access_token(user_id, auth_settings, version=3)
+    claims = decode_access_token(bumped.token, auth_settings)
+    assert claims.token_version == 3
+    assert abs((claims.issued_at - datetime.now(UTC)).total_seconds()) < 5
+
+
+def test_previous_key_is_accepted_only_while_configured(make_settings: SettingsFactory) -> None:
+    old = make_settings(jwt_secret_key="o" * 48)
+    token = create_access_token(uuid.uuid4(), old).token
+
+    rotating = make_settings(jwt_secret_key="n" * 48, jwt_previous_secret_key="o" * 48)
+    assert decode_access_token(token, rotating).token_version == 0
+    # New tokens are signed with the new key only.
+    fresh = create_access_token(uuid.uuid4(), rotating).token
+    with pytest.raises(AuthenticationError):
+        decode_access_token(fresh, old)
+
+    rotated = make_settings(jwt_secret_key="n" * 48)
+    with pytest.raises(AuthenticationError):
+        decode_access_token(token, rotated)
+    stranger = make_settings(jwt_secret_key="n" * 48, jwt_previous_secret_key="x" * 48)
+    with pytest.raises(AuthenticationError):
+        decode_access_token(token, stranger)
+    assert make_settings(jwt_previous_secret_key="").jwt_previous_secret_key is None

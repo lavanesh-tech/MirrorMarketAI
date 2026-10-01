@@ -45,6 +45,8 @@ from app.models.sources import (
     SourceStatus,
     SourceType,
 )
+from app.security import audit_trail as audit
+from app.security.files import UnsafeFileError, check_upload, sanitize_filename
 from app.services.embeddings import embedding_model_name, enqueue_embedding_job
 from app.services.workspaces import WorkspaceService
 
@@ -204,11 +206,23 @@ class SourceService:
         declared_content_type: str | None,
         content: bytes,
     ) -> IngestionResult:
+        safe_name = sanitize_filename(filename)
         try:
+            check_upload(content)
             content_type = sniff_content_type(content, declared_content_type)
-        except ParseError as exc:
+        except (UnsafeFileError, ParseError) as exc:
+            audit.record(
+                self.session,
+                audit.SOURCE_REJECTED,
+                outcome=audit.FAILURE,
+                actor_id=user.id,
+                workspace_id=workspace_id,
+                target_type="product",
+                target_id=product_id,
+                details={"reason": str(exc)[:200], "filename": safe_name, "bytes": len(content)},
+            )
+            await self.session.commit()
             raise SourceUnparseableError(str(exc)) from exc
-        safe_name = (filename or "upload").replace("/", "_").replace("\\", "_")[:255]
         source = await self.create_source(
             user,
             product_id=product_id,
@@ -217,6 +231,15 @@ class SourceService:
             authority=SourceAuthority.USER,  # uploads are never "official"
             title=title or safe_name,
             url=None,
+        )
+        audit.record(
+            self.session,
+            audit.SOURCE_UPLOADED,
+            actor_id=user.id,
+            workspace_id=workspace_id,
+            target_type="source",
+            target_id=source.id,
+            details={"filename": safe_name, "bytes": len(content), "content_type": content_type},
         )
         return await self._store(
             source,
@@ -267,6 +290,10 @@ class SourceService:
         except ParseError as exc:
             await self._mark_failed(source, f"parse error: {exc}")
             raise SourceUnparseableError(str(exc)) from exc
+        if len(parsed.text) > self.settings.ingestion_max_text_chars:
+            # A small file can expand into a huge amount of text (decompression bomb).
+            await self._mark_failed(source, "extracted text too large")
+            raise SourceUnparseableError("The document contains too much text.")
 
         snapshot = SourceSnapshot(
             source_id=source.id,

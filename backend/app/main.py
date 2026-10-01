@@ -24,9 +24,10 @@ from app.api.v1.router import api_router
 from app.coordination.cache import JsonCache
 from app.coordination.idempotency import IdempotencyMiddleware
 from app.coordination.rate_limit import RateLimiter
-from app.core.config import Settings, get_settings
+from app.core.config import Environment, Settings, get_settings
 from app.core.database import Database
 from app.core.errors import register_exception_handlers
+from app.core.http_hardening import BodySizeLimitMiddleware, SecurityHeadersMiddleware
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 from app.core.redis import create_redis, create_subscriber_redis
@@ -140,6 +141,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "X-Cache",
                 "Idempotent-Replayed",
             ],
+        )
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_body_bytes)
+    if settings.security_headers_enabled:
+        secure_transport = settings.app_env in (Environment.STAGING, Environment.PRODUCTION)
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            hsts_max_age=settings.hsts_max_age_seconds if secure_transport else 0,
+            docs_prefix=f"{settings.api_v1_prefix}/docs",
         )
     app.add_middleware(RequestContextMiddleware)
 

@@ -21,6 +21,7 @@ from app.agents.base import AspectSummary, Polarity, ReviewExample, ReviewOutput
 from app.domain.citations import split_sentences
 from app.models.catalog import Product
 from app.providers.llm import JsonCompletion, OpenAIChatClient
+from app.security.prompt_safety import render_evidence
 
 # aspect -> (label, keyword regex)
 ASPECTS: dict[str, tuple[str, str]] = {
@@ -232,10 +233,10 @@ def parse_llm_mentions(completion: JsonCompletion, evidence: dict[int, str]) -> 
 async def llm_mentions(
     client: OpenAIChatClient, product: Product, evidence: dict[int, str]
 ) -> tuple[list[Mention], int]:
-    items = "\n".join(f"[E{pos}] {text}" for pos, text in sorted(evidence.items()))
+    items = render_evidence(evidence).text
     completion = await client.complete_json(
         system=LLM_SYSTEM_PROMPT,
-        user=json.dumps({"product": f"{product.brand} {product.name}"}) + f"\n\nEVIDENCE:\n{items}",
+        user=json.dumps({"product": f"{product.brand} {product.name}"}) + f"\n\n{items}",
         schema=LLM_SCHEMA,
         name="review_intelligence",
     )

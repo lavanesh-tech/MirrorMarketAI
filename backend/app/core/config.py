@@ -84,6 +84,18 @@ class Settings(BaseSettings):
     jwt_issuer: str = "mirrormarket"
     jwt_audience: str = "mirrormarket-api"
     jwt_access_token_ttl_minutes: int = Field(default=15, ge=1, le=60)
+    # Still accepted for verification during a key rotation; never used for signing.
+    jwt_previous_secret_key: SecretStr | None = None
+    refresh_token_ttl_days: int = Field(default=14, ge=1, le=90)
+    # Hard cap on one login session, however often it is refreshed.
+    refresh_session_max_days: int = Field(default=30, ge=1, le=365)
+
+    # --- HTTP hardening -----------------------------------------------------------
+    security_headers_enabled: bool = True
+    hsts_max_age_seconds: int = Field(default=31_536_000, ge=0)
+    # Larger bodies are rejected with 413 before they reach a handler.
+    max_request_body_bytes: int = Field(default=6 * 1024 * 1024, ge=1_024, le=64 * 1024 * 1024)
+    ingestion_max_text_chars: int = Field(default=2_000_000, ge=1_000, le=20_000_000)
 
     # --- Source ingestion (URL fetch + uploads) ------------------------------
     ingestion_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
@@ -190,9 +202,9 @@ class Settings(BaseSettings):
             return [int(p) for p in value.split(",") if p.strip()]
         return value
 
-    @field_validator("redis_url", mode="before")
+    @field_validator("redis_url", "jwt_previous_secret_key", mode="before")
     @classmethod
-    def _empty_redis_url_disables(cls, value: object) -> object:
+    def _empty_means_unset(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value
 
     @field_validator("redis_url")
@@ -225,6 +237,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"openai_embedding_dimensions must be {EMBEDDING_DIMENSIONS} "
                 "(the pgvector column size); changing it requires a migration"
+            )
+        if self.max_request_body_bytes <= self.ingestion_max_bytes:
+            raise ValueError(
+                "max_request_body_bytes must exceed ingestion_max_bytes (multipart overhead)"
             )
         if self.presence_ttl_seconds <= self.ws_heartbeat_seconds:
             raise ValueError("presence_ttl_seconds must be greater than ws_heartbeat_seconds")

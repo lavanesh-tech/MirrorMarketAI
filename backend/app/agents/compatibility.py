@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from app.domain.citations import split_sentences
 from app.models.catalog import Product, ProductSpecification
 from app.providers.llm import JsonCompletion, OpenAIChatClient
+from app.security.prompt_safety import render_evidence
 
 
 class Support(StrEnum):
@@ -297,11 +298,11 @@ async def llm_findings(
     capabilities: Sequence[str],
     evidence: dict[int, str],
 ) -> tuple[dict[str, Finding], int]:
-    items = "\n".join(f"[E{pos}] {text}" for pos, text in sorted(evidence.items()))
+    items = render_evidence(evidence).text
     payload = {"product": f"{product.brand} {product.name}", "capabilities": list(capabilities)}
     completion = await client.complete_json(
         system=LLM_SYSTEM_PROMPT,
-        user=json.dumps(payload) + f"\n\nEVIDENCE:\n{items}",
+        user=json.dumps(payload) + f"\n\n{items}",
         schema=LLM_SCHEMA,
         name="compatibility",
     )

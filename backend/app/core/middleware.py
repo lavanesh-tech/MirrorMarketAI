@@ -16,8 +16,10 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.request_context import (
     REQUEST_ID_HEADER,
+    reset_client_ip,
     reset_request_id,
     resolve_request_id,
+    set_client_ip,
     set_request_id,
 )
 
@@ -51,6 +53,8 @@ class RequestContextMiddleware:
 
         request_id = resolve_request_id(Headers(scope=scope).get(REQUEST_ID_HEADER))
         token = set_request_id(request_id)
+        client = scope.get("client")
+        ip_token = set_client_ip(client[0] if client else None)
         started = time.perf_counter()
         status_code = 500
         response_started = False
@@ -98,4 +102,5 @@ class RequestContextMiddleware:
                     "duration_ms": duration_ms,
                 },
             )
+            reset_client_ip(ip_token)
             reset_request_id(token)

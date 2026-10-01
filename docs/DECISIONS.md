@@ -508,3 +508,22 @@ Newest at the bottom. A superseded decision is marked, not deleted.
 - **Consequences:** No lost or phantom events, and duplicates are harmless.
   The feed is eventually consistent. Ordering is per key (workspace), not global.
   Redis pub/sub stays for transient WebSocket hints.
+
+## ADR-041: Rotating refresh tokens, versioned access tokens, append-only audit log
+
+- **Status:** Accepted (Phase 22)
+- **Decision:** Access tokens stay short-lived and stateless. Sessions are held by
+  opaque refresh tokens that are hashed at rest and rotated on every use; re-use of
+  a rotated token revokes the session. Immediate revocation of access tokens uses a
+  per-user `token_version` claim instead of a token denylist. Audit events are
+  written in the same transaction as the action into a table that a trigger makes
+  append-only and that has no foreign keys. Evidence is treated as untrusted input
+  to the LLM: neutralised, scanned sentence by sentence, and backed by output
+  validation. Authorization is regression-tested from the OpenAPI schema.
+- **Alternatives rejected:** long-lived access tokens (no revocation); a Redis
+  denylist of token ids (must never fail open, and Redis is optional here);
+  relying on prompt wording or detection alone against injection.
+- **Consequences:** One extra indexed lookup per request is avoided (the user row
+  is already loaded). A stolen refresh token is usable at most once before the
+  session dies. Detection heuristics miss paraphrased attacks (measured), which is
+  why they are only one of four layers.

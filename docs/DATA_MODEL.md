@@ -36,6 +36,9 @@ phase (see [ROADMAP.md](ROADMAP.md)).
 | `outbox_events` | `0012` | transactional outbox: `id` (= event id), `sequence` identity (publish order), `topic`, `key`, `event_type`, `payload` JSONB, `attempts`, `last_error`, `next_attempt_at`, `published_at`, `failed_at`; partial index (next_attempt_at, sequence) WHERE unpublished and not failed |
 | `processed_events` | `0012` | consumer inbox: PK (`consumer`, `event_id`); inserted in the handler's transaction so redeliveries are skipped |
 | `workspace_activity` | `0012` | read model built by the Kafka consumer: workspace (CASCADE), `event_id` UNIQUE, `event_type`, actor/product (SET NULL), `summary`, `data` JSONB, `occurred_at`; index (workspace, occurred_at) |
+| `refresh_tokens` | `0013` | user (CASCADE), `family_id` (one login session), `token_hash` SHA-256 UNIQUE (the token itself is never stored), `expires_at`, `family_expires_at` (absolute session cap), `rotated_at`, `revoked_at` |
+| `audit_logs` | `0013` | append-only (trigger rejects UPDATE/DELETE/TRUNCATE), no foreign keys: `occurred_at`, `action`, `outcome`, `actor_id`, `workspace_id`, `target_type`, `target_id`, `ip`, `request_id`, `details` JSONB; indexes (actor, occurred_at) and (workspace, occurred_at) |
+| `users.token_version` | `0013` | integer embedded in access tokens as `ver`; bumping it invalidates every access token issued so far |
 | `alembic_version` | Alembic | the migration revision currently applied |
 
 Foreign keys are indexed. Deleting a workspace cascades to its members.

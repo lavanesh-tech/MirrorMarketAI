@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-21.
-- Next: **22, Security hardening (refresh tokens, audit logs, prompt-injection and file defences).**
+- Completed: 1-21. Phase 22 (security hardening) is built; waiting for Mac + CI.
+- Next: **23, OpenAPI, Postman collection, API documentation.**
 - Last verified: Phase 21, CI run 36938010067, commit 88e3893 (2026-10-01).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -51,17 +51,18 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Redis (`app/coordination`): one pool per process; empty `REDIS_URL` disables everything and all features fail open on Redis errors. GCRA rate limits in one Lua script using Redis TIME (auth per IP + per email, agent POSTs per user; 429 + Retry-After). Price-history read-through cache with version-key invalidation (`X-Cache`). `Idempotency-Key` middleware for POST/PATCH (scoped per caller+path, SET NX claim, replay < 500, 409 in progress, 422 body mismatch). One-time tokens via GETDEL (OAuth state + PKCE). `/ready` reports Redis with `required=false`.
 - Realtime (`app/realtime`, `docs/REALTIME.md`): push-only WebSocket per workspace, JWT in the first message, membership check with a short DB session, closes on token expiry. Hub with bounded per-socket queues (slow consumer → 1013), limits on connections/size/rate/idle, origin allow-list. EventBus → Redis pub/sub `mm:rt:<ws>` with local fallback; presence in a TTL'd Redis sorted set. Comments (one-level replies, soft delete) and votes (upsert) are REST writes that publish events; agent runs publish `agent_run.completed`.
 - Events (`app/events`, `docs/EVENTS.md`): transactional outbox (`new_event()` added in the same transaction as comments, votes, agent runs, prices) → relay (SKIP LOCKED, in order, backoff, give-up, purge) → Kafka topic `mirrormarket.events.v1` keyed by workspace/product (aiokafka, acks=all, idempotent producer) → idempotent consumer (inbox `processed_events` in the handler's transaction, manual offset commit, retries, `.dlq` topic, rewind on failure) → `workspace_activity` read model. Broker ports with an in-memory implementation for tests. Worker: `python -m app.workers.event_worker`.
+- Security (`docs/SECURITY.md`): opaque refresh tokens (SHA-256 at rest, rotated on every use, re-use revokes the family, absolute session cap); logout / logout-all / change-password; `users.token_version` in the JWT `ver` claim for instant access-token revocation; `JWT_PREVIOUS_SECRET_KEY` for key rotation. Append-only `audit_logs` (trigger, no FKs) written in the action's transaction. Prompt safety (`app/security/prompt_safety.py`): `render_evidence` neutralises items and withholds instruction-like sentences from the LLM. Upload checks (`app/security/files.py`). Security headers + body-limit middleware (`app/core/http_hardening.py`). `tests/db/test_authz_matrix.py` checks every OpenAPI route.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
-## Database migrations (head 0012)
+## Database migrations (head 0013)
 
 0001 pgvector · 0002 users/orgs/workspaces/members · 0003 catalog + workspace_products ·
 0004 sources/snapshots/documents · 0005 chunks/embeddings/jobs · 0006 chunk tsvector + GIN ·
-0007 purchase_requirements/requirement_versions · 0008 evidence_packs/evidence_items · 0009 agent_runs · 0010 price_snapshots · 0011 workspace_comments/product_votes · 0012 outbox_events/processed_events/workspace_activity
+0007 purchase_requirements/requirement_versions · 0008 evidence_packs/evidence_items · 0009 agent_runs · 0010 price_snapshots · 0011 workspace_comments/product_votes · 0012 outbox_events/processed_events/workspace_activity · 0013 refresh_tokens/audit_logs/users.token_version
 
 ## Major endpoints (/api/v1)
 
-- health, ready (database, migrations, redis); auth register/login/me (rate limited)
+- health, ready (database, migrations, redis); auth register/login/me (rate limited); auth refresh, logout, logout-all, change-password, audit-logs; workspaces/{id}/audit-logs (OWNER)
 - Headers: `Idempotency-Key` on any POST/PATCH; responses may carry `X-Cache`, `X-RateLimit-*`, `Retry-After`, `Idempotent-Replayed`
 - workspaces CRUD + members; workspaces/{id}/products
 - products (search, by-identifier, variants, identifiers, specifications)
@@ -78,7 +79,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 584 tests, 97% coverage (Phase 21; Mac + CI), including 2 real-Kafka tests (Testcontainers). `make check` runs everything CI runs.
+- 665 tests (Phase 22): 663 pass in the cloud workspace at 97% coverage; the 2 real-Kafka tests need Docker (Mac + CI). Phase 21: 584 (Mac + CI).
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
@@ -122,12 +123,17 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   relay 9,869 events/s; consumer 410 events/s (one transaction per event); 2000/2000 redelivered duplicates rejected.
   Mac (arm64, real Kafka 4.0.0): relay 1,168 events/s; consumer 102 events/s; 2000/2000 duplicates rejected; smoke test 1.08 s end to end. Evidence: `backend/benchmarks/results/event_pipeline.json`.
 
+- Prompt-injection detector (synthetic, author-labelled sentences): tuning set 10 attacks + 10 benign: recall 1.0, precision 1.0
+  (the patterns were adjusted on it). Held-out set written after freezing, 20 + 20: recall 0.65, precision 1.0, no false
+  alarms; the 7 misses are paraphrases without trigger words ("leave out every negative review"). Detection is one of
+  four layers. Evidence: `backend/benchmarks/results/prompt_injection.json`.
+
 ## Known issues / limits
 
 - The hashing embedder is lexical, not semantic (OpenAI needs a key). Chunk size is measured in characters.
 - The rule extractor is English-only pattern matching; what it can't use is returned as `unparsed`.
 - Ingestion runs in the request; raw bytes are stored in Postgres (S3 comes in Phase 31).
-- Not yet: refresh tokens, invitations, security headers, OAuth login flow (Phase 22 uses the one-time token store).
+- Not yet: invitations, MFA, email verification, OAuth login flow (the one-time token store is ready for it).
 - Events: no dead-letter replay tool, no schema registry; Kafka data is not persisted across `make down` (the outbox is the source).
 - Realtime: at-most-once, no replay (clients refetch on reconnect); membership is checked only at connect.
 - Rate limits key on the socket peer IP; behind a proxy, uvicorn `--forwarded-allow-ips` is needed (Phase 29).
@@ -142,6 +148,7 @@ make up
 cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket uv run python -m benchmarks.price_history_db && cd ..
 cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket REDIS_URL=redis://localhost:6380/0 uv run python -m benchmarks.redis_paths && cd ..
 cd backend && REDIS_URL=redis://localhost:6380/0 uv run python -m benchmarks.realtime_fanout && cd ..
+cd backend && uv run python -m benchmarks.prompt_injection && cd ..
 make smoke-events
 docker compose stop event-worker && cd backend && DATABASE_URL=postgresql+asyncpg://mirrormarket:mirrormarket@localhost:5433/mirrormarket KAFKA_BOOTSTRAP_SERVERS=localhost:9094 uv run python -m benchmarks.event_pipeline && cd ..
 make check

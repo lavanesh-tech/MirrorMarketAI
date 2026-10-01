@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query, status
 from app.api.deps import CurrentUser, SessionDep
 from app.models.identity import ComparisonWorkspace, WorkspaceMember
 from app.repositories.base import MAX_PAGE_SIZE, PageRequest
+from app.schemas.auth import AuditLogItem, AuditLogList
 from app.schemas.workspaces import (
     PageMeta,
     WorkspaceCreate,
@@ -18,6 +19,7 @@ from app.schemas.workspaces import (
     WorkspaceResponse,
     WorkspaceUpdate,
 )
+from app.services.audit import AuditService
 from app.services.workspaces import WorkspaceService
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -103,3 +105,27 @@ async def list_members(
         )
         for m in members
     ]
+
+
+@router.get(
+    "/{workspace_id}/audit-logs",
+    response_model=AuditLogList,
+    summary="Security-relevant events in this workspace, newest first (OWNER only)",
+    responses=_NOT_FOUND,
+)
+async def workspace_audit_logs(
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AuditLogList:
+    rows, total = await AuditService(session).for_workspace(
+        workspace_id, user, limit=limit, offset=offset
+    )
+    return AuditLogList(
+        items=[AuditLogItem.model_validate(r) for r in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

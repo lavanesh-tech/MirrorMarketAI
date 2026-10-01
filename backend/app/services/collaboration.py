@@ -22,6 +22,7 @@ from app.models.collaboration import ProductVote, WorkspaceComment
 from app.models.events import WorkspaceActivity
 from app.models.identity import User
 from app.schemas.collaboration import CommentResponse, VoteTally
+from app.security import audit_trail as audit
 from app.services.workspaces import WorkspaceService
 
 EVENT_COMMENT_CREATED = "comment.created"
@@ -177,6 +178,16 @@ class CollaborationService:
         if comment.deleted_at is None:
             comment.deleted_at = datetime.now(UTC)
             comment.body = "[deleted]"  # the text itself is erased, not just hidden
+            if comment.author_id != user.id:  # an OWNER removed someone else's comment
+                audit.record(
+                    self.session,
+                    audit.COMMENT_MODERATED,
+                    actor_id=user.id,
+                    workspace_id=workspace_id,
+                    target_type="comment",
+                    target_id=comment.id,
+                    details={"author_id": str(comment.author_id)},
+                )
             self.session.add(
                 new_event(
                     COMMENT_DELETED,

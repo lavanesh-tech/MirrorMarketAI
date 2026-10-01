@@ -22,6 +22,7 @@ from app.domain.requirements import Criterion, RequirementSpec, satisfies
 from app.extraction.rules import extract_requirements
 from app.models.catalog import Product, ProductSpecification
 from app.providers.llm import JsonCompletion, OpenAIChatClient
+from app.security.prompt_safety import render_evidence
 
 LABELS_AND_QUERIES: dict[str, tuple[str, str]] = {
     "ram_gb": ("Memory", "memory RAM GB"),
@@ -200,10 +201,10 @@ LLM_SCHEMA: dict[str, Any] = {
 
 
 def llm_prompt(product: Product, keys: Sequence[str], evidence: dict[int, str]) -> str:
-    items = "\n".join(f"[E{pos}] {text}" for pos, text in sorted(evidence.items()))
+    items = render_evidence(evidence).text
     return (
         json.dumps({"product": f"{product.brand} {product.name}", "keys": list(keys)})
-        + f"\n\nEVIDENCE:\n{items}"
+        + f"\n\n{items}"
     )
 
 

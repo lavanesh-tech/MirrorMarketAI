@@ -25,6 +25,7 @@ from app.models.agents import AgentRun
 from app.models.identity import User
 from app.providers.embeddings import EmbeddingProvider
 from app.providers.llm import LLMError, OpenAIChatClient
+from app.security.prompt_safety import render_evidence
 from app.services.agents import RULES_ENGINE, AgentService
 from app.services.evidence import EvidenceService
 from app.services.search import SearchFilters, SearchService
@@ -153,10 +154,10 @@ class AskService:
         self, question: str, evidence: dict[int, str]
     ) -> tuple[str, list[str], int]:
         assert self.llm is not None  # noqa: S101 - checked by the caller
-        items = "\n".join(f"[E{pos}] {text}" for pos, text in sorted(evidence.items()))
+        items = render_evidence(evidence).text
         completion = await self.llm.complete_json(
             system=SYSTEM_PROMPT,
-            user=json.dumps({"question": question}) + f"\n\nEVIDENCE:\n{items}",
+            user=json.dumps({"question": question}) + f"\n\n{items}",
             schema=SCHEMA,
             name="ask",
         )

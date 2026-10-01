@@ -44,3 +44,19 @@ def resolve_request_id(incoming: str | None) -> str:
     if incoming is not None and _VALID_REQUEST_ID.fullmatch(incoming):
         return incoming
     return new_request_id()
+
+
+# The peer address of the current request, for audit records.
+_client_ip: ContextVar[str | None] = ContextVar("client_ip", default=None)
+
+
+def get_client_ip() -> str | None:
+    return _client_ip.get()
+
+
+def set_client_ip(value: str | None) -> Token[str | None]:
+    return _client_ip.set(value)
+
+
+def reset_client_ip(token: Token[str | None]) -> None:
+    _client_ip.reset(token)
