@@ -33,8 +33,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 11 | Review Intelligence Agent | ✅ |
 | 12 | Compatibility Agent | ✅ |
 | 13 | Value Agent | ✅ |
-| 14 | Risk Agent | 🔜 |
-| 15 | Synthesis Agent, orchestration, bounded execution | ⬜ |
+| 14 | Risk Agent | ✅ |
+| 15 | Synthesis Agent, orchestration, bounded execution | 🔜 |
 | 16 | Comparison engine: criteria, weights, hard constraints | ⬜ |
 | 17 | Ask MirrorMarket (RAG Q&A) | ⬜ |
 | 18 | Price snapshots and price history | ⬜ |
@@ -205,4 +205,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Severity and level computed in code; cited summary of evidence risks
 - [x] `POST /workspaces/{id}/products/{pid}/risk`; Value Agent price query made OR-style (was missing prices)
 - [x] Risk detection benchmark (`benchmarks/risk_detection.py`)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36803337625, commit 0702a34)
