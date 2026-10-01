@@ -141,6 +141,7 @@ Run `make help` for every command.
 | POST/GET | `/api/v1/workspaces/{id}/evidence-packs[/{pack_id}]` | Freeze search results as citable evidence (E1..En) / list / get 🔒 |
 | POST | `/api/v1/workspaces/{id}/evidence-packs/{pack_id}/validate` | Check [E1]-style citations: markers, uncited claims, numbers, quotes 🔒 |
 | POST | `/api/v1/workspaces/{id}/products/{product_id}/research` | Product Research Agent: cited facts vs. requirements (MET/UNMET/UNKNOWN) 🔒 |
+| POST | `/api/v1/workspaces/{id}/products/{product_id}/reviews/analyze` | Review Intelligence Agent: aspect sentiment, praises, complaints (cited) 🔒 |
 | GET | `/api/v1/workspaces/{id}/agent-runs[/{run_id}]` | Agent run history with output and citation validation 🔒 |
 | POST | `/api/v1/workspaces/{id}/search` | Hybrid search (full-text + vector, RRF) over the workspace's evidence, with filters 🔒 |
 

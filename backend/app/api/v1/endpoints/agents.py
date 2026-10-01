@@ -37,6 +37,27 @@ async def research_product(
     return AgentRunResponse.model_validate(run)
 
 
+@router.post(
+    "/products/{product_id}/reviews/analyze",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run the Review Intelligence Agent (aspect sentiment over REVIEW sources)",
+)
+async def analyze_reviews(
+    workspace_id: uuid.UUID,
+    product_id: uuid.UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    embedder: EmbedderDep,
+    llm: LLMDep,
+) -> AgentRunResponse:
+    run = await AgentService(session, settings, embedder, llm).analyze_reviews(
+        workspace_id, user, product_id
+    )
+    return AgentRunResponse.model_validate(run)
+
+
 @router.get("/agent-runs", response_model=AgentRunListResponse)
 async def list_agent_runs(
     workspace_id: uuid.UUID,

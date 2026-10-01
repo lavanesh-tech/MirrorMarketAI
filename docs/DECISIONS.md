@@ -344,3 +344,17 @@ Newest at the bottom. A superseded decision is marked, not deleted.
 - **Consequences:** Results are auditable and reproducible offline. A model
   can't flip a verdict or cite evidence that doesn't exist, and fabricated
   numbers in summaries show up as validation issues.
+
+## ADR-030: Review analysis = per-opinion labels, aggregation in code
+
+- **Status:** Accepted (Phase 11)
+- **Decision:** The Review Intelligence Agent reads every visible REVIEW chunk of
+  the product (not a top-k search, so counts aren't biased by ranking). It labels
+  (aspect, polarity) per clause with a lexicon and negation window, or with the LLM,
+  where a label only counts if its quote is verbatim in the cited item. Counts,
+  sentiment (MIXED unless one side has a 3:1 majority), praises and complaints are
+  computed in code. Summary sentences cite items and contain no numbers.
+- **Consequences:** Results are reproducible and auditable, and LLM labels can't
+  invent quotes. The rules engine misses sarcasm and implicit opinions (measured in
+  `benchmarks/review_sentiment.py`). Analysis is capped at
+  `AGENT_MAX_REVIEW_CHUNKS` chunks.

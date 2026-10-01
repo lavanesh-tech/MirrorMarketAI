@@ -40,8 +40,41 @@ class ResearchOutput(BaseModel):
     total: int
 
 
+class Polarity(StrEnum):
+    POSITIVE = "POSITIVE"
+    NEGATIVE = "NEGATIVE"
+    MIXED = "MIXED"
+
+
+class ReviewExample(BaseModel):
+    marker: str
+    sentence: str
+    polarity: Polarity
+
+
+class AspectSummary(BaseModel):
+    aspect: str
+    label: str
+    positive: int
+    negative: int
+    sentiment: Polarity
+    citations: list[str]
+    examples: list[ReviewExample]
+
+
+class ReviewOutput(BaseModel):
+    product_id: str
+    summary: str
+    aspects: list[AspectSummary]
+    praises: list[str]
+    complaints: list[str]
+    review_chunks: int
+    opinion_sentences: int
+    overall: float = Field(description="(positive - negative) / mentions, from -1 to 1")
+
+
 class AgentResult(BaseModel):
-    output: ResearchOutput
+    output: ResearchOutput | ReviewOutput
     validation: CitationReport
     engine: str
     degraded: bool = False

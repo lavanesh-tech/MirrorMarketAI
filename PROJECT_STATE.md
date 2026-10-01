@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-10.
-- Next: **11, the Review Intelligence Agent.**
+- Completed: 1-10. Phase 11 (Review Intelligence Agent) is built; waiting for Mac + CI.
+- Next: **12, the Compatibility Agent.**
 - Last verified: Phase 10, CI run 36798687173, commit 7c7545c (2026-10-01).
 
 ## Working rules
@@ -38,6 +38,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Extractors: offline rules by default; OpenAI strict JSON schema when configured; falls back to rules (`degraded`).
 - Evidence packs freeze search hits as snapshot items E1..En. A deterministic validator checks markers, uncited sentences, numbers and quotes.
 - Agents: workspace product + current requirement version → one hybrid search per criterion (product-filtered) → evidence pack → values (rules extractor, or LLM with validated citations) → MET/UNMET/UNKNOWN computed in code → `agent_runs` row. Shared `OpenAIChatClient` (strict JSON schema, retries); LLM failure → rules + `degraded`.
+- Review agent: all visible REVIEW chunks of the product (`scoped_chunks`) → evidence pack (mode `scope`) → aspect/polarity per clause (lexicon + negation, or LLM labels that must quote their item verbatim) → counts, MIXED/POSITIVE/NEGATIVE, praises, complaints (≥2 negative mentions) computed in code; the summary has no digits, so the citation check passes.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0009)
@@ -55,11 +56,12 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - POST workspaces/{id}/search (hybrid|lexical|vector + filters)
 - workspaces/{id}/requirements: POST extract, PUT save, GET current, versions[/{n}], diff?from=&to=
 - workspaces/{id}/evidence-packs: POST create (MEMBER+), GET list/get, POST {pack}/validate
+- POST workspaces/{id}/products/{pid}/reviews/analyze (MEMBER+)
 - POST workspaces/{id}/products/{pid}/research (MEMBER+); GET workspaces/{id}/agent-runs[/{run}] (?agent=&product_id=)
 
 ## Tests
 
-- 430 tests, 97% coverage (Phase 10; Mac + CI). `make check` runs everything CI runs.
+- 443 tests, 97% coverage (Phase 11, cloud workspace). Phase 10: 430 (Mac + CI). `make check` runs everything CI runs.
 - DB tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` in the cloud workspace.
 
 ## Current measured metrics
@@ -70,6 +72,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   recall 1.0 (16/16). Evidence: `backend/benchmarks/results/citations.json`. This shows the rules work, not real-world accuracy.
 - Fact extraction, rules engine (synthetic, 24 labelled spec sentences): accuracy 0.7917 → 0.875 after allowing
   hyphenated units ("14.2-inch"). The 3 misses are spelled-out numbers. Evidence: `backend/benchmarks/results/fact_extraction.json`.
+- Review aspect sentiment, rules engine (synthetic, 24 labelled sentences): pair F1 0.8889 → 0.9333 (precision 1.0,
+  recall 0.875) and exact match 0.8333 → 0.875 after adding "well" and "dies" to the lexicon. Misses: sarcasm and implicit opinions. Evidence: `backend/benchmarks/results/review_sentiment.json`.
 
 ## Known issues / limits
 
@@ -83,7 +87,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 ## Important commands
 
 ```bash
-cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && cd ..
+cd backend && uv run python -m benchmarks.citations && uv run python -m benchmarks.fact_extraction && uv run python -m benchmarks.review_sentiment && cd ..
 make check
 make up
 make ps

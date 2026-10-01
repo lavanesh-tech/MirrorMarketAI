@@ -123,6 +123,23 @@ class SearchService:
         ]
         return SearchResult(hits=hits, model=model, degraded=degraded)
 
+    async def scoped_chunks(
+        self, workspace_id: uuid.UUID, user: User, filters: SearchFilters, *, limit: int
+    ) -> list[SearchHit]:
+        """All visible chunks matching filters (no ranking), in document order."""
+        await WorkspaceService(self.session).authorize(workspace_id, user)
+        rows = await self.session.execute(
+            select(DocumentChunk, ProductSource)
+            .join(ProductSource, ProductSource.id == DocumentChunk.source_id)
+            .where(*self._scope(workspace_id, filters))
+            .order_by(ProductSource.created_at, DocumentChunk.source_id, DocumentChunk.chunk_index)
+            .limit(limit)
+        )
+        return [
+            SearchHit(chunk, source, 0.0, lexical_rank=None, vector_rank=None, similarity=None)
+            for chunk, source in rows
+        ]
+
     # ------------------------------------------------------------------ scope
     @staticmethod
     def _scope(workspace_id: uuid.UUID, filters: SearchFilters) -> list[ColumnElement[bool]]:

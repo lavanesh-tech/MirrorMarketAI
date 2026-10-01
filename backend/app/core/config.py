@@ -128,6 +128,7 @@ class Settings(BaseSettings):
     # "rules" = deterministic offline agents; "openai" = OPENAI_CHAT_MODEL with citations.
     agent_engine: Literal["openai", "rules"] = "rules"
     agent_evidence_per_criterion: int = Field(default=3, ge=1, le=10)
+    agent_max_review_chunks: int = Field(default=60, ge=1, le=500)
 
     # --- Kafka (placeholders; introduced in Phase 21) ------------------------
     kafka_enabled: bool = False

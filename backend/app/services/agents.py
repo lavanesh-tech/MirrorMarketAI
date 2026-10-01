@@ -18,6 +18,7 @@ from app.agents.product_research import (
     query_for,
     research_targets,
 )
+from app.agents.review_intelligence import aggregate, llm_mentions, rule_mentions
 from app.core.config import Settings
 from app.core.errors import AgentRunNotFoundError, WorkspaceProductNotFoundError
 from app.domain.citations import validate_citations
@@ -36,6 +37,7 @@ from app.services.workspaces import WorkspaceService
 logger = logging.getLogger(__name__)
 
 PRODUCT_RESEARCH = "product_research"
+REVIEW_INTELLIGENCE = "review_intelligence"
 RULES_ENGINE = "rules-v1"
 
 
@@ -73,16 +75,7 @@ class AgentService:
         self, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
     ) -> AgentRun:
         started = time.perf_counter()
-        await self.workspaces.authorize(workspace_id, user, WorkspaceRole.MEMBER)
-        linked = await self.session.scalar(
-            select(WorkspaceProduct.id).where(
-                WorkspaceProduct.workspace_id == workspace_id,
-                WorkspaceProduct.product_id == product_id,
-            )
-        )
-        product = await self.session.get(Product, product_id)
-        if linked is None or product is None:
-            raise WorkspaceProductNotFoundError
+        product = await self._workspace_product(workspace_id, user, product_id)
 
         spec, requirement_version = await self._current_spec(workspace_id)
         targets = research_targets(product, spec)
@@ -151,26 +144,118 @@ class AgentService:
         output = build_output(product, targets, values, catalog)
         if llm_summary:
             output = output.model_copy(update={"summary": llm_summary})
-        agent_result = AgentResult(
-            output=output,
-            validation=validate_citations(output.summary, evidence),
-            engine=engine,
-            degraded=degraded,
-            tokens_used=tokens,
+        return await self._record(
+            workspace_id,
+            user,
+            PRODUCT_RESEARCH,
+            product_id,
+            pack.id if pack else None,
+            requirement_version,
+            AgentResult(
+                output=output,
+                validation=validate_citations(output.summary, evidence),
+                engine=engine,
+                degraded=degraded,
+                tokens_used=tokens,
+            ),
+            started,
         )
+
+    async def analyze_reviews(
+        self, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
+    ) -> AgentRun:
+        started = time.perf_counter()
+        product = await self._workspace_product(workspace_id, user, product_id)
+        _, requirement_version = await self._current_spec(workspace_id)
+        hits = await SearchService(self.session, self.embedder).scoped_chunks(
+            workspace_id,
+            user,
+            SearchFilters(product_ids=[product_id], source_types=["REVIEW"]),
+            limit=self.settings.agent_max_review_chunks,
+        )
+        pack = None
+        if hits:
+            pack = await EvidenceService(self.session, self.embedder).freeze(
+                workspace_id,
+                user,
+                f"{REVIEW_INTELLIGENCE}: {product.brand} {product.name}",
+                mode="scope",
+                hits=hits,
+                embedding_model=None,
+                degraded=False,
+            )
+        evidence = {i: hit.chunk.text for i, hit in enumerate(hits, start=1)}
+
+        engine, degraded, tokens = RULES_ENGINE, False, 0
+        mentions = None
+        if self.llm is not None and evidence:
+            try:
+                mentions, tokens = await llm_mentions(self.llm, product, evidence)
+                engine = f"openai:{self.llm.model}"
+            except LLMError as exc:
+                logger.warning("review analysis degraded to rules", extra={"error": str(exc)})
+                degraded = True
+        if mentions is None:
+            mentions = rule_mentions(evidence)
+
+        output = aggregate(product, mentions, review_chunks=len(hits))
+        return await self._record(
+            workspace_id,
+            user,
+            REVIEW_INTELLIGENCE,
+            product_id,
+            pack.id if pack else None,
+            requirement_version,
+            AgentResult(
+                output=output,
+                validation=validate_citations(output.summary, evidence),
+                engine=engine,
+                degraded=degraded,
+                tokens_used=tokens,
+            ),
+            started,
+        )
+
+    # ---------------------------------------------------------------- helpers
+    async def _workspace_product(
+        self, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
+    ) -> Product:
+        await self.workspaces.authorize(workspace_id, user, WorkspaceRole.MEMBER)
+        linked = await self.session.scalar(
+            select(WorkspaceProduct.id).where(
+                WorkspaceProduct.workspace_id == workspace_id,
+                WorkspaceProduct.product_id == product_id,
+            )
+        )
+        product = await self.session.get(Product, product_id)
+        if linked is None or product is None:
+            raise WorkspaceProductNotFoundError
+        return product
+
+    async def _record(
+        self,
+        workspace_id: uuid.UUID,
+        user: User,
+        agent: str,
+        product_id: uuid.UUID,
+        evidence_pack_id: uuid.UUID | None,
+        requirement_version: int | None,
+        result: AgentResult,
+        started: float,
+    ) -> AgentRun:
         run = AgentRun(
             workspace_id=workspace_id,
-            agent=PRODUCT_RESEARCH,
+            agent=agent,
             product_id=product_id,
-            evidence_pack_id=pack.id if pack else None,
+            evidence_pack_id=evidence_pack_id,
             requirement_version=requirement_version,
             status="SUCCEEDED",
-            engine=agent_result.engine,
-            degraded=agent_result.degraded,
-            output=agent_result.output.model_dump(mode="json"),
-            validation=agent_result.validation.model_dump(mode="json"),
+            engine=result.engine,
+            degraded=result.degraded,
+            output=result.output.model_dump(mode="json"),
+            validation=result.validation.model_dump(mode="json"),
             duration_ms=int((time.perf_counter() - started) * 1000),
-            tokens_used=agent_result.tokens_used,
+            tokens_used=result.tokens_used,
             created_by_id=user.id,
         )
         self.session.add(run)

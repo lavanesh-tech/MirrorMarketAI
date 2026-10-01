@@ -170,3 +170,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] `agent_runs` table (migration `0009`); run, list, get endpoints; LLM failure degrades to rules
 - [x] Fact-extraction benchmark (`benchmarks/fact_extraction.py`) with committed results
 - [x] Verified on the developer Mac and CI green (run 36798687173, commit 7c7545c)
+
+## Phase 11 exit criteria
+
+- [x] Review Intelligence Agent over all visible REVIEW chunks of a workspace product (`scoped_chunks`)
+- [x] Clause-level aspect sentiment with negation (rules) or LLM labels that must quote their item verbatim
+- [x] Aggregates in code: per-aspect counts, POSITIVE/NEGATIVE/MIXED, praises, complaints, overall score; cited summary
+- [x] `POST /workspaces/{id}/products/{pid}/reviews/analyze`; LLM failure degrades to rules
+- [x] Review sentiment benchmark (`benchmarks/review_sentiment.py`) with committed results
+- [ ] Verified on the developer Mac and CI green
