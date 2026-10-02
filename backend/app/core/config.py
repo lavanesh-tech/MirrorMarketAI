@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = Field(default=14, ge=1, le=90)
     # Hard cap on one login session, however often it is refreshed.
     refresh_session_max_days: int = Field(default=30, ge=1, le=365)
+    # A rotated refresh token presented again within this window is treated as a benign
+    # race (two tabs, a retried request) and simply rotated again; after it, re-use is
+    # treated as theft and revokes the session. 0 = always strict.
+    refresh_reuse_leeway_seconds: int = Field(default=10, ge=0, le=60)
 
     # --- HTTP hardening -----------------------------------------------------------
     security_headers_enabled: bool = True

@@ -139,9 +139,25 @@ health: ## Call the liveness endpoint
 ready: ## Call the readiness endpoint (checks database + migration state)
 	@curl -sS -i $(API_URL)/api/v1/ready; echo
 
+# --------------------------------------------------------------------------- #
+# Frontend (Next.js in ./frontend; needs Node 22+)
+# --------------------------------------------------------------------------- #
+.PHONY: web-install
+web-install: ## Install frontend dependencies exactly as locked
+	cd frontend && npm ci
+
+.PHONY: web-dev
+web-dev: ## Run the web app on http://localhost:3000 (start the API first: make up)
+	cd frontend && npm run dev
+
+.PHONY: web-check
+web-check: ## Frontend lint, types, format, API-type drift, tests and production build
+	cd frontend && npm run check
+
 .PHONY: api-docs
 api-docs: ## Regenerate docs/api (OpenAPI, endpoint index, Postman collection) from the code
 	cd $(BACKEND) && $(UV) run python -m tools.api_docs
+	@test -d frontend/node_modules && (cd frontend && npm run --silent api:types) || true
 
 .PHONY: smoke-events
 smoke-events: ## End-to-end check: comment -> outbox -> Kafka -> consumer -> activity feed

@@ -289,3 +289,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Postman example bodies validate against the request schemas, and the collection's journey runs against the real API
 - [x] API guide (`docs/API.md`): quickstart, conventions, error table, versioning policy; `DOCS_ENABLED` switch
 - [x] Verified on the developer Mac and CI green (run 36943664765, commit b26c9df)
+
+## Phase 24 exit criteria
+
+- [x] Next.js (App Router) + React + TypeScript strict in `frontend/`, Tailwind, ESLint, Prettier, locked dependencies
+- [x] Backend-for-frontend: tokens only in HttpOnly cookies, `/api/v1` forwarder with one silent refresh and retry, same-origin check, token endpoints unreachable from the browser
+- [x] Typed API client generated from `docs/api/openapi.json`, with a drift check
+- [x] Pages: log in, create account, workspaces (list + create with idempotency key), workspace overview; route protection in `proxy.ts`
+- [x] Vitest + Testing Library tests; real-browser journey run against the live API
+- [x] CI job for the frontend; backend refresh leeway so parallel refreshes do not end a session
+- [ ] Verified on the developer Mac and CI green

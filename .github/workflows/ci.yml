@@ -49,6 +49,44 @@ jobs:
       - name: pytest
         run: uv run pytest --cov --cov-report=term-missing
 
+  frontend:
+    name: Frontend (lint, types, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (must match package-lock.json exactly)
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Prettier
+        run: npm run format:check
+
+      # The typed API client must match docs/api/openapi.json.
+      - name: API types are up to date
+        run: npm run api:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
   docker:
     name: Docker (build image, start stack, smoke test)
     runs-on: ubuntu-latest

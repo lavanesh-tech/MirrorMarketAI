@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-23.
-- Next: **24, Next.js / React / TypeScript foundation.**
+- Completed: 1-23. Phase 24 (frontend foundation) is built; waiting for Mac + CI.
+- Next: **25, Workspace UI (requirements, products, comparison matrix).**
 - Last verified: Phase 23, CI run 36943664765, commit b26c9df (2026-10-01).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -21,7 +21,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Environment
 
-- macOS on Apple Silicon, zsh, Docker Desktop. Python 3.12 with uv (`uv.lock` committed).
+- macOS on Apple Silicon, zsh, Docker Desktop. Python 3.12 with uv (`uv.lock` committed). Node 22+ with npm for `frontend/` (`package-lock.json` committed).
 - Repo: `~/Desktop/MirrorMarketAI` → `github.com/lavanesh-tech/MirrorMarketAI` (main).
 - Compose: postgres (PG17 + pgvector 0.8.6) :5433, redis :6380, kafka (apache/kafka 4.0.0, KRaft) :9094, migrate, api :8000, embedding-worker, event-worker.
 
@@ -53,6 +53,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Events (`app/events`, `docs/EVENTS.md`): transactional outbox (`new_event()` added in the same transaction as comments, votes, agent runs, prices) → relay (SKIP LOCKED, in order, backoff, give-up, purge) → Kafka topic `mirrormarket.events.v1` keyed by workspace/product (aiokafka, acks=all, idempotent producer) → idempotent consumer (inbox `processed_events` in the handler's transaction, manual offset commit, retries, `.dlq` topic, rewind on failure) → `workspace_activity` read model. Broker ports with an in-memory implementation for tests. Worker: `python -m app.workers.event_worker`.
 - Security (`docs/SECURITY.md`): opaque refresh tokens (SHA-256 at rest, rotated on every use, re-use revokes the family, absolute session cap); logout / logout-all / change-password; `users.token_version` in the JWT `ver` claim for instant access-token revocation; `JWT_PREVIOUS_SECRET_KEY` for key rotation. Append-only `audit_logs` (trigger, no FKs) written in the action's transaction. Prompt safety (`app/security/prompt_safety.py`): `render_evidence` neutralises items and withholds instruction-like sentences from the LLM. Upload checks (`app/security/files.py`). Security headers + body-limit middleware (`app/core/http_hardening.py`). `tests/db/test_authz_matrix.py` checks every OpenAPI route.
 - API docs (`docs/API.md`, `docs/api/`): `app/core/openapi.py` finishes the OpenAPI 3.1 document (function-name operation ids, `ErrorResponse` on every error, common 401/403/404/413/422, `Idempotency-Key`, `X-Request-ID`). `tools/api_docs.py` (`make api-docs`) generates `openapi.json`, `ENDPOINTS.md` and the Postman collection; tests fail on drift, validate example bodies against schemas and run the collection journey against the API. After any API change: `make api-docs` and commit.
+- Frontend (`frontend/`, ADR-043): Next.js 16 App Router, React 19, TypeScript strict, Tailwind 4, TanStack Query, zod. BFF: `/api/session/{login,register,logout}` set/clear HttpOnly cookies `mm_access` + `mm_refresh`; `/api/v1/[...path]` forwards to FastAPI with the bearer token, refreshes once on 401 and retries, blocks cross-site writes and the token endpoints. `src/proxy.ts` (Next 16 name for middleware) redirects signed-out visitors. Typed client from `docs/api/openapi.json` (`npm run api:types`, drift check `npm run api:check`). Pages: /login, /register, /workspaces, /workspaces/[id]. Design tokens in `globals.css` (ink on cool paper, highlighter mark for cited claims; fonts self-hosted via fontsource). Backend change: `REFRESH_REUSE_LEEWAY_SECONDS=10`.
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
 ## Database migrations (head 0013)
@@ -80,7 +81,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- 677 tests, 97% coverage (Phase 23; Mac + CI). `make check` runs everything CI runs.
+- Backend: 677 tests, 97% coverage (Phase 23; Mac + CI); unchanged count in Phase 24 (one test extended). `make check` runs the backend checks.
+- Frontend: 42 Vitest tests (Phase 24, cloud workspace); `make web-check` runs lint, types, format, API-type drift, tests and build. A real-browser journey (register, create workspace, silent refresh, log out) passed in the cloud workspace; Playwright tests join the repo in Phase 26.
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
@@ -134,6 +136,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - The hashing embedder is lexical, not semantic (OpenAI needs a key). Chunk size is measured in characters.
 - The rule extractor is English-only pattern matching; what it can't use is returned as `unparsed`.
 - Ingestion runs in the request; raw bytes are stored in Postgres (S3 comes in Phase 31).
+- Frontend: no Content-Security-Policy on pages yet and no production image (Phase 30); ESLint 9 and TypeScript 5.9 are used because eslint-config-next and openapi-typescript do not support ESLint 10 / TypeScript 7 yet.
 - Not yet: invitations, MFA, email verification, OAuth login flow (the one-time token store is ready for it).
 - Events: no dead-letter replay tool, no schema registry; Kafka data is not persisted across `make down` (the outbox is the source).
 - Realtime: at-most-once, no replay (clients refetch on reconnect); membership is checked only at connect.
@@ -157,6 +160,9 @@ make up
 make ps
 make down
 make api-docs
+make web-install
+make web-check
+make web-dev
 make migration m="msg"
 make migrate
 ```

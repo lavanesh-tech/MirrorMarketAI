@@ -67,11 +67,22 @@ async def test_refresh_rotates_and_the_old_token_is_single_use(
     assert second["refresh_token"] != first["refresh_token"]
     assert (await api.get(f"{AUTH}/me", headers=bearer(second["access_token"]))).status_code == 200
 
-    # Replaying the rotated token means it was copied: the whole session is revoked.
+    # Inside the leeway a second use is a benign race (two tabs): it just rotates again.
+    raced = await refresh(api, first["refresh_token"])
+    assert raced.status_code == 200
+    assert raced.json()["refresh_token"] not in (first["refresh_token"], second["refresh_token"])
+
+    # After the leeway, replaying a rotated token means it was copied: session revoked.
+    await db_session.execute(
+        update(RefreshToken)
+        .where(RefreshToken.rotated_at.is_not(None))
+        .values(rotated_at=datetime.now(UTC) - timedelta(seconds=11))
+    )
     replay = await refresh(api, first["refresh_token"])
     assert replay.status_code == 401
     assert replay.json()["error"]["code"] == "invalid_refresh_token"
     assert (await refresh(api, second["refresh_token"])).status_code == 401
+    assert (await refresh(api, raced.json()["refresh_token"])).status_code == 401
     assert ("auth.refresh_reuse_detected", "FAILURE") in await actions(db_session, user.id)
 
     # A different login session of the same user is unaffected.

@@ -4,7 +4,9 @@ Sessions: login returns a short-lived access token (JWT) and an opaque refresh
 token. Each refresh ROTATES the token: the old one is marked used and a new one
 is issued in the same "family". Presenting a token that was already rotated can
 only mean it was stolen (or replayed), so the whole family is revoked and the
-user must log in again. Rotation never extends a family past its absolute expiry.
+user must log in again. The one exception is a short leeway right after a rotation,
+so two tabs refreshing at the same moment do not log the user out. Rotation never
+extends a family past its absolute expiry.
 """
 
 from __future__ import annotations
@@ -146,7 +148,9 @@ class AuthService:
         now = datetime.now(UTC)
         if row is None:
             raise InvalidRefreshTokenError
-        if row.rotated_at is not None and row.revoked_at is None:
+        leeway = timedelta(seconds=self.settings.refresh_reuse_leeway_seconds)
+        raced = row.rotated_at is not None and now - row.rotated_at <= leeway
+        if row.rotated_at is not None and row.revoked_at is None and not raced:
             await self._revoke(RefreshToken.family_id == row.family_id)
             audit.record(
                 self.session,
@@ -161,7 +165,8 @@ class AuthService:
         user = await self.users.get(row.user_id)
         if row.revoked_at is not None or row.expires_at <= now or not (user and user.is_active):
             raise InvalidRefreshTokenError
-        row.rotated_at = now
+        if row.rotated_at is None:
+            row.rotated_at = now  # a raced re-use keeps the original rotation time
         new_row, token = self._new_refresh_row(user.id, row.family_id, row.family_expires_at)
         audit.record(self.session, audit.REFRESH, actor_id=user.id)
         await self.session.commit()

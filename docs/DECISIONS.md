@@ -543,3 +543,23 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   reviewable diff of API changes in pull requests).
 - **Consequences:** Every API change shows up as a diff of `docs/api/openapi.json`
   and needs `make api-docs`. Operation ids are now part of the public contract.
+
+## ADR-043: Next.js backend-for-frontend; tokens never reach browser JavaScript
+
+- **Status:** Accepted (Phase 24)
+- **Decision:** The browser talks only to the Next.js app. Route handlers keep the
+  access and refresh tokens in HttpOnly, SameSite=Lax cookies and forward
+  `/api/v1/*` to FastAPI with the bearer token added server-side; they refresh
+  once and retry when the access token is rejected. Endpoints that return tokens
+  are reachable only through `/api/session/*`, which strip them. State-changing
+  requests must come from the same origin. The API client and its types are
+  generated from the OpenAPI contract. Pages fetch data client-side through the
+  forwarder (TanStack Query); `proxy.ts` only redirects signed-out visitors.
+- **Alternatives rejected:** tokens in localStorage or JS-readable cookies (any XSS
+  steals the session); calling FastAPI directly from the browser (needs CORS and
+  exposes tokens to scripts); Server Components fetching with cookies (they cannot
+  update cookies, so they cannot rotate refresh tokens).
+- **Consequences:** No CORS configuration is needed for the web app. One extra hop
+  per API call. Because several requests can try to refresh at once, the API now
+  accepts a re-used refresh token for 10 seconds after its rotation
+  (`REFRESH_REUSE_LEEWAY_SECONDS`); beyond that, re-use still revokes the session.

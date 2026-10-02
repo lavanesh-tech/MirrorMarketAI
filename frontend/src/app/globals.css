@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. The product is about claims and the evidence behind them, so the
+ * one loud element is a highlighter mark; everything else is ink on cool paper.
+ */
+@theme {
+  --color-paper: #edf1f5;
+  --color-surface: #ffffff;
+  --color-ink: #14213d;
+  --color-muted: #55657f;
+  --color-line: #cbd5e1;
+  --color-action: #1f4fd8;
+  --color-action-strong: #173ba6;
+  --color-mark: #ffe45c;
+  --color-met: #17795b;
+  --color-unmet: #b4372c;
+
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 2.75rem;
+  --text-display--line-height: 1.05;
+  --text-title: 1.75rem;
+  --text-title--line-height: 1.15;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+  }
+
+  /* One visible focus style everywhere, for keyboard users. */
+  :focus-visible {
+    outline: 3px solid var(--color-action);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  /* A claim that has evidence behind it: a marker stroke, like on a printed spec sheet. */
+  .mark {
+    background: linear-gradient(
+      transparent 12%,
+      var(--color-mark) 12%,
+      var(--color-mark) 88%,
+      transparent 88%
+    );
+    padding: 0 0.15em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .field {
+    width: 100%;
+    border: 1.5px solid var(--color-line);
+    border-radius: 6px;
+    background: var(--color-surface);
+    padding: 0.625rem 0.75rem;
+    font-size: 1rem;
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-unmet);
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--color-action);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.625rem 1.125rem;
+    cursor: pointer;
+  }
+  .button:hover {
+    background: var(--color-action-strong);
+  }
+  .button:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .link {
+    color: var(--color-action);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}

@@ -10,7 +10,7 @@ What is defended, how, and what is deliberately left out. Each control has tests
 | Access token | JWT HS256, 15 minutes, fixed algorithm allow-list, issuer/audience/expiry/type checked |
 | Key rotation | `JWT_PREVIOUS_SECRET_KEY` is accepted for verification only; new tokens use the new key |
 | Refresh token | Opaque random value, stored only as SHA-256; **rotated on every use** |
-| Stolen-token detection | Re-using a rotated refresh token revokes the whole session ("family") |
+| Stolen-token detection | Re-using a rotated refresh token revokes the whole session ("family"), except within a 10-second leeway that absorbs two tabs refreshing at once |
 | Session lifetime | Refresh token 14 days; a session can never be refreshed past 30 days |
 | Log out everywhere | `POST /auth/logout-all` and password changes bump `users.token_version`; access tokens carry it as `ver`, so older ones are rejected immediately, with no denylist |
 | Brute force | Rate limits per IP and per email on login, register, refresh, change-password |
@@ -84,8 +84,8 @@ held-out set and its misses. Layers 1, 2 and 4 do not depend on detection.
 
 - The PDF active-content check reads names in the raw file; names hidden inside compressed
   object streams are not seen. Parsing never executes PDF content.
-- Two refreshes racing with the same token count as re-use and end the session (strict by
-  choice; no grace window).
+- The refresh leeway (`REFRESH_REUSE_LEEWAY_SECONDS`, default 10) means a stolen refresh token
+  used within 10 seconds of the real client is not detected as re-use.
 - No MFA, no email verification, no password-breach check, no OAuth login yet.
 - Rate limits use the socket peer IP; behind a proxy, forwarded headers must be configured
   (Phase 30).
