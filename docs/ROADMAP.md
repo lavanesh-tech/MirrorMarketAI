@@ -47,13 +47,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 20 | WebSockets: presence, comments, votes, realtime updates | ✅ |
 | 21 | Kafka: outbox, workers, idempotent consumers, DLQ | ✅ |
 | 22 | Security hardening: JWT, refresh, RBAC, SSRF, prompt-injection defences, file security, audit logs | ✅ |
-| 23 | OpenAPI, Postman collection, API documentation | 🔜 |
+| 23 | OpenAPI, Postman collection, API documentation | ✅ |
 
 ## Frontend
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 24 | Next.js / React / TypeScript foundation | ⬜ |
+| 24 | Next.js / React / TypeScript foundation | 🔜 |
 | 25 | Workspace UI: requirements, products, comparison matrix | ⬜ |
 | 26 | Evidence explorer, agent status, Ask MirrorMarket, price history, realtime collaboration UI | ⬜ |
 
@@ -288,4 +288,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Drift test: committed artefacts must equal what the code generates
 - [x] Postman example bodies validate against the request schemas, and the collection's journey runs against the real API
 - [x] API guide (`docs/API.md`): quickstart, conventions, error table, versioning policy; `DOCS_ENABLED` switch
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36943664765, commit b26c9df)
