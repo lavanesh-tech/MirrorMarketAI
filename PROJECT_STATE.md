@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-24. Phase 25 (workspace UI: requirements, products, comparison matrix) is built; waiting for Mac + CI.
+- Completed: 1-25.
 - Next: **26, Evidence, agents, Ask, price and realtime UI, plus Playwright.**
-- Last verified: Phase 24, CI run 36958852957, commit 4857d96 (2026-10-01).
+- Last verified: Phase 25, CI run 37024991448, commit a0b4178 (2026-10-02).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
@@ -83,8 +83,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- Backend: 677 tests, 97% coverage (Phase 24; Mac + CI). Phase 25 changes no test count; the same suite now also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
-- Frontend: 66 Vitest tests (Phase 25, cloud workspace; 42 verified on Mac + CI in Phase 24); `make web-check` runs lint, types, format, API-type drift, tests and build. A real-browser journey (brief, draft, save, products with specifications, research and compare, rescore, reload, mobile width) passed in the cloud workspace with the rules engines; Playwright tests join the repo in Phase 26.
+- Backend: 677 tests, 97% coverage (Phase 25; Mac + CI). The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
+- Frontend: 66 Vitest tests (Phase 25; Mac + CI); `make web-check` runs lint, types, format, API-type drift, tests and build. A real-browser journey (brief, draft, save, products with specifications, research and compare, rescore, reload, mobile width) passed in the cloud workspace with the rules engines; Playwright tests join the repo in Phase 26.
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 

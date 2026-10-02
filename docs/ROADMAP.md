@@ -54,8 +54,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | # | Phase | Status |
 | --- | --- | --- |
 | 24 | Next.js / React / TypeScript foundation | ✅ |
-| 25 | Workspace UI: requirements, products, comparison matrix | 🔜 |
-| 26 | Evidence explorer, agent status, Ask MirrorMarket, price history, realtime collaboration UI | ⬜ |
+| 25 | Workspace UI: requirements, products, comparison matrix | ✅ |
+| 26 | Evidence explorer, agent status, Ask MirrorMarket, price history, realtime collaboration UI | 🔜 |
 
 ## Quality, operations, delivery
 
@@ -309,4 +309,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Role rules in the UI match the API (OWNER/EDITOR edit, MEMBER runs, VIEWER reads)
 - [x] Fix: requirements, evidence packs and agent runs are now committed; test requests discard uncommitted work so a missing commit fails the suite
 - [x] Vitest tests for the new screens; real-browser journey run against the live API
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 37024991448, commit a0b4178)
