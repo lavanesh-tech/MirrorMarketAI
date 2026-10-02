@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-23. Phase 24 (frontend foundation) is built; waiting for Mac + CI.
+- Completed: 1-24.
 - Next: **25, Workspace UI (requirements, products, comparison matrix).**
-- Last verified: Phase 23, CI run 36943664765, commit b26c9df (2026-10-01).
+- Last verified: Phase 24, CI run 36958852957, commit 4857d96 (2026-10-01).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
@@ -81,8 +81,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- Backend: 677 tests, 97% coverage (Phase 23; Mac + CI); unchanged count in Phase 24 (one test extended). `make check` runs the backend checks.
-- Frontend: 42 Vitest tests (Phase 24, cloud workspace); `make web-check` runs lint, types, format, API-type drift, tests and build. A real-browser journey (register, create workspace, silent refresh, log out) passed in the cloud workspace; Playwright tests join the repo in Phase 26.
+- Backend: 677 tests, 97% coverage (Phase 24; Mac + CI). `make check` runs the backend checks.
+- Frontend: 42 Vitest tests (Phase 24; Mac + CI); `make web-check` runs lint, types, format, API-type drift, tests and build. A real-browser journey (register, create workspace, silent refresh, log out) passed in the cloud workspace; Playwright tests join the repo in Phase 26.
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 

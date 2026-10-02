@@ -53,8 +53,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 24 | Next.js / React / TypeScript foundation | 🔜 |
-| 25 | Workspace UI: requirements, products, comparison matrix | ⬜ |
+| 24 | Next.js / React / TypeScript foundation | ✅ |
+| 25 | Workspace UI: requirements, products, comparison matrix | 🔜 |
 | 26 | Evidence explorer, agent status, Ask MirrorMarket, price history, realtime collaboration UI | ⬜ |
 
 ## Quality, operations, delivery
@@ -298,4 +298,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Pages: log in, create account, workspaces (list + create with idempotency key), workspace overview; route protection in `proxy.ts`
 - [x] Vitest + Testing Library tests; real-browser journey run against the live API
 - [x] CI job for the frontend; backend refresh leeway so parallel refreshes do not end a session
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 36958852957, commit 4857d96)
