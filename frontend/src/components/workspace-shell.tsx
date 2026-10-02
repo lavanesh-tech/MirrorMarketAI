@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ApiError } from "@/lib/api/client";
-import { useWorkspace } from "@/lib/api/queries";
+import { useMembers, useWorkspace } from "@/lib/api/queries";
+import { RealtimeProvider, useRealtime } from "@/lib/realtime";
 
 import { roleLabel } from "./workspace-list";
 
@@ -13,7 +14,9 @@ const SECTIONS = [
   { slug: "", label: "Overview" },
   { slug: "/requirements", label: "Requirements" },
   { slug: "/products", label: "Products" },
+  { slug: "/evidence", label: "Evidence" },
   { slug: "/compare", label: "Compare" },
+  { slug: "/ask", label: "Ask" },
 ] as const;
 
 /** The frame every workspace page shares: its name, your role and the section links. */
@@ -49,7 +52,7 @@ export function WorkspaceShell({
   }
 
   return (
-    <div>
+    <RealtimeProvider workspaceId={workspaceId}>
       <Link href="/workspaces" className="link text-sm">
         All workspaces
       </Link>
@@ -57,6 +60,7 @@ export function WorkspaceShell({
       <p className="mt-1 text-muted">
         You are {roleLabel(workspace.data.my_role).toLowerCase()} here.
       </p>
+      <Presence workspaceId={workspaceId} />
       <nav aria-label="Workspace sections" className="mt-6 border-b-2 border-ink">
         <ul className="flex flex-wrap gap-x-1">
           {SECTIONS.map((section) => {
@@ -79,6 +83,24 @@ export function WorkspaceShell({
         </ul>
       </nav>
       <div className="pt-8">{children}</div>
-    </div>
+    </RealtimeProvider>
+  );
+}
+
+/** Who else has this workspace open, and whether the page is updating by itself. */
+function Presence({ workspaceId }: { workspaceId: string }) {
+  const { status, online } = useRealtime();
+  const members = useMembers(workspaceId);
+  const names = online
+    .map((id) => members.data?.find((member) => member.user_id === id)?.display_name)
+    .filter((name): name is string => Boolean(name));
+  return (
+    <p className="mt-1 text-sm text-muted" aria-live="polite">
+      {status === "live"
+        ? `Live. Here now: ${names.length > 0 ? names.join(", ") : "just you"}.`
+        : status === "connecting"
+          ? "Connecting for live updates…"
+          : "Live updates are off. Reload to see what others changed."}
+    </p>
   );
 }

@@ -878,6 +878,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/workspaces/{workspace_id}/realtime-ticket": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * A 30-second ticket for opening this workspace's WebSocket
+     * @description For browser sessions, whose access token lives in an HttpOnly cookie and cannot be sent on the socket. The ticket only opens this workspace's WebSocket; REST endpoints reject it.
+     */
+    post: operations["realtime_ticket"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/workspaces/{workspace_id}/requirements": {
     parameters: {
       query?: never;
@@ -1966,6 +1986,19 @@ export interface components {
        * @enum {string}
        */
       status: "ready" | "not_ready";
+    };
+    /** RealtimeTicketResponse */
+    RealtimeTicketResponse: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Ticket
+       * @description Send as {"type": "auth", "ticket": ...} on the socket
+       */
+      ticket: string;
     };
     /** RefreshRequest */
     RefreshRequest: {
@@ -6280,6 +6313,72 @@ export interface operations {
       };
       /** @description Request body too large */
       413: {
+        headers: {
+          "X-Request-ID": components["headers"]["X-Request-ID"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description The request is invalid, or a business rule rejected it */
+      422: {
+        headers: {
+          "X-Request-ID": components["headers"]["X-Request-ID"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  realtime_ticket: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 1-255 visible ASCII characters. Makes a retry return the first response instead of repeating the action. */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          "X-Request-ID": components["headers"]["X-Request-ID"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RealtimeTicketResponse"];
+        };
+      };
+      /** @description Missing, invalid, expired or revoked access token */
+      401: {
+        headers: {
+          "X-Request-ID": components["headers"]["X-Request-ID"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Your role in this workspace does not allow this */
+      403: {
+        headers: {
+          "X-Request-ID": components["headers"]["X-Request-ID"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Not found (also returned to non-members of a workspace) */
+      404: {
         headers: {
           "X-Request-ID": components["headers"]["X-Request-ID"];
           [name: string]: unknown;

@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.roles import WorkspaceRole
-from app.security.tokens import create_access_token
+from app.security.tokens import create_access_token, create_realtime_ticket
 from tests.db.conftest import ApiUser, StackFactory, join, register_user, workspace
 
 pytestmark = [pytest.mark.db, pytest.mark.api]
@@ -372,3 +372,55 @@ async def test_comment_edit_delete_and_agent_events(stack: StackFactory) -> None
             "status": "SUCCEEDED",
         }
         await sock.disconnect()
+
+
+async def test_realtime_ticket_opens_only_its_own_workspace(stack: StackFactory) -> None:
+    async with stack() as s:
+        owner, stranger = await register_user(s.http), await register_user(s.http)
+        ws_id = await workspace(s.http, owner)
+        other_id = await workspace(s.http, owner)
+
+        async def ticket(user: ApiUser, target: str = ws_id) -> httpx.Response:
+            return await s.http.post(
+                f"/api/v1/workspaces/{target}/realtime-ticket", headers=user.headers
+            )
+
+        async def attempt(message: dict[str, object], target: str = ws_id) -> tuple[int, str]:
+            async with s.ws(target) as sock:
+                await sock.send_json(message)
+                closed = await sock.closed()
+                return closed.code, closed.reason
+
+        assert (await ticket(stranger)).status_code == 404  # not a member: no ticket
+
+        issued = (await ticket(owner)).json()
+        async with s.ws(ws_id) as sock:
+            await sock.send_json({"type": "auth", "ticket": issued["ticket"]})
+            ready = await sock.receive()
+            assert (ready["type"], ready["user_id"], ready["role"]) == ("ready", owner.id, "OWNER")
+
+        # Bound to one workspace, and not an access token.
+        assert await attempt({"type": "auth", "ticket": issued["ticket"]}, other_id) == (
+            4401,
+            "invalid_token",
+        )
+        as_bearer = await s.http.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {issued['ticket']}"}
+        )
+        assert as_bearer.status_code == 401
+        # An access token is not a ticket either, and an expired ticket is refused.
+        assert await attempt({"type": "auth", "ticket": owner.token}) == (4401, "invalid_token")
+        old = create_realtime_ticket(
+            uuid.UUID(owner.id),
+            uuid.UUID(ws_id),
+            s.settings,
+            now=datetime.now(UTC) - timedelta(minutes=2),
+        ).token
+        assert await attempt({"type": "auth", "ticket": old}) == (4401, "invalid_token")
+
+        # "Log out everywhere" invalidates tickets issued before it.
+        fresh = (await ticket(owner)).json()["ticket"]
+        assert (
+            await s.http.post("/api/v1/auth/logout-all", headers=owner.headers)
+        ).status_code == 204
+        assert await attempt({"type": "auth", "ticket": fresh}) == (4401, "invalid_token")

@@ -2,6 +2,7 @@
 
 Protocol (JSON text frames):
   client -> {"type": "auth", "token": "<access token>"}   within WS_AUTH_TIMEOUT_SECONDS
+            or {"type": "auth", "ticket": "<realtime ticket>"}  (browsers; see below)
   server -> {"type": "ready", "connection_id", "user_id", "role", "presence": [...],
              "heartbeat_seconds": N}
   client -> {"type": "ping"}                              every heartbeat_seconds
@@ -14,6 +15,11 @@ The token travels in the first message, never in the URL (URLs end up in access
 logs and browser history), and browsers cannot set an Authorization header on a
 WebSocket. The server is push-only for data: all writes go through the REST API,
 so validation, authorization and idempotency live in one place.
+
+Browsers keep the access token in an HttpOnly cookie, so their JavaScript cannot
+send it. They call POST /workspaces/{id}/realtime-ticket (authenticated by the
+cookie session) and send the 30-second, workspace-bound ticket instead. A
+connection opened with a ticket lasts one access-token lifetime, like any other.
 
 Close codes: 4401 not authenticated / token expired, 4404 not a member,
 4408 auth or idle timeout, 4429 too many connections or messages,
@@ -30,20 +36,23 @@ import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, WebSocket
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
 from app.api.deps import SessionFactoryDep, resolve_user
 from app.core.config import Settings
 from app.core.errors import AppError, AuthenticationError
 from app.domain.roles import WorkspaceRole
+from app.models.identity import User
 from app.realtime.bus import EventBus
 from app.realtime.hub import Connection, Hub
 from app.realtime.presence import Presence
-from app.security.tokens import decode_access_token
+from app.repositories.identity import UserRepository
+from app.security.tokens import decode_access_token, decode_realtime_ticket
 from app.services.workspaces import WorkspaceService
 
 router = APIRouter(tags=["realtime"])
@@ -97,22 +106,46 @@ async def _authenticate(
     if message["type"] == "websocket.disconnect":
         return None
     payload = _parse(message.get("text") or "")
-    token = payload.get("token") if payload and payload.get("type") == "auth" else None
-    if not isinstance(token, str):
+    if not payload or payload.get("type") != "auth":
+        payload = {}
+    token, ticket = payload.get("token"), payload.get("ticket")
+    if not isinstance(token, str) and not isinstance(ticket, str):
         await _reject(websocket, CLOSE_UNAUTHENTICATED, "auth_required")
         return None
     try:
-        claims = decode_access_token(token, settings)
         async with sessions() as session:
-            user = await resolve_user(session, token, settings)
+            if isinstance(token, str):
+                expires_at = decode_access_token(token, settings).expires_at
+                user = await resolve_user(session, token, settings)
+            else:
+                user = await _user_for_ticket(session, str(ticket), workspace_id, settings)
+                expires_at = datetime.now(UTC) + timedelta(
+                    minutes=settings.jwt_access_token_ttl_minutes
+                )
             membership = await WorkspaceService(session).authorize(workspace_id, user)
-            return Identity(user.id, user.display_name, membership.role, claims.expires_at)
+            return Identity(user.id, user.display_name, membership.role, expires_at)
     except AuthenticationError:
         await _reject(websocket, CLOSE_UNAUTHENTICATED, "invalid_token")
     except AppError:
         # Same answer for "no such workspace" and "not a member": no existence leak.
         await _reject(websocket, CLOSE_NOT_MEMBER, "workspace_not_found")
     return None
+
+
+async def _user_for_ticket(
+    session: AsyncSession, ticket: str, workspace_id: uuid.UUID, settings: Settings
+) -> User:
+    """Ticket -> active user, only for the workspace the ticket was issued for."""
+    claims = decode_realtime_ticket(ticket, settings)
+    user = await UserRepository(session).get(claims.user_id)
+    if (
+        claims.workspace_id != workspace_id
+        or user is None
+        or not user.is_active
+        or claims.token_version != user.token_version
+    ):
+        raise AuthenticationError("Invalid ticket.")
+    return user
 
 
 async def _writer(websocket: WebSocket, connection: Connection) -> None:

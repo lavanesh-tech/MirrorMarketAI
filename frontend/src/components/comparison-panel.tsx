@@ -15,6 +15,7 @@ import { MAX_WEIGHT, parseComparison, weightChanges, type Comparison } from "@/l
 import { formatDate } from "@/lib/format";
 import { canRun } from "@/lib/requirements";
 
+import { AgentStatus } from "./agent-status";
 import { ComparisonMatrix } from "./comparison-matrix";
 
 export function ComparisonPanel({ workspaceId }: { workspaceId: string }) {
@@ -150,6 +151,8 @@ export function ComparisonPanel({ workspaceId }: { workspaceId: string }) {
       ) : (
         <p className="text-muted">Viewers can read comparisons but not run them.</p>
       )}
+
+      <AgentStatus workspaceId={workspaceId} />
     </div>
   );
 }

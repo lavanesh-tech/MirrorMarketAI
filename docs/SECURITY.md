@@ -78,6 +78,8 @@ held-out set and its misses. Layers 1, 2 and 4 do not depend on detection.
   local/test.
 - Request body limit (413), enforced for declared and for streamed bodies.
 - Explicit CORS origins (no wildcard); WebSocket origin allow-list.
+- Browser WebSockets authenticate with a 30-second ticket bound to one workspace and
+  rejected by every REST endpoint (ADR-046); the access token never reaches page scripts.
 - Errors never contain stack traces or internal details; every response has a request id.
 
 ## Known limits

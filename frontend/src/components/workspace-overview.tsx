@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useMembers, useRequirements, useWorkspace, useWorkspaceProducts } from "@/lib/api/queries";
 import { formatDate } from "@/lib/format";
 
+import { ActivityFeed } from "./activity-feed";
+import { Discussion } from "./discussion";
 import { roleLabel } from "./workspace-list";
 
 /** Where the decision stands, and who is deciding. */
@@ -60,6 +62,8 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
           </p>
         ) : null}
       </section>
+      <Discussion workspaceId={workspaceId} />
+      <ActivityFeed workspaceId={workspaceId} />
       <section aria-labelledby="members-title">
         <h2 id="members-title" className="mb-3 text-xl">
           Members

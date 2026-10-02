@@ -1,6 +1,6 @@
 # API endpoints
 
-Generated from `openapi.json` (67 operations); do not edit by hand. Regenerate with `make api-docs`.
+Generated from `openapi.json` (68 operations); do not edit by hand. Regenerate with `make api-docs`.
 
 Auth: **token** = `Authorization: Bearer <access token>`; **public** = none.
 
@@ -160,4 +160,5 @@ Comments, votes, presence and the activity feed.
 | PUT | `/api/v1/workspaces/{workspace_id}/products/{product_id}/vote` | Vote a workspace product up (1) or down (-1), or remove your vote (0) (MEMBER+) | token |
 | GET | `/api/v1/workspaces/{workspace_id}/votes` | Vote totals per product + my vote | token |
 | GET | `/api/v1/workspaces/{workspace_id}/presence` | Members currently connected | token |
+| POST | `/api/v1/workspaces/{workspace_id}/realtime-ticket` | A 30-second ticket for opening this workspace's WebSocket | token |
 | GET | `/api/v1/workspaces/{workspace_id}/activity` | Activity feed, newest first (built from events by a Kafka consumer) | token |

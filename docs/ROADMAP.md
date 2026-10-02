@@ -310,3 +310,14 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Fix: requirements, evidence packs and agent runs are now committed; test requests discard uncommitted work so a missing commit fails the suite
 - [x] Vitest tests for the new screens; real-browser journey run against the live API
 - [x] Verified on the developer Mac and CI green (run 37024991448, commit a0b4178)
+
+## Phase 26 exit criteria
+
+- [x] Evidence: add sources per product (pasted text, file upload, web address), ingested and embedded in one action; search the workspace's passages
+- [x] Agent status: every step of the last research run per product, with engine, duration, skip or failure reason and the verdict
+- [x] Ask: grounded answer with citation markers linked to the passages cited; clear abstention when the sources do not answer
+- [x] Price history: statistics, chart and a form to record a price
+- [x] Realtime: live presence, comments, votes and comparison refresh over the WebSocket; activity feed; works without the socket
+- [x] Browser WebSocket authentication with a 30-second, workspace-bound ticket (tokens stay in HttpOnly cookies)
+- [x] Playwright end-to-end journey in the repo and as a CI job against the Docker stack
+- [ ] Verified on the developer Mac and CI green

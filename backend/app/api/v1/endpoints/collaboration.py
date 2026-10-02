@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import CurrentUser, EventsDep, PresenceDep, SessionDep
+from app.api.deps import CurrentUser, EventsDep, PresenceDep, SessionDep, SettingsDep
 from app.repositories.base import MAX_PAGE_SIZE
 from app.schemas.collaboration import (
     ActivityItem,
@@ -17,11 +17,13 @@ from app.schemas.collaboration import (
     CommentListResponse,
     CommentResponse,
     PresenceResponse,
+    RealtimeTicketResponse,
     VoteIn,
     VoteTally,
     VoteTallyList,
 )
 from app.schemas.workspaces import PageMeta
+from app.security.tokens import create_realtime_ticket
 from app.services.collaboration import (
     EVENT_COMMENT_CREATED,
     EVENT_COMMENT_DELETED,
@@ -170,6 +172,22 @@ async def presence(
     await WorkspaceService(session).authorize(workspace_id, user)
     users = await online.users(workspace_id)
     return PresenceResponse(workspace_id=workspace_id, user_ids=[uuid.UUID(u) for u in users])
+
+
+@router.post(
+    "/realtime-ticket",
+    response_model=RealtimeTicketResponse,
+    summary="A 30-second ticket for opening this workspace's WebSocket",
+    description="For browser sessions, whose access token lives in an HttpOnly cookie and "
+    "cannot be sent on the socket. The ticket only opens this workspace's WebSocket; "
+    "REST endpoints reject it.",
+)
+async def realtime_ticket(
+    workspace_id: uuid.UUID, user: CurrentUser, session: SessionDep, settings: SettingsDep
+) -> RealtimeTicketResponse:
+    await WorkspaceService(session).authorize(workspace_id, user)
+    ticket = create_realtime_ticket(user.id, workspace_id, settings, version=user.token_version)
+    return RealtimeTicketResponse(ticket=ticket.token, expires_at=ticket.expires_at)
 
 
 @router.get(

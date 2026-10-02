@@ -70,6 +70,11 @@ class PresenceResponse(BaseModel):
     user_ids: list[uuid.UUID]
 
 
+class RealtimeTicketResponse(BaseModel):
+    ticket: str = Field(description='Send as {"type": "auth", "ticket": ...} on the socket')
+    expires_at: datetime
+
+
 class ActivityItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

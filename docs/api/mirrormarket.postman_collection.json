@@ -2285,6 +2285,30 @@
           "response": []
         },
         {
+          "id": "f62827ba-c53e-582c-9e5a-7f1c898ad44b",
+          "name": "A 30-second ticket for opening this workspace's WebSocket",
+          "request": {
+            "description": "For browser sessions, whose access token lives in an HttpOnly cookie and cannot be sent on the socket. The ticket only opens this workspace's WebSocket; REST endpoints reject it.",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workspaces",
+                "{{workspace_id}}",
+                "realtime-ticket"
+              ],
+              "query": [],
+              "raw": "{{base_url}}/api/v1/workspaces/{{workspace_id}}/realtime-ticket"
+            }
+          },
+          "response": []
+        },
+        {
           "id": "f5e15dc0-5726-5338-ae54-7015d48aaec2",
           "name": "Activity feed, newest first (built from events by a Kafka consumer)",
           "request": {

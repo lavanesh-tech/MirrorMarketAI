@@ -6,3 +6,12 @@ export function backendUrl(): string {
 }
 
 export const API_PREFIX = "/api/v1";
+
+/**
+ * Where the browser opens the WebSocket. Live updates are the one thing that cannot
+ * go through this app (route handlers do not proxy WebSockets), so the browser
+ * connects to the API directly, with a short-lived ticket instead of a token.
+ */
+export function publicWsUrl(): string {
+  return (process.env.PUBLIC_WS_URL ?? "ws://127.0.0.1:8000").replace(/\/+$/, "");
+}

@@ -9,3 +9,7 @@ next-env.d.ts
 # Written by `next dev` for coding assistants; not part of this project.
 AGENTS.md
 CLAUDE.md
+
+# Playwright output
+test-results/
+playwright-report/

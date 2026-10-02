@@ -26,12 +26,21 @@ from app.core.config import Settings
 from app.core.errors import AuthenticationError
 
 TOKEN_TYPE_ACCESS = "access"  # noqa: S105 - claim value, not a secret
+TOKEN_TYPE_REALTIME = "realtime"  # noqa: S105 - claim value, not a secret
+REALTIME_TICKET_TTL_SECONDS = 30
 
 
 @dataclass(frozen=True, slots=True)
 class AccessToken:
     token: str
     expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class RealtimeTicket:
+    user_id: uuid.UUID
+    workspace_id: uuid.UUID
+    token_version: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,3 +110,55 @@ def decode_access_token(token: str, settings: Settings) -> TokenClaims:
         raise AuthenticationError("Token has expired.") from exc
     except (jwt.InvalidTokenError, ValueError) as exc:
         raise AuthenticationError("Invalid token.") from exc
+
+
+def create_realtime_ticket(
+    user_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
+    version: int = 0,
+) -> AccessToken:
+    """A 30-second pass for opening one workspace's WebSocket, and nothing else.
+
+    A browser session keeps its access token in an HttpOnly cookie, so page
+    JavaScript cannot put it in the first WebSocket message. It asks the API for
+    this ticket instead. The ticket has its own `typ`, so `decode_access_token`
+    (and therefore every REST endpoint) rejects it, and it names the workspace,
+    so it cannot be used to listen anywhere else.
+    """
+    issued_at = now or datetime.now(UTC)
+    expires_at = issued_at + timedelta(seconds=REALTIME_TICKET_TTL_SECONDS)
+    payload = {
+        "sub": str(user_id),
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "iat": issued_at,
+        "nbf": issued_at,
+        "exp": expires_at,
+        "jti": uuid.uuid4().hex,
+        "typ": TOKEN_TYPE_REALTIME,
+        "ver": version,
+        "wsp": str(workspace_id),
+    }
+    token = jwt.encode(
+        payload, settings.jwt_secret_key.get_secret_value(), algorithm=settings.jwt_algorithm
+    )
+    return AccessToken(token=token, expires_at=expires_at)
+
+
+def decode_realtime_ticket(token: str, settings: Settings) -> RealtimeTicket:
+    try:
+        payload = _decode(token, settings.jwt_secret_key.get_secret_value(), settings)
+        if payload.get("typ") != TOKEN_TYPE_REALTIME:
+            raise AuthenticationError("Invalid ticket.")
+        return RealtimeTicket(
+            user_id=uuid.UUID(str(payload["sub"])),
+            workspace_id=uuid.UUID(str(payload["wsp"])),
+            token_version=int(str(payload.get("ver", 0))),
+        )
+    except jwt.ExpiredSignatureError as exc:
+        raise AuthenticationError("Ticket has expired.") from exc
+    except (jwt.InvalidTokenError, ValueError, KeyError) as exc:
+        raise AuthenticationError("Invalid ticket.") from exc

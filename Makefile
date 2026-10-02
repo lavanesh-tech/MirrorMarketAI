@@ -154,6 +154,14 @@ web-dev: ## Run the web app on http://localhost:3000 (start the API first: make 
 web-check: ## Frontend lint, types, format, API-type drift, tests and production build
 	cd frontend && npm run check
 
+.PHONY: web-e2e-install
+web-e2e-install: ## One-time: download the browser the end-to-end tests drive
+	cd frontend && npx playwright install chromium
+
+.PHONY: web-e2e
+web-e2e: ## End-to-end tests in a real browser (start the API first: make up)
+	cd frontend && npm run build && npm run e2e
+
 .PHONY: api-docs
 api-docs: ## Regenerate docs/api (OpenAPI, endpoint index, Postman collection) from the code
 	cd $(BACKEND) && $(UV) run python -m tools.api_docs

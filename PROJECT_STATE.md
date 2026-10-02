@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-25.
-- Next: **26, Evidence, agents, Ask, price and realtime UI, plus Playwright.**
+- Completed: 1-25. Phase 26 (evidence, agent status, Ask, prices, realtime UI, Playwright) is built; waiting for Mac + CI.
+- Next: **27, Evaluation (measured retrieval, extraction and agent quality).**
 - Last verified: Phase 25, CI run 37024991448, commit a0b4178 (2026-10-02).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -55,6 +55,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - API docs (`docs/API.md`, `docs/api/`): `app/core/openapi.py` finishes the OpenAPI 3.1 document (function-name operation ids, `ErrorResponse` on every error, common 401/403/404/413/422, `Idempotency-Key`, `X-Request-ID`). `tools/api_docs.py` (`make api-docs`) generates `openapi.json`, `ENDPOINTS.md` and the Postman collection; tests fail on drift, validate example bodies against schemas and run the collection journey against the API. After any API change: `make api-docs` and commit.
 - Frontend (`frontend/`, ADR-043): Next.js 16 App Router, React 19, TypeScript strict, Tailwind 4, TanStack Query, zod. BFF: `/api/session/{login,register,logout}` set/clear HttpOnly cookies `mm_access` + `mm_refresh`; `/api/v1/[...path]` forwards to FastAPI with the bearer token, refreshes once on 401 and retries, blocks cross-site writes and the token endpoints. `src/proxy.ts` (Next 16 name for middleware) redirects signed-out visitors. Typed client from `docs/api/openapi.json` (`npm run api:types`, drift check `npm run api:check`). Pages: /login, /register, /workspaces, /workspaces/[id]. Design tokens in `globals.css` (ink on cool paper, highlighter mark for cited claims; fonts self-hosted via fontsource). Backend change: `REFRESH_REUSE_LEEWAY_SECONDS=10`.
 - Workspace UI (ADR-045): `/workspaces/[id]/{requirements,products,compare}` under a shared `WorkspaceShell`. Hooks in `src/lib/api/queries.ts`; wording in `src/lib/requirements.ts`; comparison output validated by zod in `src/lib/comparison.ts`. Compare = `POST analyze` then `POST compare`; rescoring calls only `compare` with weights. Specs are editable by the product's creator only.
+- Phase 26 UI (ADR-046, ADR-047): tabs Evidence (`evidence-search`) and Ask (`ask-panel`); per product Sources / Prices / votes in `products-panel`; `agent-status` under the matrix; Discussion + activity on Overview. Agent output parsed by zod in `src/lib/agents.ts`. Realtime: `src/lib/realtime.tsx` (`RealtimeProvider` in `WorkspaceShell`) gets `wsUrl` from `/api/config` (`PUBLIC_WS_URL`) and a ticket from `POST workspaces/{id}/realtime-ticket`, sends `{"type":"auth","ticket"}`; events only invalidate queries. Backend: `create_realtime_ticket` / `decode_realtime_ticket` in `security/tokens.py`.
+- E2E: `frontend/e2e/journey.spec.ts`, `npm run e2e` / `make web-e2e` (needs `make up`; one-time `make web-e2e-install`); CI job `e2e`. The journey assumes the offline rules engines.
 - Transactions (ADR-044): services commit their own writes (requirements save, evidence pack create, agent runs; orchestrator commits per step). Test requests roll back uncommitted work (`discard_uncommitted` in `tests/db/conftest.py`).
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
@@ -83,8 +85,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- Backend: 677 tests, 97% coverage (Phase 25; Mac + CI). The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
-- Frontend: 66 Vitest tests (Phase 25; Mac + CI); `make web-check` runs lint, types, format, API-type drift, tests and build. A real-browser journey (brief, draft, save, products with specifications, research and compare, rescore, reload, mobile width) passed in the cloud workspace with the rules engines; Playwright tests join the repo in Phase 26.
+- Backend: 678 tests expected on Mac + CI (677 verified in Phase 25, plus the realtime-ticket test; 676 passed in the cloud workspace without the 2 Kafka tests), 97% coverage. The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
+- Frontend: 90 Vitest tests (Phase 26, cloud workspace; 66 verified on Mac + CI in Phase 25); `make web-check` runs lint, types, format, API-type drift, tests and build.
+- End-to-end: 1 Playwright journey (Phase 26), passed in the cloud workspace against the production build and the live API with the rules engines, Redis, no Kafka. First CI run pending.
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 

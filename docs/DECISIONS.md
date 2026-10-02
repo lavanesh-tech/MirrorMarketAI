@@ -599,3 +599,40 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   change would crash the page); a single "compare" action that always re-runs every
   agent (slow, and costly with the OpenAI engine).
 
+## ADR-046: Browsers open the WebSocket with a short-lived ticket, directly to the API
+
+- **Status:** Accepted (Phase 26)
+- **Context:** The WebSocket expects the access token in its first message. In the
+  browser the token lives in an HttpOnly cookie that page scripts cannot read, and
+  Next.js route handlers cannot proxy a WebSocket.
+- **Decision:** `POST /workspaces/{id}/realtime-ticket` (authenticated like any other
+  call, through the forwarder) returns a signed ticket that lasts 30 seconds, names one
+  workspace and carries its own token type. The browser connects to the API's
+  WebSocket address (served at runtime by `/api/config`) and sends the ticket as its
+  first message. REST endpoints reject tickets, the socket rejects a ticket for another
+  workspace, and "log out everywhere" invalidates tickets already issued. The socket
+  stays push-only: an event only tells the page what to refetch through the API. If
+  the socket cannot be opened the page says live updates are off and keeps working.
+- **Alternatives rejected:** handing the access token to page scripts (undoes the
+  cookie design); a cookie on the WebSocket handshake (the API is another origin, and
+  cookie-authenticated sockets need their own cross-site protections); polling (no
+  presence, more load); a custom Node server to proxy sockets (replaces the standard
+  Next.js server for one feature).
+- **Known limit:** a ticket can be replayed within its 30 seconds. That opens another
+  read-only connection as the same member of the same workspace, which the
+  per-user connection cap already bounds.
+
+## ADR-047: One end-to-end journey in a real browser, run in CI against the Docker stack
+
+- **Status:** Accepted (Phase 26)
+- **Decision:** A Playwright test drives Chromium through the whole product (account,
+  requirements, products with a source and a price, evidence search, comparison,
+  grounded question and abstention, vote, a comment arriving live in a second window,
+  log out) against the built web app and the real API from Docker Compose. Component
+  behaviour stays in fast Vitest tests with the network mocked; the browser test
+  exists to prove the pieces work together, which is exactly where the missing-commit
+  bug of Phase 25 was hiding.
+- **Alternatives rejected:** many small browser tests (slow and brittle for what unit
+  tests already cover); mocking the API in the browser (would not have caught the
+  bugs this layer exists for).
+

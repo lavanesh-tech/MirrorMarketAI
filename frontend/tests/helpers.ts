@@ -78,13 +78,16 @@ export function mockApi(routes: Record<string, Reply>): ApiCall[] {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: Request | string | URL, init: RequestInit = {}) => {
-      const request = input instanceof Request ? input : new Request(String(input), init);
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(new URL(String(input), "http://localhost"), init);
       const url = new URL(request.url);
       const text = await request.clone().text();
       const call: ApiCall = {
         method: request.method,
         path: url.pathname + url.search,
-        body: text ? JSON.parse(text) : undefined,
+        body: parseBody(text),
       };
       calls.push(call);
       const reply =
@@ -98,4 +101,51 @@ export function mockApi(routes: Record<string, Reply>): ApiCall[] {
 
 export function apiError(code: string, message: string, status: number): Response {
   return json({ error: { code, message, request_id: "req-1" } }, status);
+}
+
+/** JSON bodies are parsed; anything else (multipart uploads) is kept as text. */
+function parseBody(text: string): unknown {
+  if (text === "") return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+/** A stand-in for the browser's WebSocket that tests drive by hand. */
+export class FakeSocket {
+  static instances: FakeSocket[] = [];
+  sent: unknown[] = [];
+  closed = false;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: ((event: { code: number }) => void) | null = null;
+
+  constructor(readonly url: string) {
+    FakeSocket.instances.push(this);
+  }
+
+  send(data: string): void {
+    this.sent.push(JSON.parse(data));
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  /** The server sends a message. */
+  receive(message: unknown): void {
+    this.onmessage?.({ data: JSON.stringify(message) });
+  }
+
+  /** The server (or the network) ends the connection. */
+  drop(code: number): void {
+    this.onclose?.({ code });
+  }
+
+  static install(): void {
+    FakeSocket.instances = [];
+    vi.stubGlobal("WebSocket", FakeSocket);
+  }
 }

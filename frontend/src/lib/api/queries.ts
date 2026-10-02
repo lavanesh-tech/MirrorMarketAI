@@ -315,8 +315,315 @@ export function useCompare(id: string) {
         }),
       );
     },
-    onSuccess: (run) => queryClient.setQueryData(comparisonKeys.latest(id), run),
+    onSuccess: (run) => {
+      queryClient.setQueryData(comparisonKeys.latest(id), run);
+      return queryClient.invalidateQueries({ queryKey: ["workspaces", id, "runs"] });
+    },
   });
+}
+
+/** The latest run of any agent ("orchestration", "comparison", "ask", ...), or `null`. */
+export function useLatestRun(id: string, agent: string) {
+  return useQuery({
+    queryKey: ["workspaces", id, "runs", agent] as const,
+    queryFn: async (): Promise<AgentRun | null> => {
+      const result = await api.GET("/api/v1/workspaces/{workspace_id}/agent-runs", {
+        params: { path: { workspace_id: id }, query: { agent, limit: 1 } },
+      });
+      return unwrap(result).items[0] ?? null;
+    },
+  });
+}
+
+// ------------------------------------------------------------------ sources
+export type Source = Schemas["SourceResponse"];
+export type SourceType = Schemas["SourceType"];
+
+export const sourceKeys = {
+  forProduct: (productId: string) => ["products", productId, "sources"] as const,
+};
+
+export function useSources(productId: string) {
+  return useQuery({
+    queryKey: sourceKeys.forProduct(productId),
+    queryFn: async (): Promise<Source[]> =>
+      unwrap(
+        await api.GET("/api/v1/products/{product_id}/sources", {
+          params: { path: { product_id: productId } },
+        }),
+      ),
+  });
+}
+
+async function embed(sourceId: string): Promise<void> {
+  unwrap(
+    await api.POST("/api/v1/sources/{source_id}/embed", {
+      params: { path: { source_id: sourceId } },
+    }),
+  );
+}
+
+export type NewSource =
+  | { kind: "text"; title: string; sourceType: SourceType; text: string }
+  | { kind: "file"; title: string; sourceType: SourceType; file: File }
+  | { kind: "url"; title: string; sourceType: SourceType; url: string };
+
+/**
+ * Add evidence for a product, private to this workspace, and make it searchable:
+ * the text is stored, split into passages and embedded before this resolves.
+ * A web address is fetched by the API (never by the browser), behind its SSRF checks.
+ */
+export function useAddSource(workspaceId: string, productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: NewSource): Promise<void> => {
+      const path = { product_id: productId };
+      if (input.kind === "url") {
+        const source = unwrap(
+          await api.POST("/api/v1/products/{product_id}/sources", {
+            params: { path },
+            body: {
+              source_type: input.sourceType,
+              title: input.title,
+              url: input.url,
+              authority: "THIRD_PARTY",
+              workspace_id: workspaceId,
+            },
+          }),
+        );
+        unwrap(
+          await api.POST("/api/v1/sources/{source_id}/ingest", {
+            params: { path: { source_id: source.id } },
+          }),
+        );
+        await embed(source.id);
+        return;
+      }
+      const file =
+        input.kind === "file"
+          ? input.file
+          : new File([input.text], "pasted.txt", { type: "text/plain" });
+      const uploaded = unwrap(
+        await api.POST("/api/v1/products/{product_id}/sources/upload", {
+          params: { path },
+          // The generated type describes the form fields; the wire format is multipart.
+          body: {
+            file: file as unknown as string,
+            source_type: input.sourceType,
+            title: input.title,
+            workspace_id: workspaceId,
+          },
+          bodySerializer: (body) => {
+            const form = new FormData();
+            for (const [key, value] of Object.entries(body ?? {})) {
+              if (value != null) form.append(key, value as string | Blob);
+            }
+            return form;
+          },
+        }),
+      );
+      await embed(uploaded.source.id);
+    },
+    // Also after a failure: a source that was created but not ingested should show.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: sourceKeys.forProduct(productId) }),
+  });
+}
+
+// ------------------------------------------------------------------- search
+export type SearchHit = Schemas["SearchHitResponse"];
+export type SearchResult = Schemas["SearchResponse"];
+
+export function useEvidenceSearch(id: string) {
+  return useMutation({
+    mutationFn: async (input: { query: string; productIds: string[] }): Promise<SearchResult> =>
+      unwrap(
+        await api.POST("/api/v1/workspaces/{workspace_id}/search", {
+          ...inWorkspace(id),
+          body: {
+            query: input.query,
+            product_ids: input.productIds,
+            mode: "hybrid",
+            limit: 10,
+            source_ids: [],
+            authorities: [],
+            source_types: [],
+          },
+        }),
+      ),
+  });
+}
+
+// ---------------------------------------------------------------------- ask
+export type EvidencePack = Schemas["EvidencePackResponse"];
+
+export function useAsk(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (question: string): Promise<AgentRun> =>
+      unwrap(
+        await api.POST("/api/v1/workspaces/{workspace_id}/ask", {
+          ...inWorkspace(id),
+          body: { question, product_ids: [], limit: 8 },
+        }),
+      ),
+    onSuccess: (run) => queryClient.setQueryData(["workspaces", id, "runs", "ask"], run),
+  });
+}
+
+/** The frozen evidence an answer cites. Packs never change, so they are cached for good. */
+export function useEvidencePack(id: string, packId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["workspaces", id, "evidence-packs", packId] as const,
+    enabled: Boolean(packId),
+    staleTime: Infinity,
+    queryFn: async (): Promise<EvidencePack> =>
+      unwrap(
+        await api.GET("/api/v1/workspaces/{workspace_id}/evidence-packs/{pack_id}", {
+          params: { path: { workspace_id: id, pack_id: packId ?? "" } },
+        }),
+      ),
+  });
+}
+
+// ------------------------------------------------------------------- prices
+export type PriceHistory = Schemas["PriceHistoryOut"];
+
+export const priceKeys = {
+  history: (productId: string) => ["products", productId, "prices"] as const,
+};
+
+export function usePriceHistory(productId: string) {
+  return useQuery({
+    queryKey: priceKeys.history(productId),
+    queryFn: async (): Promise<PriceHistory> =>
+      unwrap(
+        await api.GET("/api/v1/products/{product_id}/prices", {
+          params: { path: { product_id: productId } },
+        }),
+      ),
+  });
+}
+
+export function useRecordPrice(productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      retailer: string;
+      amount: string;
+      currency: string;
+      observedAt: string;
+    }): Promise<void> => {
+      unwrap(
+        await api.POST("/api/v1/products/{product_id}/prices", {
+          params: { path: { product_id: productId } },
+          body: {
+            source: "MANUAL",
+            observations: [
+              {
+                retailer: input.retailer,
+                amount: input.amount,
+                currency: input.currency,
+                observed_at: input.observedAt,
+              },
+            ],
+          },
+        }),
+      );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: priceKeys.history(productId) }),
+  });
+}
+
+// ------------------------------------------------------------ collaboration
+export type Comment = Schemas["CommentResponse"];
+export type VoteTally = Schemas["VoteTally"];
+export type Activity = Schemas["ActivityItem"];
+
+export const collaborationKeys = {
+  comments: (id: string) => ["workspaces", id, "comments"] as const,
+  votes: (id: string) => ["workspaces", id, "votes"] as const,
+  activity: (id: string) => ["workspaces", id, "activity"] as const,
+};
+
+export function useComments(id: string) {
+  return useQuery({
+    queryKey: collaborationKeys.comments(id),
+    queryFn: async (): Promise<Comment[]> => {
+      const result = await api.GET("/api/v1/workspaces/{workspace_id}/comments", {
+        params: { path: { workspace_id: id }, query: { limit: 100 } },
+      });
+      return unwrap(result).items;
+    },
+  });
+}
+
+export function useAddComment(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { body: string; productId: string | null }): Promise<Comment> =>
+      unwrap(
+        await api.POST("/api/v1/workspaces/{workspace_id}/comments", {
+          ...inWorkspace(id),
+          body: { body: input.body, product_id: input.productId },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: collaborationKeys.comments(id) }),
+  });
+}
+
+export function useDeleteComment(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (commentId: string): Promise<void> => {
+      const { error, response } = await api.DELETE(
+        "/api/v1/workspaces/{workspace_id}/comments/{comment_id}",
+        { params: { path: { workspace_id: id, comment_id: commentId } } },
+      );
+      if (!response.ok) throw toApiError(error, response.status);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: collaborationKeys.comments(id) }),
+  });
+}
+
+export function useVotes(id: string) {
+  return useQuery({
+    queryKey: collaborationKeys.votes(id),
+    queryFn: async (): Promise<VoteTally[]> =>
+      unwrap(await api.GET("/api/v1/workspaces/{workspace_id}/votes", inWorkspace(id))).items,
+  });
+}
+
+export function useVote(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { productId: string; value: -1 | 0 | 1 }): Promise<VoteTally> =>
+      unwrap(
+        await api.PUT("/api/v1/workspaces/{workspace_id}/products/{product_id}/vote", {
+          params: { path: { workspace_id: id, product_id: input.productId } },
+          body: { value: input.value },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: collaborationKeys.votes(id) }),
+  });
+}
+
+export function useActivity(id: string) {
+  return useQuery({
+    queryKey: collaborationKeys.activity(id),
+    queryFn: async (): Promise<Activity[]> => {
+      const result = await api.GET("/api/v1/workspaces/{workspace_id}/activity", {
+        params: { path: { workspace_id: id }, query: { limit: 15 } },
+      });
+      return unwrap(result).items;
+    },
+  });
+}
+
+/** A 30-second ticket for this workspace's WebSocket (see `src/lib/realtime.tsx`). */
+export async function fetchRealtimeTicket(id: string): Promise<string> {
+  return unwrap(
+    await api.POST("/api/v1/workspaces/{workspace_id}/realtime-ticket", inWorkspace(id)),
+  ).ticket;
 }
 
 function errorCode(error: unknown): string | undefined {

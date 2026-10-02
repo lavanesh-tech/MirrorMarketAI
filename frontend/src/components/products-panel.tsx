@@ -13,17 +13,27 @@ import {
   useWorkspaceProducts,
 } from "@/lib/api/queries";
 import { formatDate } from "@/lib/format";
-import { canEdit } from "@/lib/requirements";
+import { canEdit, canRun } from "@/lib/requirements";
 import { CATEGORIES, fieldErrors, productSchema, type FieldErrors } from "@/lib/validation";
 
+import { PriceHistoryView } from "./price-history";
+import { ProductSources } from "./product-sources";
 import { ProductSpecs } from "./product-specs";
+import { VoteButtons } from "./vote-buttons";
+
+const SECTIONS = [
+  ["specs", "Specifications"],
+  ["sources", "Sources"],
+  ["prices", "Prices"],
+] as const;
+type Section = (typeof SECTIONS)[number][0];
 
 export function ProductsPanel({ workspaceId }: { workspaceId: string }) {
   const workspace = useWorkspace(workspaceId);
   const products = useWorkspaceProducts(workspaceId);
   const requirements = useRequirements(workspaceId);
   const remove = useRemoveWorkspaceProduct(workspaceId);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ productId: string; section: Section } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (products.isPending) return <p className="text-muted">Loading the products…</p>;
@@ -39,6 +49,7 @@ export function ProductsPanel({ workspaceId }: { workspaceId: string }) {
   }
 
   const editable = workspace.data ? canEdit(workspace.data.my_role) : false;
+  const participant = workspace.data ? canRun(workspace.data.my_role) : false;
   const spec = requirements.data?.current.spec;
   const suggestedKeys = [
     ...new Set([...(spec?.criteria ?? []).map((c) => c.key), ...(spec?.budget ? ["price"] : [])]),
@@ -75,27 +86,41 @@ export function ProductsPanel({ workspaceId }: { workspaceId: string }) {
           <ul className="divide-y divide-line border-y border-line">
             {products.data.map(({ product, added_at }) => {
               const name = `${product.brand} ${product.name}`;
-              const expanded = open === product.id;
+              const section = open?.productId === product.id ? open.section : null;
               return (
                 <li key={product.id} className="py-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                     <div>
                       <h3 className="font-body text-base font-semibold tracking-normal">{name}</h3>
                       <p className="text-sm text-muted">
                         {product.category}, added {formatDate(added_at)}
                       </p>
                     </div>
-                    <div className="flex gap-4">
-                      <button
-                        type="button"
-                        className="link"
-                        aria-label={`${expanded ? "Hide specifications" : "Specifications"} of ${name}`}
-                        aria-expanded={expanded}
-                        aria-controls={`specs-${product.id}`}
-                        onClick={() => setOpen(expanded ? null : product.id)}
-                      >
-                        {expanded ? "Hide specifications" : "Specifications"}
-                      </button>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <VoteButtons
+                        workspaceId={workspaceId}
+                        productId={product.id}
+                        productName={name}
+                        canVote={participant}
+                      />
+                      {SECTIONS.map(([key, label]) => {
+                        const expanded = section === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className="link"
+                            aria-label={`${expanded ? "Hide " + label.toLowerCase() : label} of ${name}`}
+                            aria-expanded={expanded}
+                            aria-controls={`details-${product.id}`}
+                            onClick={() =>
+                              setOpen(expanded ? null : { productId: product.id, section: key })
+                            }
+                          >
+                            {expanded ? `Hide ${label.toLowerCase()}` : label}
+                          </button>
+                        );
+                      })}
                       {editable ? (
                         <button
                           type="button"
@@ -109,12 +134,25 @@ export function ProductsPanel({ workspaceId }: { workspaceId: string }) {
                       ) : null}
                     </div>
                   </div>
-                  <div id={`specs-${product.id}`} hidden={!expanded} className="mt-4">
-                    {expanded ? (
+                  <div id={`details-${product.id}`} hidden={section === null} className="mt-4">
+                    {section === "specs" ? (
                       <ProductSpecs
                         productId={product.id}
                         productName={name}
                         suggestedKeys={suggestedKeys}
+                      />
+                    ) : section === "sources" ? (
+                      <ProductSources
+                        workspaceId={workspaceId}
+                        productId={product.id}
+                        productName={name}
+                        editable={editable}
+                      />
+                    ) : section === "prices" ? (
+                      <PriceHistoryView
+                        productId={product.id}
+                        productName={name}
+                        canRecord={participant}
                       />
                     ) : null}
                   </div>

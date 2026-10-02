@@ -18,7 +18,8 @@
     "test:coverage": "vitest run --coverage",
     "api:types": "openapi-typescript ../docs/api/openapi.json -o src/lib/api/schema.d.ts && prettier --write src/lib/api/schema.d.ts",
     "api:check": "node scripts/check-api-types.mjs",
-    "check": "npm run lint && npm run typecheck && npm run format:check && npm run api:check && npm run test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run format:check && npm run api:check && npm run test && npm run build",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
@@ -32,6 +33,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
