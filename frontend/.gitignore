@@ -5,3 +5,7 @@ next-env.d.ts
 *.tsbuildinfo
 .env
 .env.local
+
+# Written by `next dev` for coding assistants; not part of this project.
+AGENTS.md
+CLAUDE.md

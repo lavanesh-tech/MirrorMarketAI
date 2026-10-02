@@ -6388,13 +6388,15 @@ export interface operations {
           "application/json": components["schemas"]["RequirementsResponse"];
         };
       };
-      /** @description Created */
+      /** @description New version saved */
       201: {
         headers: {
           "X-Request-ID": components["headers"]["X-Request-ID"];
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["RequirementsResponse"];
+        };
       };
       /** @description Missing, invalid, expired or revoked access token */
       401: {

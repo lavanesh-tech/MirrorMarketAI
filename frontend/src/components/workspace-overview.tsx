@@ -2,48 +2,64 @@
 
 import Link from "next/link";
 
-import { ApiError } from "@/lib/api/client";
-import { useMembers, useWorkspace } from "@/lib/api/queries";
+import { useMembers, useRequirements, useWorkspace, useWorkspaceProducts } from "@/lib/api/queries";
 import { formatDate } from "@/lib/format";
 
 import { roleLabel } from "./workspace-list";
 
+/** Where the decision stands, and who is deciding. */
 export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
   const workspace = useWorkspace(workspaceId);
   const members = useMembers(workspaceId);
+  const requirements = useRequirements(workspaceId);
+  const products = useWorkspaceProducts(workspaceId);
+  const base = `/workspaces/${workspaceId}`;
 
-  if (workspace.isPending) return <p className="text-muted">Loading the workspace…</p>;
-  if (workspace.isError) {
-    const missing = workspace.error instanceof ApiError && workspace.error.status === 404;
-    return (
-      <div>
-        <h1 className="text-title">
-          {missing ? "Workspace not found" : "This workspace could not be loaded"}
-        </h1>
-        <p className="mt-2 text-muted">
-          {missing
-            ? "It may have been removed, or you are not a member of it."
-            : "Check your connection and load the page again."}
-        </p>
-        <Link href="/workspaces" className="link mt-6 inline-block">
-          Back to your workspaces
-        </Link>
-      </div>
-    );
-  }
+  const criteria = requirements.data?.current.spec.criteria?.length ?? 0;
+  const steps = [
+    {
+      href: `${base}/requirements`,
+      title: "Requirements",
+      state: requirements.isPending
+        ? "Loading…"
+        : requirements.data
+          ? `Version ${requirements.data.current_version}, ${criteria} ${criteria === 1 ? "criterion" : "criteria"}`
+          : "Not written yet",
+    },
+    {
+      href: `${base}/products`,
+      title: "Products",
+      state: products.isPending ? "Loading…" : `${products.data?.length ?? 0} in this workspace`,
+    },
+    {
+      href: `${base}/compare`,
+      title: "Compare",
+      state: "Score the products against the requirements",
+    },
+  ];
 
   return (
     <div className="space-y-10">
-      <div>
-        <Link href="/workspaces" className="link text-sm">
-          All workspaces
-        </Link>
-        <h1 className="mt-2 text-title">{workspace.data.name}</h1>
-        <p className="mt-2 text-muted">
-          You are {roleLabel(workspace.data.my_role).toLowerCase()} here. Created{" "}
-          {formatDate(workspace.data.created_at)}.
-        </p>
-      </div>
+      <section aria-labelledby="steps-title">
+        <h2 id="steps-title" className="mb-3 text-xl">
+          This decision
+        </h2>
+        <ol className="max-w-xl divide-y divide-line border-y border-line">
+          {steps.map((step) => (
+            <li key={step.title} className="flex justify-between gap-4 py-2.5">
+              <Link href={step.href as `/workspaces/${string}`} className="link font-semibold">
+                {step.title}
+              </Link>
+              <span className="text-right text-muted">{step.state}</span>
+            </li>
+          ))}
+        </ol>
+        {workspace.data ? (
+          <p className="mt-3 text-sm text-muted">
+            Created {formatDate(workspace.data.created_at)}.
+          </p>
+        ) : null}
+      </section>
       <section aria-labelledby="members-title">
         <h2 id="members-title" className="mb-3 text-xl">
           Members

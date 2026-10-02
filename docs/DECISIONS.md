@@ -563,3 +563,39 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   per API call. Because several requests can try to refresh at once, the API now
   accepts a re-used refresh token for 10 seconds after its rotation
   (`REFRESH_REUSE_LEEWAY_SECONDS`); beyond that, re-use still revokes the session.
+
+## ADR-044: Every write is committed by its service; tests end each request like production
+
+- **Status:** Accepted (Phase 25)
+- **Context:** Building the UI against a running API showed that saving requirements,
+  freezing an evidence pack through the API and recording agent runs returned 201 but
+  stored nothing. Those services flushed and never committed, and the per-request
+  session rolls back whatever is uncommitted when it closes. The test suite missed it
+  because all requests in a test share one session, so flushed rows stayed visible.
+- **Decision:** The service that makes a change commits it. `RequirementService.save`,
+  `EvidenceService.create` and `AgentService.record` / `record_failure` commit (a run,
+  its evidence pack and its outbox event in one transaction). The orchestrator still
+  isolates each agent step in a savepoint and commits after every step, so finished
+  steps survive a later failure. In tests, the shared session is rolled back at the end
+  of every request, exactly as closing a real session would, so any future write that
+  is not committed is gone by the next request and the test fails.
+- **Alternatives rejected:** committing in the request dependency (a handler that
+  returns after a partial failure would persist half-finished work); a separate
+  database per test with real sessions (slow, and tests would no longer be isolated by
+  rollback).
+
+## ADR-045: Workspace UI reads agent output defensively and shows why a product wins
+
+- **Status:** Accepted (Phase 25)
+- **Decision:** A comparison is an agent run whose `output` is free-form JSON in the
+  API contract, so the UI validates it with a zod schema before rendering and treats
+  anything else as "no comparison". The matrix puts criteria in rows and products in
+  rank order, states each cell's status in words (not colour alone), shows the points
+  each cell contributes, highlights values that carry citations, and reports whether
+  the winner survives halving or doubling any one importance. Research (all agents)
+  and rescoring (weights only) are separate actions. Edit controls follow the API's
+  role rules, which remain the real enforcement.
+- **Alternatives rejected:** trusting the output shape with a type cast (a contract
+  change would crash the page); a single "compare" action that always re-runs every
+  agent (slow, and costly with the OpenAI engine).
+

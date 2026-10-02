@@ -155,6 +155,17 @@ async def db_session(connection: AsyncConnection) -> AsyncIterator[AsyncSession]
         await session.close()
 
 
+async def discard_uncommitted(session: AsyncSession) -> None:
+    """End a request the way production does: work that was not committed is lost.
+
+    In production every request has its own session, and closing it rolls back
+    anything a service flushed but never committed. Tests share one session across
+    requests, so without this a missing `commit()` would go unnoticed: the next
+    request would still see the flushed rows.
+    """
+    await session.rollback()
+
+
 @pytest.fixture
 def api_app(
     make_settings: Callable[..., Settings],
@@ -170,7 +181,10 @@ def api_app(
     app = create_app(make_settings(database_url=migrated_database_url))
 
     async def _session_override() -> AsyncIterator[AsyncSession]:
-        yield db_session
+        try:
+            yield db_session
+        finally:
+            await discard_uncommitted(db_session)
 
     app.dependency_overrides[get_db_session] = _session_override
     return app
@@ -257,7 +271,10 @@ def stack(
         app = create_app(settings)
 
         async def _session() -> AsyncIterator[AsyncSession]:
-            yield db_session
+            try:
+                yield db_session
+            finally:
+                await discard_uncommitted(db_session)
 
         @asynccontextmanager
         async def _scope() -> AsyncIterator[AsyncSession]:

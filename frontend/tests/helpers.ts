@@ -64,3 +64,38 @@ export function request(
 export function authHeader(call: Call): string | null {
   return new Headers(call.init.headers).get("authorization");
 }
+
+export type ApiCall = { method: string; path: string; body: unknown };
+type Reply = Response | ((call: ApiCall) => Response);
+
+/**
+ * Replace global fetch with a table of "METHOD /path" -> response. Unlike `mockFetch`
+ * the order of requests does not matter, which suits screens that load several
+ * things at once. A request with no entry fails the test loudly.
+ */
+export function mockApi(routes: Record<string, Reply>): ApiCall[] {
+  const calls: ApiCall[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: Request | string | URL, init: RequestInit = {}) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      const url = new URL(request.url);
+      const text = await request.clone().text();
+      const call: ApiCall = {
+        method: request.method,
+        path: url.pathname + url.search,
+        body: text ? JSON.parse(text) : undefined,
+      };
+      calls.push(call);
+      const reply =
+        routes[`${call.method} ${call.path}`] ?? routes[`${call.method} ${url.pathname}`];
+      if (reply === undefined) throw new Error(`unexpected request: ${call.method} ${call.path}`);
+      return typeof reply === "function" ? reply(call) : reply.clone();
+    }),
+  );
+  return calls;
+}
+
+export function apiError(code: string, message: string, status: number): Response {
+  return json({ error: { code, message, request_id: "req-1" } }, status);
+}

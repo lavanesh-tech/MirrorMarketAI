@@ -48,3 +48,54 @@ export function safeNextPath(next: string | null | undefined): string {
   }
   return next;
 }
+
+export const CATEGORIES = [
+  "laptop",
+  "desktop",
+  "monitor",
+  "phone",
+  "tablet",
+  "headphones",
+  "camera",
+  "appliance",
+  "other",
+] as const;
+
+export const productSchema = z.object({
+  brand: z.string().trim().min(1, "Enter the brand.").max(100, "Use 100 characters or fewer."),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Enter the product name.")
+    .max(200, "Use 200 characters or fewer."),
+  category: z.enum(CATEGORIES, "Choose a category."),
+});
+
+const NUMBER = /^-?\d{1,12}(\.\d{1,6})?$/;
+
+/** One specification row. A value that reads as a number is stored as a number. */
+export const specificationSchema = z
+  .object({
+    key: z
+      .string()
+      .trim()
+      .regex(
+        /^[a-z][a-z0-9_]{0,63}$/,
+        "Use lowercase letters, digits and underscores, like ram_gb.",
+      ),
+    value: z.string().trim().min(1, "Enter a value.").max(500, "Use 500 characters or fewer."),
+    unit: z.string().trim().max(16, "Use 16 characters or fewer."),
+  })
+  .transform(({ key, value, unit }) => ({
+    key,
+    unit: unit === "" ? null : unit,
+    ...(NUMBER.test(value) ? { value_number: value } : { value_text: value }),
+  }));
+
+export const briefSchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(1, "Describe what you need first.")
+    .max(4000, "Use 4,000 characters or fewer."),
+});

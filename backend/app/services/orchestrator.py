@@ -97,6 +97,7 @@ class Orchestrator:
         self.session = session
         self.settings = settings
         self.agents = AgentService(session, settings, embedder, llm)
+        self.agents.commit_runs = False  # each step is committed in `_run_step`
         self.clock = clock
 
     async def _products(
@@ -200,7 +201,7 @@ class Orchestrator:
             elapsed_ms=int((time.perf_counter() - perf_started) * 1000),
         )
         _, requirement_version = await self.agents.current_spec(workspace_id)
-        return await self.agents.record(
+        run = await self.agents.record(
             workspace_id,
             user,
             ORCHESTRATION,
@@ -210,6 +211,8 @@ class Orchestrator:
             AgentResult(output=output, validation=validate_citations("", {}), engine=RULES_ENGINE),
             perf_started,
         )
+        await self.session.commit()
+        return run
 
     async def _run_step(
         self, agent: str, workspace_id: uuid.UUID, user: User, product_id: uuid.UUID
@@ -224,6 +227,7 @@ class Orchestrator:
             failed = await self.agents.record_failure(
                 workspace_id, user, agent, product_id, type(exc).__name__, elapsed
             )
+            await self.session.commit()
             return StepResult(
                 agent=agent,
                 status=StepStatus.FAILED,
@@ -231,6 +235,8 @@ class Orchestrator:
                 duration_ms=elapsed,
                 reason=type(exc).__name__,
             ), 0
+        # Finished steps survive even if a later one, or the request itself, fails.
+        await self.session.commit()
         return StepResult(
             agent=agent,
             status=StepStatus.SUCCEEDED,

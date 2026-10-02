@@ -124,7 +124,7 @@ class RequirementService:
             created_by_id=user.id,
         )
         self.session.add(version)
-        await self.session.flush()
+        await self.session.commit()
         return SaveOutcome(requirement, version, created=True, degraded=degraded)
 
     async def _lock_or_create(self, workspace_id: uuid.UUID, user: User) -> PurchaseRequirement:

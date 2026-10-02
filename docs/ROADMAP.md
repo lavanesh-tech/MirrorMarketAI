@@ -299,3 +299,14 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Vitest + Testing Library tests; real-browser journey run against the live API
 - [x] CI job for the frontend; backend refresh leeway so parallel refreshes do not end a session
 - [x] Verified on the developer Mac and CI green (run 36958852957, commit 4857d96)
+
+## Phase 25 exit criteria
+
+- [x] Workspace sections with shared navigation: Overview, Requirements, Products, Compare
+- [x] Requirements: free-text brief, extraction preview with "not understood" clauses, editable draft (must-have / nice-to-have, importance, remove), versioned save with conflict handling, version history
+- [x] Products: catalog search, add and remove, create a catalog product, specification editor for the product's creator
+- [x] Compare: research + compare, rescore with changed importance and budget rule, matrix with scores, ruled-out reasons, cited values highlighted, sensitivity note, stale-requirements notice
+- [x] Role rules in the UI match the API (OWNER/EDITOR edit, MEMBER runs, VIEWER reads)
+- [x] Fix: requirements, evidence packs and agent runs are now committed; test requests discard uncommitted work so a missing commit fails the suite
+- [x] Vitest tests for the new screens; real-browser journey run against the live API
+- [ ] Verified on the developer Mac and CI green

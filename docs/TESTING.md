@@ -32,7 +32,9 @@ make check       # ruff + mypy + all tests with coverage (same as CI)
 - **Other DB tests:** they share one database migrated to head. Each test runs
   inside an outer transaction that is rolled back. Sessions use
   `join_transaction_mode="create_savepoint"`, so code under test can call
-  `commit()` safely.
+  `commit()` safely. API tests roll the shared session back at the end of every
+  request, as closing a real per-request session does, so a write that a service
+  flushed but never committed is gone by the next request and the test fails.
 - **Test-only tables:** the repository tests' `test_gadget` table lives on a
   separate `MetaData` and is created inside the rolled-back transaction, so it
   never touches the real schema.

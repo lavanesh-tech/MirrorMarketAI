@@ -70,7 +70,10 @@ async def extract_requirements(
 @router.put(
     "",
     response_model=RequirementsResponse,
-    responses={200: {"description": "Unchanged (identical content)"}, 201: {}},
+    responses={
+        200: {"description": "Unchanged (identical content)"},
+        201: {"model": RequirementsResponse, "description": "New version saved"},
+    },
     summary="Save a new requirements version (optimistic locking via expected_version)",
 )
 async def save_requirements(

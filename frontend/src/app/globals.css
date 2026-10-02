@@ -93,6 +93,39 @@
     cursor: progress;
   }
 
+  /* Secondary action: same shape as .button, outlined instead of filled. */
+  .button-quiet {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 6px;
+    background: transparent;
+    font-weight: 600;
+    padding: 0.5rem 0.875rem;
+    cursor: pointer;
+  }
+  .button-quiet:hover {
+    background: var(--color-surface);
+  }
+  .button-quiet:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  /* A must-have: the one label that can rule a product out. */
+  .tag {
+    display: inline-block;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 3px;
+    padding: 0 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
   .link {
     color: var(--color-action);
     text-decoration: underline;

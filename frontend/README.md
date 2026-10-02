@@ -24,7 +24,8 @@ Types for every path, parameter and response are generated from `docs/api/openap
 
 ```
 src/app/(auth)        login, register (public)
-src/app/(app)         signed-in pages (workspaces)
+src/app/(app)         signed-in pages: workspaces, and per workspace
+                      overview, requirements, products, compare
 src/app/api/session   login / register / logout (cookie handling)
 src/app/api/v1        forwarder to the API
 src/proxy.ts          sends signed-out visitors to /login before a page renders

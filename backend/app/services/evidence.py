@@ -40,7 +40,7 @@ class EvidenceService:
         )
         if not result.hits:
             raise NoEvidenceFoundError
-        return await self.freeze(
+        pack = await self.freeze(
             workspace_id,
             user,
             query,
@@ -49,6 +49,9 @@ class EvidenceService:
             embedding_model=result.model,
             degraded=result.degraded,
         )
+        # `freeze` only flushes, so agents can save a pack together with their run.
+        await self.session.commit()
+        return pack
 
     async def freeze(
         self,

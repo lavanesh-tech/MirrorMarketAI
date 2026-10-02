@@ -78,6 +78,13 @@ class AgentService:
         self.embedder = embedder
         self.llm = llm
         self.workspaces = WorkspaceService(session)
+        # The orchestrator runs each agent inside a savepoint and commits per step itself.
+        self.commit_runs = True
+
+    async def _save(self) -> None:
+        """Persist a run with its evidence pack and outbox event: all together, or not at all."""
+        if self.commit_runs:
+            await self.session.commit()
 
     async def current_spec(
         self, workspace_id: uuid.UUID
@@ -533,6 +540,7 @@ class AgentService:
                 product_id=product_id,
             )
         )
+        await self._save()
         return run
 
     # ---------------------------------------------------------------- helpers
@@ -642,6 +650,7 @@ class AgentService:
                 product_id=product_id,
             )
         )
+        await self._save()
         return run
 
     async def get_run(self, workspace_id: uuid.UUID, user: User, run_id: uuid.UUID) -> AgentRun:

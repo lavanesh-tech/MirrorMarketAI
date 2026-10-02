@@ -80,7 +80,15 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-5" aria-labelledby="auth-title">
+    <form
+      // If the page's script has not loaded yet, a submit must never put the
+      // password in the address bar (the default for a form is GET).
+      method="post"
+      onSubmit={onSubmit}
+      noValidate
+      className="space-y-5"
+      aria-labelledby="auth-title"
+    >
       <h1 id="auth-title" className="text-title">
         {copy.title}
       </h1>
