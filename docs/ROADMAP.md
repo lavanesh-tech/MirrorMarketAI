@@ -55,13 +55,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | --- | --- | --- |
 | 24 | Next.js / React / TypeScript foundation | ✅ |
 | 25 | Workspace UI: requirements, products, comparison matrix | ✅ |
-| 26 | Evidence explorer, agent status, Ask MirrorMarket, price history, realtime collaboration UI | 🔜 |
+| 26 | Evidence explorer, agent status, Ask MirrorMarket, price history, realtime collaboration UI | ✅ |
 
 ## Quality, operations, delivery
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 27 | RAG, agent and citation evaluation | ⬜ |
+| 27 | RAG, agent and citation evaluation | 🔜 |
 | 28 | OpenTelemetry, Prometheus, Grafana | ⬜ |
 | 29 | Load and performance benchmarks (k6) | ⬜ |
 | 30 | Production Docker, CI/CD | ⬜ |
@@ -320,4 +320,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Realtime: live presence, comments, votes and comparison refresh over the WebSocket; activity feed; works without the socket
 - [x] Browser WebSocket authentication with a 30-second, workspace-bound ticket (tokens stay in HttpOnly cookies)
 - [x] Playwright end-to-end journey in the repo and as a CI job against the Docker stack
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 37240616599, commit 3f1daf0)

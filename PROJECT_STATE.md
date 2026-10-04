@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-25. Phase 26 (evidence, agent status, Ask, prices, realtime UI, Playwright) is built; waiting for Mac + CI.
+- Completed: 1-26.
 - Next: **27, Evaluation (measured retrieval, extraction and agent quality).**
-- Last verified: Phase 25, CI run 37024991448, commit a0b4178 (2026-10-02).
+- Last verified: Phase 26, CI run 37240616599, commit 3f1daf0 (2026-10-04).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
@@ -85,9 +85,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- Backend: 678 tests expected on Mac + CI (677 verified in Phase 25, plus the realtime-ticket test; 676 passed in the cloud workspace without the 2 Kafka tests), 97% coverage. The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
-- Frontend: 90 Vitest tests (Phase 26, cloud workspace; 66 verified on Mac + CI in Phase 25); `make web-check` runs lint, types, format, API-type drift, tests and build.
-- End-to-end: 1 Playwright journey (Phase 26), passed in the cloud workspace against the production build and the live API with the rules engines, Redis, no Kafka. First CI run pending.
+- Backend: 678 tests, 97% coverage (Phase 26; Mac + CI). The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
+- Frontend: 90 Vitest tests (Phase 26; Mac + CI); `make web-check` runs lint, types, format, API-type drift, tests and build.
+- End-to-end: 1 Playwright journey (Phase 26), green in the CI `e2e` job against the Docker Compose stack (rules engines, Redis, Kafka).
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
 - DB/Redis tests use Testcontainers on the Mac and in CI, or `TEST_DATABASE_URL` / `TEST_REDIS_URL` in the cloud workspace. Redis is off in ordinary tests.
 
