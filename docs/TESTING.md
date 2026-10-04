@@ -64,3 +64,14 @@ built web app and the real API. Run it with `make up`, then `make web-e2e` (once
 keeps traces and screenshots when it fails. The journey expects the offline rules engines
 (the default); with `AGENT_ENGINE=openai` the wording of answers may differ.
 
+## Evaluation
+
+`make eval` runs the end-to-end evaluation in `backend/evaluation` against a throwaway
+database and rewrites `backend/evaluation/results/rules-hashing.json` and
+`docs/EVALUATION.md`. `tests/db/test_evaluation_run.py` repeats the offline run and fails
+if the committed result differs, so the published numbers cannot go stale.
+`tests/unit/test_evaluation.py` checks the scoring functions and that every gold label
+refers to something in the dataset. OpenAI configurations
+(`make eval ENGINE=openai EMBEDDER=openai`) cost money and vary between runs; they are not
+part of the test suite.
+

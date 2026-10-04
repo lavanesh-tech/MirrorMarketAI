@@ -58,6 +58,13 @@ The heuristics are a tripwire, not a guarantee. Measured on synthetic sentences
 (`benchmarks/prompt_injection.py`): see PROJECT_STATE for precision and recall, including the
 held-out set and its misses. Layers 1, 2 and 4 do not depend on detection.
 
+Phase 27 measured this end to end with poisoned sources (`docs/EVALUATION.md`). The first
+run showed the offline engines adopting planted claims and quoting planted instructions,
+because the sentence filter only ran before a language model. It now runs for every engine,
+and facts are read from documents of record before reviews and notes (ADR-049). Still open:
+a plain false statement in a low-trust source can be quoted in an offline answer, and
+paraphrased instructions can get past the pattern-based detector.
+
 ## Files and URLs
 
 - Type is decided from the bytes, never from the client's Content-Type or file name.

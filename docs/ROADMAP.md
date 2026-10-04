@@ -321,3 +321,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Browser WebSocket authentication with a 30-second, workspace-bound ticket (tokens stay in HttpOnly cookies)
 - [x] Playwright end-to-end journey in the repo and as a CI job against the Docker stack
 - [x] Verified on the developer Mac and CI green (run 37240616599, commit 3f1daf0)
+
+## Phase 27 exit criteria
+
+- [x] End-to-end evaluation through the real HTTP API (`backend/evaluation`, `make eval`): retrieval (Recall@k, MRR, nDCG), requirement extraction, researched facts, comparison decisions, grounded answers and abstention, poisoned sources
+- [x] Synthetic dataset with hand-written gold labels, plus a held-out set written after the fixes and run once
+- [x] Report generated from result files (`docs/EVALUATION.md`), with the first-run baseline kept and before / after numbers
+- [x] Four defects found by the first run fixed: product-named questions, instruction filtering for the offline engines, source trust order, quantity reading
+- [x] A test fails when the committed offline result differs from a fresh run
+- [x] OpenAI configurations runnable with `make eval ENGINE=openai EMBEDDER=openai` (not run in the cloud workspace)
+- [ ] Verified on the developer Mac and CI green

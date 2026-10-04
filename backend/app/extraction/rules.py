@@ -172,11 +172,8 @@ def _quantity_criteria(clause: str, sentence: str) -> list[Criterion]:
             r"\s*(or more|\+|or less)?",
             re.I,
         )
-        for match in pattern.finditer(lowered):
-            if noun_re is not None:
-                window = lowered[max(0, match.start() - 30) : match.end() + 30]
-                if not re.search(noun_re, window):
-                    continue
+        match = _closest_to_noun(list(pattern.finditer(lowered)), noun_re, lowered)
+        if match is not None:
             qualifier = (match.group(1) or match.group(3) or "").strip()
             if re.fullmatch(_UPPER, qualifier) or qualifier in ("or more", "+"):
                 operator = Operator.GTE
@@ -192,8 +189,39 @@ def _quantity_criteria(clause: str, sentence: str) -> list[Criterion]:
                 unit=unit,
                 priority=_priority(clause, sentence),
             )
-            break
     return list(found.values())
+
+
+_NOUN_WINDOW = 30
+_JOINS = re.compile(r",|;|\b(?:and|with|plus|but)\b")
+
+
+def _closest_to_noun(
+    matches: list[re.Match[str]], noun_re: str | None, text: str
+) -> re.Match[str] | None:
+    """The number that belongs to the noun, within 30 characters of it.
+
+    "16 GB of memory with a 256 GB SSD" has two GB numbers near both nouns. A number
+    joined to the noun directly ("16 GB of memory", "256 GB SSD", "storage is 512 GB")
+    beats one separated from it by "and", "with" or a comma; among equals the nearest
+    wins, then the first.
+    """
+    if noun_re is None:
+        return matches[0] if matches else None
+    nouns = [(n.start(), n.end()) for n in re.finditer(noun_re, text)]
+    best: tuple[tuple[bool, int], re.Match[str]] | None = None
+    for match in matches:
+        for start, end in nouns:
+            gap = max(start - match.end(), match.start() - end, 0)
+            if gap > _NOUN_WINDOW:
+                continue
+            between = (
+                text[match.end() : start] if start >= match.end() else text[end : match.start()]
+            )
+            rank = (bool(_JOINS.search(between)), gap)
+            if best is None or rank < best[0]:
+                best = (rank, match)
+    return best[1] if best else None
 
 
 def _feature_criteria(clause: str, sentence: str) -> list[Criterion]:

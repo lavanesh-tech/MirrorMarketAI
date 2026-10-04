@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-26.
-- Next: **27, Evaluation (measured retrieval, extraction and agent quality).**
+- Completed: 1-26. Phase 27 (end-to-end evaluation) is built; waiting for Mac + CI.
+- Next: **28, Observability (OpenTelemetry, Prometheus, Grafana).**
 - Last verified: Phase 26, CI run 37240616599, commit 3f1daf0 (2026-10-04).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -57,6 +57,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Workspace UI (ADR-045): `/workspaces/[id]/{requirements,products,compare}` under a shared `WorkspaceShell`. Hooks in `src/lib/api/queries.ts`; wording in `src/lib/requirements.ts`; comparison output validated by zod in `src/lib/comparison.ts`. Compare = `POST analyze` then `POST compare`; rescoring calls only `compare` with weights. Specs are editable by the product's creator only.
 - Phase 26 UI (ADR-046, ADR-047): tabs Evidence (`evidence-search`) and Ask (`ask-panel`); per product Sources / Prices / votes in `products-panel`; `agent-status` under the matrix; Discussion + activity on Overview. Agent output parsed by zod in `src/lib/agents.ts`. Realtime: `src/lib/realtime.tsx` (`RealtimeProvider` in `WorkspaceShell`) gets `wsUrl` from `/api/config` (`PUBLIC_WS_URL`) and a ticket from `POST workspaces/{id}/realtime-ticket`, sends `{"type":"auth","ticket"}`; events only invalidate queries. Backend: `create_realtime_ticket` / `decode_realtime_ticket` in `security/tokens.py`.
 - E2E: `frontend/e2e/journey.spec.ts`, `npm run e2e` / `make web-e2e` (needs `make up`; one-time `make web-e2e-install`); CI job `e2e`. The journey assumes the offline rules engines.
+- Evaluation (ADR-048): `backend/evaluation` (`dataset.py` gold labels, `runner.py` drives the HTTP API in-process on a throwaway database, `metrics.py`, `report.py`, `__main__.py`). `make eval [ENGINE=rules|openai EMBEDDER=hashing|openai]` writes `evaluation/results/<engine>-<embedder>.json` and regenerates `docs/EVALUATION.md`; first-run baseline in `evaluation/baseline/`. `tests/db/test_evaluation_run.py` fails if the committed offline result differs from a fresh run.
+- Trust and safety in the offline path (ADR-049): `app/domain/trust.py` (official, then spec/manual/warranty, then reviews, then notes) orders evidence for facts and prices; `prompt_safety.without_instructions` / `data_view` filter evidence for rule-based agents and the offline answerer; `AskService._named_products` scopes a question to the product it names; `rules._closest_to_noun` reads the number attached to a noun.
 - Transactions (ADR-044): services commit their own writes (requirements save, evidence pack create, agent runs; orchestrator commits per step). Test requests roll back uncommitted work (`discard_uncommitted` in `tests/db/conftest.py`).
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 
@@ -85,7 +87,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- Backend: 678 tests, 97% coverage (Phase 26; Mac + CI). The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
+- Backend: 678 tests, 97% coverage (Phase 26; Mac + CI). Phase 27: 697 expected on Mac + CI (695 passed in the cloud workspace without the 2 Kafka tests). The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
 - Frontend: 90 Vitest tests (Phase 26; Mac + CI); `make web-check` runs lint, types, format, API-type drift, tests and build.
 - End-to-end: 1 Playwright journey (Phase 26), green in the CI `e2e` job against the Docker Compose stack (rules engines, Redis, Kafka).
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
@@ -135,6 +137,16 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   (the patterns were adjusted on it). Held-out set written after freezing, 20 + 20: recall 0.65, precision 1.0, no false
   alarms; the 7 misses are paraphrases without trigger words ("leave out every negative review"). Detection is one of
   four layers. Evidence: `backend/benchmarks/results/prompt_injection.json`.
+
+- End-to-end evaluation, offline engines (rules + hashing), SYNTHETIC author-labelled data, cloud workspace (PostgreSQL 16);
+  full report and failures in `docs/EVALUATION.md`, evidence `backend/evaluation/results/rules-hashing.json`:
+  hybrid retrieval Recall@1 0.5833 / Recall@5 0.8056 / MRR 0.6839 over 36 queries (keyword Recall@1 0.9444, paraphrase 0.2222);
+  brief extraction criteria F1 0.9787 (24 criteria), budget 0.8;
+  facts 35/36; qualifies decisions 0.9583 of 24;
+  Ask first run 7/24 correct with 15 wrong -> 18/24 correct, 0 wrong, 6 abstained after the fixes (tuned on this set); unanswerable declined 8/10 -> 10/10;
+  poisoned sources: false claims adopted as facts 3/3 -> 0/3, repeated in answers 3/3 -> 2/3.
+  Held-out set (written after the fixes, run once): facts 18/18, Ask 10/12 correct with 0 wrong, unanswerable declined 4/4,
+  false claims adopted as facts 0/2, repeated in answers 2/2, one injected instruction echoed. OpenAI configurations not measured yet.
 
 ## Known issues / limits
 

@@ -162,6 +162,17 @@ web-e2e-install: ## One-time: download the browser the end-to-end tests drive
 web-e2e: ## End-to-end tests in a real browser (start the API first: make up)
 	cd frontend && npm run build && npm run e2e
 
+ENGINE   ?= rules
+EMBEDDER ?= hashing
+
+.PHONY: eval
+eval: ## End-to-end quality evaluation (needs PostgreSQL: make up). ENGINE=rules|openai EMBEDDER=hashing|openai
+	cd $(BACKEND) && $(UV) run $(ENV_FILE_FLAG) python -m evaluation --engine $(ENGINE) --embedder $(EMBEDDER)
+
+.PHONY: eval-report
+eval-report: ## Rebuild docs/EVALUATION.md from the committed result files
+	cd $(BACKEND) && $(UV) run python -m evaluation --report-only
+
 .PHONY: api-docs
 api-docs: ## Regenerate docs/api (OpenAPI, endpoint index, Postman collection) from the code
 	cd $(BACKEND) && $(UV) run python -m tools.api_docs

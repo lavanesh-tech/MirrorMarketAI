@@ -155,6 +155,26 @@ def _render_item(text: str) -> tuple[str, list[str]]:
     return " ".join(kept)[:MAX_ITEM_CHARS], rules
 
 
+def without_instructions(text: str) -> str:
+    """`text` minus the sentences that read like instructions to an assistant.
+
+    For the deterministic engines, which quote and extract from evidence directly. They
+    cannot be "instructed", but they would happily quote a planted sentence back to the
+    user or read a number out of it, so the same sentences the LLM never sees are
+    dropped here too.
+    """
+    sentences = split_sentences(text) or [text]
+    kept = [sentence for sentence in sentences if not scan(sentence)]
+    if len(kept) == len(sentences) and scan(text):  # an instruction split across sentences
+        return ""
+    return " ".join(kept)
+
+
+def data_view(evidence: dict[int, str]) -> dict[int, str]:
+    """Every evidence item with instruction-like sentences removed; positions are kept."""
+    return {position: without_instructions(text) for position, text in evidence.items()}
+
+
 def render_evidence(evidence: dict[int, str]) -> RenderedEvidence:
     """The EVIDENCE block for an LLM prompt: one neutralised line per item."""
     lines, withheld = [], []

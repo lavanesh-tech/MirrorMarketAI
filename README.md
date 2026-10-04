@@ -54,12 +54,12 @@ MirrorMarketAI/
 │   │                         realtime, security, telemetry (filled in later phases)
 │   ├── migrations/           Alembic environment + versioned migrations
 │   ├── tests/                unit/, api/ and db/ (real PostgreSQL) tests
+│   ├── evaluation/           end-to-end quality evaluation (`make eval`)
 │   ├── alembic.ini
 │   ├── Dockerfile
 │   ├── pyproject.toml        dependencies + ruff/mypy/pytest configuration
 │   └── uv.lock               exact, reproducible dependency versions
 ├── infrastructure/docker/    local container init scripts (pgvector extension)
-├── evaluation/               RAG/agent evaluation harness (Phase 27)
 ├── benchmarks/results/       recorded benchmark runs (Phase 29)
 ├── docs/                     architecture, decisions, roadmap
 ├── .github/workflows/ci.yml  CI pipeline
@@ -170,3 +170,4 @@ from `A-Z a-z 0-9 . _ -`) to correlate across services; otherwise one is generat
 - [Roadmap](docs/ROADMAP.md)
 - [Data model](docs/DATA_MODEL.md)
 - [Testing](docs/TESTING.md)
+- [Evaluation](docs/EVALUATION.md): measured quality, what was fixed, and what still fails

@@ -115,8 +115,21 @@ class Answer:
     coverage: float  # best sentence's IDF-weighted share of question terms (extractive)
 
 
-def extractive_answer(question: str, evidence: Mapping[int, str]) -> Answer:
-    query = terms(question)
+def extractive_answer(
+    question: str,
+    evidence: Mapping[int, str],
+    *,
+    ignore: str = "",
+    weights: Mapping[int, float] | None = None,
+) -> Answer:
+    """The evidence sentences that best cover the question, with citations, or abstain.
+
+    `ignore` holds words that identify what the question is about rather than what it
+    asks (a product's name). They are already used to pick the evidence; left in, a
+    document title that merely repeats the name outscores the sentence with the answer.
+    `weights` scales an evidence item's sentences by how much its source is trusted.
+    """
+    query = terms(question) - terms(ignore) or terms(question)
     sentences = [
         (position, sentence)
         for position, text in sorted(evidence.items())
@@ -132,6 +145,8 @@ def extractive_answer(question: str, evidence: Mapping[int, str]) -> Answer:
     scored = []
     for index, ((position, sentence), st) in enumerate(zip(sentences, sentence_terms, strict=True)):
         coverage = sum(idf[t] for t in query & st) / total
+        if weights is not None:
+            coverage *= weights.get(position, 1.0)
         scored.append((coverage, -index, position, sentence))
     scored.sort(reverse=True)
     best = scored[0][0]

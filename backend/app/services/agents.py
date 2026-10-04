@@ -41,6 +41,7 @@ from app.core.errors import (
 from app.domain.citations import validate_citations
 from app.domain.requirements import RequirementSpec
 from app.domain.roles import WorkspaceRole
+from app.domain.trust import fact_rank
 from app.events.envelope import AGENT_RUN_COMPLETED, new_event
 from app.models.agents import AgentRun
 from app.models.catalog import Product, ProductSpecification, WorkspaceProduct
@@ -49,6 +50,7 @@ from app.models.prices import PriceSnapshot
 from app.models.requirements import PurchaseRequirement, RequirementVersion
 from app.providers.embeddings import EmbeddingProvider
 from app.providers.llm import LLMError, OpenAIChatClient
+from app.security.prompt_safety import data_view, without_instructions
 from app.services.evidence import EvidenceService
 from app.services.search import SearchFilters, SearchHit, SearchService
 from app.services.workspaces import WorkspaceService
@@ -63,6 +65,10 @@ RISK = "risk"
 SYNTHESIS = "synthesis"
 ORCHESTRATION = "orchestration"
 RULES_ENGINE = "rules-v1"
+
+
+def _trust(hit: SearchHit) -> tuple[int, int]:
+    return fact_rank(hit.source.source_type, hit.source.authority)
 
 
 class AgentService:
@@ -165,8 +171,9 @@ class AgentService:
         if values is None:
             values = {}
             for target in targets:
-                for hit in per_key[target.key]:
-                    extracted = extract_value(target.key, hit.chunk.text)
+                # Documents of record before reviews and notes; search rank breaks ties.
+                for hit in sorted(per_key[target.key], key=_trust):
+                    extracted = extract_value(target.key, without_instructions(hit.chunk.text))
                     if extracted is not None:
                         number, text, unit = extracted
                         values[target.key] = Candidate(number, text, unit, position[hit.chunk.id])
@@ -227,7 +234,7 @@ class AgentService:
                 logger.warning("review analysis degraded to rules", extra={"error": str(exc)})
                 degraded = True
         if mentions is None:
-            mentions = rule_mentions(evidence)
+            mentions = rule_mentions(data_view(evidence))
 
         output = aggregate(product, mentions, review_chunks=len(hits))
         return await self.record(
@@ -311,7 +318,7 @@ class AgentService:
             findings = {}
             for req in requirements:
                 for hit in per_cap[req.capability]:
-                    detected = detect(req.capability, hit.chunk.text)
+                    detected = detect(req.capability, without_instructions(hit.chunk.text))
                     if detected is not None:
                         support, quote = detected
                         findings[req.capability] = Finding(support, position[hit.chunk.id], quote)
@@ -368,7 +375,9 @@ class AgentService:
                 degraded=result.degraded,
             )
             evidence = {i: hit.chunk.text for i, hit in enumerate(result.hits, start=1)}
-            for position, text in evidence.items():
+            by_trust = sorted(enumerate(result.hits, start=1), key=lambda item: _trust(item[1]))
+            for position, hit in by_trust:
+                text = without_instructions(hit.chunk.text)
                 if (found := extract_price(text)) is not None:
                     amount, currency, quote = found
                     price = Price(
@@ -460,7 +469,7 @@ class AgentService:
             spec,
             *(run.output if run else None for run in runs.values()),
         )
-        output = build_risk(product, risk_evidence_hits(evidence), others)
+        output = build_risk(product, risk_evidence_hits(data_view(evidence)), others)
         return await self.record(
             workspace_id,
             user,

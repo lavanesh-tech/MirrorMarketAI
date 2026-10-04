@@ -636,3 +636,40 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   tests already cover); mocking the API in the browser (would not have caught the
   bugs this layer exists for).
 
+## ADR-048: Quality is measured end to end, on labelled data, with the baseline kept
+
+- **Status:** Accepted (Phase 27)
+- **Context:** Each component had its own benchmark and they looked good. Driving the
+  whole product with questions a buyer would ask showed the offline answerer was right
+  7 times in 24 and that a planted review could change which product was ruled out.
+  None of the component benchmarks could have shown either.
+- **Decision:** `backend/evaluation` drives the real application through its HTTP API
+  against a synthetic, hand-labelled dataset and scores retrieval, extraction, facts,
+  comparison decisions, answers, abstention and poisoned sources. Results are JSON
+  files; `docs/EVALUATION.md` is generated from them and a test fails if the committed
+  offline result is not what the code produces. The first run is kept as a baseline, and
+  changes made after it are reported with before and after numbers. Because those
+  changes were made with knowledge of the dataset, a held-out set was written
+  afterwards and run once. Known remaining failures are listed, not hidden.
+- **Alternatives rejected:** an LLM judging answers (a second unmeasured system grading
+  the first, and not reproducible offline); reporting only the improved numbers
+  (overstates quality, since the fixes were tuned on that data); a public benchmark
+  (none covers comparison shopping with citations and abstention).
+
+## ADR-049: Sources are trusted by kind, and offline engines never read planted instructions
+
+- **Status:** Accepted (Phase 27)
+- **Decision:** Facts and prices are read from official sources first, then by kind of
+  document: specification sheets, manufacturer pages, manuals, warranties and return
+  policies before reviews, reviews before notes (`app/domain/trust.py`). The offline
+  answerer prefers them mildly. Sentences the injection detector flags are removed
+  before the rule-based agents and the offline answerer read evidence, as they already
+  were before a language model did. Questions that name a workspace product are
+  answered from that product's sources only.
+- **What this does not solve:** a false statement in a low-trust source is still used
+  when no better source covers the same point, and can still be quoted in an offline
+  answer; the detector misses paraphrases. Both are measured in `docs/EVALUATION.md`.
+- **Alternatives rejected:** ignoring reviews for facts entirely (often the only source);
+  majority voting between sources (an attacker adds two documents); trusting uploads
+  marked "official" (uploads are never official by design).
+
