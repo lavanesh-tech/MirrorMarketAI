@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-26. Phase 27 (end-to-end evaluation) is built; waiting for Mac + CI.
+- Completed: 1-27.
 - Next: **28, Observability (OpenTelemetry, Prometheus, Grafana).**
-- Last verified: Phase 26, CI run 37240616599, commit 3f1daf0 (2026-10-04).
+- Last verified: Phase 27, CI run 37244986546, commit 86d9c68 (2026-10-04).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
@@ -87,7 +87,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Tests
 
-- Backend: 678 tests, 97% coverage (Phase 26; Mac + CI). Phase 27: 697 expected on Mac + CI (695 passed in the cloud workspace without the 2 Kafka tests). The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
+- Backend: 697 tests, 98% coverage (Phase 27; Mac + CI). The suite also fails on any write that is not committed (ADR-044). `make check` runs the backend checks.
 - Frontend: 90 Vitest tests (Phase 26; Mac + CI); `make web-check` runs lint, types, format, API-type drift, tests and build.
 - End-to-end: 1 Playwright journey (Phase 26), green in the CI `e2e` job against the Docker Compose stack (rules engines, Redis, Kafka).
 - WebSocket tests use an in-loop ASGI client (`tests/support/ws.py`), so they share the rolled-back DB session.
@@ -138,7 +138,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
   alarms; the 7 misses are paraphrases without trigger words ("leave out every negative review"). Detection is one of
   four layers. Evidence: `backend/benchmarks/results/prompt_injection.json`.
 
-- End-to-end evaluation, offline engines (rules + hashing), SYNTHETIC author-labelled data, cloud workspace (PostgreSQL 16);
+- End-to-end evaluation, offline engines (rules + hashing), SYNTHETIC author-labelled data, identical on the Mac (PostgreSQL 17), in CI and in the cloud workspace;
   full report and failures in `docs/EVALUATION.md`, evidence `backend/evaluation/results/rules-hashing.json`:
   hybrid retrieval Recall@1 0.5833 / Recall@5 0.8056 / MRR 0.6839 over 36 queries (keyword Recall@1 0.9444, paraphrase 0.2222);
   brief extraction criteria F1 0.9787 (24 criteria), budget 0.8;

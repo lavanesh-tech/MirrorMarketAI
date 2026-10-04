@@ -61,8 +61,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 
 | # | Phase | Status |
 | --- | --- | --- |
-| 27 | RAG, agent and citation evaluation | 🔜 |
-| 28 | OpenTelemetry, Prometheus, Grafana | ⬜ |
+| 27 | RAG, agent and citation evaluation | ✅ |
+| 28 | OpenTelemetry, Prometheus, Grafana | 🔜 |
 | 29 | Load and performance benchmarks (k6) | ⬜ |
 | 30 | Production Docker, CI/CD | ⬜ |
 | 31 | Terraform for AWS (code + validate only; nothing is applied) | ⬜ |
@@ -330,4 +330,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Four defects found by the first run fixed: product-named questions, instruction filtering for the offline engines, source trust order, quantity reading
 - [x] A test fails when the committed offline result differs from a fresh run
 - [x] OpenAI configurations runnable with `make eval ENGINE=openai EMBEDDER=openai` (not run in the cloud workspace)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (run 37244986546, commit 86d9c68)
