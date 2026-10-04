@@ -377,6 +377,15 @@ describe("VoteButtons", () => {
   });
 });
 
+function readText(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("could not read the file"));
+    reader.readAsText(file);
+  });
+}
+
 describe("ProductSources", () => {
   const source = (extra = {}) => ({
     id: "s1",
@@ -410,6 +419,7 @@ describe("ProductSources", () => {
       "POST /api/v1/products/p1/sources/upload": json({ source: source({ id: "s9" }) }, 201),
       "POST /api/v1/sources/s9/embed": job,
     });
+    const appended = vi.spyOn(FormData.prototype, "append");
     page(<ProductSources workspaceId="w1" productId="p1" productName="Aster" editable />);
     const list = await screen.findByRole("list", { name: "Sources for Aster" });
     expect(
@@ -432,7 +442,11 @@ describe("ProductSources", () => {
     const upload = String(calls.find((c) => c.path.endsWith("/upload"))!.body);
     expect(upload).toContain('name="workspace_id"\r\n\r\nw1');
     expect(upload).toContain('name="title"\r\n\r\nBattery test');
-    expect(upload).toContain("The battery lasts up to 12 hours.");
+    // The file's content is read from the form itself: how a test runtime serialises a
+    // jsdom File into a multipart body differs between Node versions.
+    const file = appended.mock.calls.find(([name]) => name === "file")?.[1] as File;
+    expect(file.type).toBe("text/plain");
+    expect(await readText(file)).toBe("The battery lasts up to 12 hours.");
   });
 
   it("registers a web address, has the API fetch it, then embeds it", async () => {
