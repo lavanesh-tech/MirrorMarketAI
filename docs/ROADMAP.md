@@ -340,5 +340,5 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Prometheus, Grafana (provisioned dashboard and data sources) and Jaeger in an optional Compose profile (`make obs-up`); 14 alert rules
 - [x] Tests fail when the dashboard or an alert names a metric the code does not expose
 - [x] CI validates the Prometheus config with promtool, starts the profile and checks scraping, the dashboard and a received trace
-- [x] Verified on the developer Mac and CI green (run PASTE_RUN_NUMBER_HERE, commit 53c3439)
+- [x] Verified on the developer Mac and CI green (run 37248303018, commit 53c3439)
 
