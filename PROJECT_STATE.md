@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-27. Phase 28 (observability) built, awaiting verification on the Mac and CI.
+- Completed: 1-28.
 - Next: **29, Load testing (k6).**
-- Last verified: Phase 27, CI run 37244986546, commit 86d9c68 (2026-10-04).
+- Last verified: Phase 28, CI run PASTE_RUN_NUMBER_HERE, commit 53c3439 (2026-10-04).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules
