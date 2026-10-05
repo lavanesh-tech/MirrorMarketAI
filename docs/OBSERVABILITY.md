@@ -58,7 +58,7 @@ no HTTP API and serve their own on `WORKER_METRICS_PORT` (9100 inside Compose).
 | `mm_events_relayed_total` | counter | Outbox events by publish result. |
 | `mm_events_consumed_total` | counter | Consumed events by result: handled, duplicate, retry, dead_letter. |
 
-Plus the standard `process_*` and `python_gc_*` metrics.
+Plus the standard `python_gc_*` metrics, and `process_*` (CPU, memory, open files) on Linux, which is what the containers run.
 
 Rules the labels follow:
 

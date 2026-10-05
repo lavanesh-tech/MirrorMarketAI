@@ -41,7 +41,7 @@ async def test_metrics_are_served_in_the_prometheus_text_format(client: httpx.As
     assert response.headers["content-type"].startswith("text/plain")
     families = {family.name for family in text_string_to_metric_families(response.text)}
     assert {"mm_build_info", "mm_http_requests", "mm_http_request_duration_seconds"} <= families
-    assert "process_cpu_seconds" in families
+    assert "python_gc_objects_collected" in families
     assert 'mm_build_info{version="' in response.text
 
 
