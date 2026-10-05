@@ -10,9 +10,12 @@ from collections.abc import AsyncIterator, Iterator
 import httpx
 import pytest
 from fastapi import FastAPI
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 
+from app.api.deps import get_db_session
 from app.core.logging import JsonFormatter, RequestIdFilter
 from app.main import create_app
+from app.telemetry import metrics
 from tests.conftest import SettingsFactory
 
 pytestmark = pytest.mark.api
@@ -153,3 +156,28 @@ async def test_cors_rejects_unlisted_origin(make_settings: SettingsFactory) -> N
 async def test_cors_disabled_when_no_origins_configured(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/v1/health", headers={"Origin": "http://localhost:3000"})
     assert "access-control-allow-origin" not in response.headers
+
+
+async def test_database_pool_exhaustion_is_a_503_not_a_crash(
+    app: FastAPI, client: httpx.AsyncClient, access_logs: list[dict[str, object]]
+) -> None:
+    """Overload must tell clients to back off; it is not an internal error."""
+
+    async def _no_connection_free() -> None:
+        raise PoolTimeoutError("QueuePool limit of size 5 overflow 5 reached")
+
+    app.dependency_overrides[get_db_session] = _no_connection_free
+    before = metrics.REGISTRY.get_sample_value("mm_db_pool_timeouts_total") or 0.0
+    response = await client.post(
+        "/api/v1/auth/login", json={"email": "a@example.com", "password": "correct-horse-battery"}
+    )
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "1"
+    error = response.json()["error"]
+    assert error["code"] == "overloaded"
+    assert error["request_id"] == response.headers["x-request-id"]
+    assert "QueuePool" not in response.text
+    assert metrics.REGISTRY.get_sample_value("mm_db_pool_timeouts_total") == before + 1
+    assert not any(
+        line["message"] == "unhandled exception while processing request" for line in access_logs
+    )

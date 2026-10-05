@@ -698,3 +698,27 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   instrumentation (a tracing add-on should not hold back the database layer); a hosted
   service (needs an account and a secret; the project runs offline).
 
+## ADR-051: Open-model load tests, results recorded with their environment, overload answered with 503
+
+- **Status:** Accepted (Phase 29)
+- **Decision:** Load tests are k6 scripts (`benchmarks/k6`) run from a Compose overlay
+  (`docker-compose.loadtest.yml`) against the real stack. Requests arrive at a fixed rate
+  (constant-arrival-rate), in a weighted mix of reads, searches, questions, writes and
+  full analyses. A stepped "capacity" profile finds the highest rate that is sustained
+  (under 1% failed, none dropped, p95 under 1 second). Each run is stored as a JSON
+  record with commit, machine and configuration, and `docs/PERFORMANCE.md` is generated
+  from those records only. The overlay forces the offline engines and the runner refuses
+  to start otherwise. When no database connection becomes free within
+  `DB_POOL_TIMEOUT_SECONDS` (now 3, was 10) the API answers `503 overloaded` with
+  `Retry-After` instead of 500.
+- **Why:** a closed loop of virtual users slows down with the server and hides the
+  latency real users would see; a number without its hardware and commit cannot be
+  compared with anything; a load test that calls a paid model API costs money and
+  measures the model; queueing for 10 seconds and then failing is the worst of both.
+- **What this does not solve:** everything runs on one machine, so the load generator
+  competes with the system under test; one run per configuration; the request mix is an
+  assumption; no long soak test; the frontend is not load tested.
+- **Alternatives rejected:** Locust (would share the Python runtime with the system under
+  test on a developer machine, and k6 gives arrival-rate executors out of the box);
+  committing raw k6 output (large, noisy diffs); a latency gate in CI (shared runners make
+  absolute numbers meaningless, so CI only checks that every scripted request works).

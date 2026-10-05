@@ -59,7 +59,7 @@ login, refresh, logout.
 | 413 | Body or file too large |
 | 422 | Validation failed or a business rule rejected the request (`details` lists the fields) |
 | 429 | Rate limited; wait `Retry-After` seconds |
-| 502 / 503 | An upstream fetch failed / a dependency is unavailable |
+| 502 / 503 | An upstream fetch failed / a dependency is unavailable, or the service is shedding load (`overloaded`; retry after the `Retry-After` seconds) |
 
 **Pagination.** `?limit=` (1-100) and `?offset=`; responses include the total.
 

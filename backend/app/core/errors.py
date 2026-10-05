@@ -10,14 +10,19 @@ stays independent of HTTP; the handlers here translate them to responses.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, ClassVar
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.request_context import get_request_id
+from app.telemetry import metrics
+
+logger = logging.getLogger(__name__)
 
 
 class AppError(Exception):
@@ -289,7 +294,23 @@ async def _http_error_handler(_: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _pool_timeout_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Every pooled database connection stayed busy for `db_pool_timeout_seconds`.
+
+    That is overload, not a bug: answer 503 with Retry-After so clients and load
+    balancers back off, and log one line instead of a stack trace per shed request.
+    """
+    metrics.DB_POOL_TIMEOUTS.inc()
+    logger.warning("database pool exhausted; request shed", extra={"http_path": request.url.path})
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=error_body("overloaded", "The service is busy. Try again shortly."),
+        headers={"Retry-After": "1"},
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, _app_error_handler)
+    app.add_exception_handler(PoolTimeoutError, _pool_timeout_handler)
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, _http_error_handler)

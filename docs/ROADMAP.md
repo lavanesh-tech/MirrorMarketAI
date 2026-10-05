@@ -62,8 +62,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | # | Phase | Status |
 | --- | --- | --- |
 | 27 | RAG, agent and citation evaluation | ✅ |
-| 28 | OpenTelemetry, Prometheus, Grafana | 🔜 |
-| 29 | Load and performance benchmarks (k6) | ⬜ |
+| 28 | OpenTelemetry, Prometheus, Grafana | ✅ |
+| 29 | Load and performance benchmarks (k6) | 🔜 |
 | 30 | Production Docker, CI/CD | ⬜ |
 | 31 | Terraform for AWS (code + validate only; nothing is applied) | ⬜ |
 | 32 | EKS: dropped (no AWS deployment) | ➖ |
@@ -342,3 +342,12 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] CI validates the Prometheus config with promtool, starts the profile and checks scraping, the dashboard and a received trace
 - [x] Verified on the developer Mac and CI green (run 37248303018, commit 53c3439)
 
+## Phase 29 exit criteria
+
+- [x] k6 load tests against the Compose stack: smoke, steady load and stepped capacity, with an open (fixed arrival rate) model and a weighted request mix
+- [x] Results recorded with commit, machine and configuration; `docs/PERFORMANCE.md` generated from the records only
+- [x] Load tests always run the offline engines (overlay + refusal in the runner) and send no usage reports
+- [x] Fix found by the test: pool exhaustion is answered `503 overloaded` with `Retry-After` after 3 seconds, instead of 500 after 10; counted in `mm_db_pool_timeouts_total`
+- [x] API process count configurable for the comparison (`make load-up API_WORKERS=4`)
+- [x] CI runs the smoke profile against the Docker stack
+- [ ] Verified on the developer Mac and CI green

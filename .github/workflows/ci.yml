@@ -114,6 +114,13 @@ jobs:
       - name: Smoke test the event pipeline (outbox -> Kafka -> activity feed)
         run: python3 infrastructure/scripts/smoke_events.py
 
+      # Phase 29. Recreates the API with the load-test settings and runs the k6 smoke
+      # profile: every scripted request must work. This checks the scripts, not speed.
+      - name: Load-test smoke (k6)
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --wait --wait-timeout 300
+          cd backend && python3 -m benchmarks.k6_run smoke
+
       - name: Verify migrations ran
         run: docker compose logs migrate | grep -q "Running upgrade"
 

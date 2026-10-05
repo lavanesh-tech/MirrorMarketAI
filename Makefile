@@ -197,6 +197,34 @@ obs-check: ## Validate the Prometheus config and alert rules with promtool (need
 smoke-observability: ## Check metrics reach Prometheus, the dashboard is in Grafana and traces reach Jaeger
 	@python3 infrastructure/scripts/smoke_observability.py $(API_URL)
 
+# --------------------------------------------------------------------------- #
+# Load testing (k6 in Docker; see docs/PERFORMANCE.md)
+# --------------------------------------------------------------------------- #
+LOAD_COMPOSE := $(COMPOSE) -f docker-compose.yml -f docker-compose.loadtest.yml
+API_WORKERS ?= 1
+RATE ?= 30
+STEPS ?= 25,50,100,150,200,300
+
+.PHONY: load-up
+load-up: ## Start the stack for load testing (offline engines, raised rate limits). API_WORKERS=4 for 4 API processes
+	API_WORKERS=$(API_WORKERS) $(LOAD_COMPOSE) up -d --build --wait --wait-timeout 300
+
+.PHONY: load-smoke
+load-smoke: ## 30-second check that every scripted request works (needs: make load-up)
+	cd $(BACKEND) && $(UV) run python -m benchmarks.k6_run smoke
+
+.PHONY: load-test
+load-test: ## Steady load for 2 minutes, recorded in benchmarks/results. RATE=30 requests/s
+	cd $(BACKEND) && RATE=$(RATE) $(UV) run python -m benchmarks.k6_run load
+
+.PHONY: load-capacity
+load-capacity: ## Stepped load to find the highest sustained rate. STEPS=25,50,100,150,200,300
+	cd $(BACKEND) && STEPS=$(STEPS) $(UV) run python -m benchmarks.k6_run capacity
+
+.PHONY: perf-report
+perf-report: ## Rebuild docs/PERFORMANCE.md from the recorded results
+	cd $(BACKEND) && $(UV) run python -m benchmarks.k6_report
+
 .PHONY: smoke-events
 smoke-events: ## End-to-end check: comment -> outbox -> Kafka -> consumer -> activity feed
 	@python3 infrastructure/scripts/smoke_events.py $(API_URL)

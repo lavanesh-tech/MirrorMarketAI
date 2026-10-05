@@ -62,7 +62,8 @@ MirrorMarketAI/
 │   └── uv.lock               exact, reproducible dependency versions
 ├── infrastructure/docker/    local container init scripts (pgvector extension)
 ├── infrastructure/observability/  Prometheus config and alerts, Grafana dashboard (Phase 28)
-├── benchmarks/results/       recorded benchmark runs (Phase 29)
+├── benchmarks/k6/            k6 load-test scripts (Phase 29)
+├── benchmarks/results/       recorded load-test runs
 ├── docs/                     architecture, decisions, roadmap
 ├── .github/workflows/ci.yml  CI pipeline
 ├── docker-compose.yml        postgres+pgvector, redis, kafka, api, workers
@@ -173,4 +174,5 @@ from `A-Z a-z 0-9 . _ -`) to correlate across services; otherwise one is generat
 - [Data model](docs/DATA_MODEL.md)
 - [Testing](docs/TESTING.md)
 - [Observability](docs/OBSERVABILITY.md): metrics, dashboard, alerts and traces (`make obs-up`)
+- [Performance](docs/PERFORMANCE.md): load-test results and what they found (`make load-up`, `make load-capacity`)
 - [Evaluation](docs/EVALUATION.md): measured quality, what was fixed, and what still fails

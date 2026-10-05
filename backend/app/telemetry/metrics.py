@@ -139,6 +139,11 @@ DB_POOL = Gauge(
     registry=REGISTRY,
 )
 
+DB_POOL_TIMEOUTS = Counter(
+    "mm_db_pool_timeouts_total",
+    "Requests answered 503 because no database connection became free in time (overload).",
+    registry=REGISTRY,
+)
 EMBEDDING_JOBS = Counter(
     "mm_embedding_jobs_total", "Embedding jobs by result.", ["result"], registry=REGISTRY
 )

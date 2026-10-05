@@ -85,3 +85,13 @@ part of the test suite.
   credentials in spans, trace ids on log lines, clean shutdown.
 - `make obs-check` (promtool) and `make smoke-observability` need Docker; CI runs both.
 
+## Load tests (Phase 29)
+
+- `make load-up`, then `make load-smoke` / `make load-test` / `make load-capacity`
+  (k6 in Docker; see `benchmarks/README.md`). Results go to `benchmarks/results/` and
+  `docs/PERFORMANCE.md`.
+- CI runs only the smoke profile: it fails when a scripted request does not work, never
+  on latency.
+- `tests/unit/test_k6_report.py` covers how a run is summarised and judged, the refusal
+  to run against paid engines, and that the request shares sum to 100.
+- `tests/api/test_middleware.py` covers the `503 overloaded` answer.

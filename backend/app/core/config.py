@@ -67,7 +67,9 @@ class Settings(BaseSettings):
     )
     db_pool_size: int = Field(default=5, ge=1, le=100)
     db_max_overflow: int = Field(default=5, ge=0, le=100)
-    db_pool_timeout_seconds: float = Field(default=10.0, gt=0)
+    # How long a request may wait for a free connection before it is answered 503.
+    # Short on purpose: under overload, failing fast beats queueing for many seconds.
+    db_pool_timeout_seconds: float = Field(default=3.0, gt=0)
     db_pool_recycle_seconds: int = Field(default=1800, ge=60)
     db_connect_timeout_seconds: float = Field(default=5.0, gt=0)
     # Server-side cap on any single statement; protects the pool from runaway queries.

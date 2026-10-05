@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-28.
-- Next: **29, Load testing (k6).**
+- Completed: 1-28. Phase 29 (load testing) built, awaiting verification on the Mac and CI.
+- Next: **30, Production Docker and CI/CD.**
 - Last verified: Phase 28, CI run 37248303018, commit 53c3439 (2026-10-04).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -60,6 +60,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Evaluation (ADR-048): `backend/evaluation` (`dataset.py` gold labels, `runner.py` drives the HTTP API in-process on a throwaway database, `metrics.py`, `report.py`, `__main__.py`). `make eval [ENGINE=rules|openai EMBEDDER=hashing|openai]` writes `evaluation/results/<engine>-<embedder>.json` and regenerates `docs/EVALUATION.md`; first-run baseline in `evaluation/baseline/`. `tests/db/test_evaluation_run.py` fails if the committed offline result differs from a fresh run.
 - Trust and safety in the offline path (ADR-049): `app/domain/trust.py` (official, then spec/manual/warranty, then reviews, then notes) orders evidence for facts and prices; `prompt_safety.without_instructions` / `data_view` filter evidence for rule-based agents and the offline answerer; `AskService._named_products` scopes a question to the product it names; `rules._closest_to_noun` reads the number attached to a noun.
 - Observability (ADR-050, `docs/OBSERVABILITY.md`): `app/telemetry/metrics.py` (own registry, `mm_*` metrics, route-template labels via `middleware.route_template`, `/metrics` on the API, `WORKER_METRICS_PORT` on workers) and `app/telemetry/tracing.py` (OpenTelemetry, off unless `OTEL_ENABLED=true`; SQL spans from SQLAlchemy events because the OTel SQLAlchemy package does not support 2.1; `span()` for agent steps). `infrastructure/observability` holds Prometheus config + 14 alert rules and the Grafana dashboard; Compose profile `observability` (`make obs-up`, `make smoke-observability`, `make obs-check`). Tests fail when a dashboard or alert names a metric that does not exist.
+- Load testing (ADR-051, `docs/PERFORMANCE.md`): k6 scripts in `benchmarks/k6` (`workload.js` weighted mix with fixed arrival rate; profiles smoke / load / capacity), overlay `docker-compose.loadtest.yml` (offline engines forced, rate limits raised, `API_WORKERS` → uvicorn `WEB_CONCURRENCY`, service `k6`), runner `backend/benchmarks/k6_run.py` and report `k6_report.py` (records in `benchmarks/results/k6-*.json`). `make load-up|load-smoke|load-test|load-capacity|perf-report`. Pool exhaustion → `503 overloaded` + `Retry-After` (`errors._pool_timeout_handler`), `DB_POOL_TIMEOUT_SECONDS` default 3.
 - Transactions (ADR-044): services commit their own writes (requirements save, evidence pack create, agent runs; orchestrator commits per step). Test requests roll back uncommitted work (`discard_uncommitted` in `tests/db/conftest.py`).
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 

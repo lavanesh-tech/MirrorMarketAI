@@ -52,6 +52,7 @@ no HTTP API and serve their own on `WORKER_METRICS_PORT` (9100 inside Compose).
 | `mm_ws_connections` | gauge | Open WebSocket connections on this instance. |
 | `mm_audit_events_total` | counter | Security-relevant events by action and outcome. |
 | `mm_db_pool_connections` | gauge | Pooled database connections: in use or idle. |
+| `mm_db_pool_timeouts_total` | counter | Requests answered 503 because no database connection became free in time. |
 | `mm_embedding_jobs_total` | counter | Embedding jobs by result. |
 | `mm_outbox_pending_events` | gauge | Events committed but not yet published to Kafka. |
 | `mm_outbox_oldest_pending_seconds` | gauge | Age of the oldest unpublished event. |
