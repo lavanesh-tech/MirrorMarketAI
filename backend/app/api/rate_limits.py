@@ -16,6 +16,7 @@ from fastapi import Request, Response
 
 from app.api.deps import CurrentUser, RateLimiterDep, SettingsDep
 from app.core.errors import RateLimitedError
+from app.telemetry import metrics
 
 PERIOD_SECONDS = 60
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -34,6 +35,8 @@ async def enforce(
 ) -> None:
     decision = await limiter.hit(name, identity, limit, PERIOD_SECONDS)
     if not decision.allowed:
+        # "auth:login" -> "auth": the kind of limit, not who hit it.
+        metrics.RATE_LIMITED.labels(limit=name.split(":", 1)[0]).inc()
         raise RateLimitedError(decision.retry_after_seconds, limit)
     if response is not None:
         response.headers["X-RateLimit-Limit"] = str(limit)

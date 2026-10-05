@@ -22,12 +22,25 @@ from app.core.request_context import (
     set_client_ip,
     set_request_id,
 )
+from app.telemetry import metrics
 
 logger = logging.getLogger("app.access")
 
 # Probe endpoints are hit every few seconds by Docker/ALB health checks.
 # Log them at DEBUG so they don't drown out real traffic at INFO.
-_QUIET_PATHS = frozenset({"/api/v1/health", "/api/v1/ready"})
+METRICS_PATH = "/metrics"
+_QUIET_PATHS = frozenset({"/api/v1/health", "/api/v1/ready", METRICS_PATH})
+
+
+def route_template(scope: Scope) -> str:
+    """The matched route as written in the code, prefix included, or "unmatched".
+
+    FastAPI keeps the full template of a route inside an included router in its own
+    part of the scope; `scope["route"].path` alone is relative to that router.
+    """
+    effective = scope.get("fastapi", {}).get("effective_route_context")
+    path = getattr(effective, "path", None) or getattr(scope.get("route"), "path", None)
+    return path if isinstance(path, str) else metrics.UNMATCHED_ROUTE
 
 
 class RequestContextMiddleware:
@@ -58,6 +71,7 @@ class RequestContextMiddleware:
         started = time.perf_counter()
         status_code = 500
         response_started = False
+        metrics.HTTP_IN_PROGRESS.inc()
 
         async def send_with_request_id(message: Message) -> None:
             nonlocal status_code, response_started
@@ -89,8 +103,16 @@ class RequestContextMiddleware:
             )
             await response(scope, receive, send)
         finally:
-            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            elapsed = time.perf_counter() - started
+            duration_ms = round(elapsed * 1000, 2)
             path = scope.get("path", "")
+            metrics.HTTP_IN_PROGRESS.dec()
+            if path != METRICS_PATH:  # scrapes would dominate the request metrics
+                # The matched route's template ("/workspaces/{workspace_id}"), never the
+                # path itself: one label value per id would be one time series per id.
+                metrics.observe_http(
+                    scope.get("method", ""), route_template(scope), status_code, elapsed
+                )
             logger.log(
                 logging.DEBUG if path in _QUIET_PATHS else logging.INFO,
                 "request completed",

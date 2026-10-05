@@ -34,6 +34,7 @@ from app.services.agents import RULES_ENGINE, AgentService
 from app.services.evidence import EvidenceService
 from app.services.search import SearchFilters, SearchService
 from app.services.workspaces import WorkspaceService
+from app.telemetry import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,7 @@ class AskService:
             ).text
 
         report = validate_citations(answer, evidence)
+        metrics.ASK_ANSWERS.labels(outcome="answered" if answer else "abstained").inc()
         output = AskOutput(
             question=question,
             answer=answer,

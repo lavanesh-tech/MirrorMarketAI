@@ -5,8 +5,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-27.
-- Next: **28, Observability (OpenTelemetry, Prometheus, Grafana).**
+- Completed: 1-27. Phase 28 (observability) built, awaiting verification on the Mac and CI.
+- Next: **29, Load testing (k6).**
 - Last verified: Phase 27, CI run 37244986546, commit 86d9c68 (2026-10-04).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
@@ -14,7 +14,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 - Do one phase at a time, then stop until the owner says "next".
 - Replies are compact: files, verification, metrics, run commands, commit message, next phase.
-- Deliver work as a downloadable `phaseN.tgz` plus one copy-paste zsh block (no inline `#`, use `git --no-pager`).
+- Deliver work as a downloadable `mirrormarket-phaseN.tgz` plus one copy-paste zsh block (no inline `#`, use `git --no-pager`).
 - The owner commits and pushes. Never change git identity or add AI attribution.
 - Never commit secrets; only `.env.example` is tracked. Never invent metrics.
 - The full teaching and interview walkthrough happens only after Phase 35.
@@ -23,7 +23,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 - macOS on Apple Silicon, zsh, Docker Desktop. Python 3.12 with uv (`uv.lock` committed). Node 22+ with npm for `frontend/` (`package-lock.json` committed).
 - Repo: `~/Desktop/MirrorMarketAI` → `github.com/lavanesh-tech/MirrorMarketAI` (main).
-- Compose: postgres (PG17 + pgvector 0.8.6) :5433, redis :6380, kafka (apache/kafka 4.0.0, KRaft) :9094, migrate, api :8000, embedding-worker, event-worker.
+- Compose: postgres (PG17 + pgvector 0.8.6) :5433, redis :6380, kafka (apache/kafka 4.0.0, KRaft) :9094, migrate, api :8000, embedding-worker, event-worker; profile `observability`: prometheus :9090, grafana :3001, jaeger :16686.
 
 ## Architecture decisions (ADR-001 to ADR-027)
 
@@ -59,6 +59,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - E2E: `frontend/e2e/journey.spec.ts`, `npm run e2e` / `make web-e2e` (needs `make up`; one-time `make web-e2e-install`); CI job `e2e`. The journey assumes the offline rules engines.
 - Evaluation (ADR-048): `backend/evaluation` (`dataset.py` gold labels, `runner.py` drives the HTTP API in-process on a throwaway database, `metrics.py`, `report.py`, `__main__.py`). `make eval [ENGINE=rules|openai EMBEDDER=hashing|openai]` writes `evaluation/results/<engine>-<embedder>.json` and regenerates `docs/EVALUATION.md`; first-run baseline in `evaluation/baseline/`. `tests/db/test_evaluation_run.py` fails if the committed offline result differs from a fresh run.
 - Trust and safety in the offline path (ADR-049): `app/domain/trust.py` (official, then spec/manual/warranty, then reviews, then notes) orders evidence for facts and prices; `prompt_safety.without_instructions` / `data_view` filter evidence for rule-based agents and the offline answerer; `AskService._named_products` scopes a question to the product it names; `rules._closest_to_noun` reads the number attached to a noun.
+- Observability (ADR-050, `docs/OBSERVABILITY.md`): `app/telemetry/metrics.py` (own registry, `mm_*` metrics, route-template labels via `middleware.route_template`, `/metrics` on the API, `WORKER_METRICS_PORT` on workers) and `app/telemetry/tracing.py` (OpenTelemetry, off unless `OTEL_ENABLED=true`; SQL spans from SQLAlchemy events because the OTel SQLAlchemy package does not support 2.1; `span()` for agent steps). `infrastructure/observability` holds Prometheus config + 14 alert rules and the Grafana dashboard; Compose profile `observability` (`make obs-up`, `make smoke-observability`, `make obs-check`). Tests fail when a dashboard or alert names a metric that does not exist.
 - Transactions (ADR-044): services commit their own writes (requirements save, evidence pack create, agent runs; orchestrator commits per step). Test requests roll back uncommitted work (`discard_uncommitted` in `tests/db/conftest.py`).
 - Offline by default: `EMBEDDING_PROVIDER=hashing`, `REQUIREMENTS_EXTRACTOR=rules`.
 

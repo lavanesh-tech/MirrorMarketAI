@@ -26,6 +26,7 @@ from app.models.sources import ProductSource, SourceDocument, SourceSnapshot
 from app.providers.embeddings import EmbeddingError, EmbeddingProvider
 from app.retrieval.fusion import DEFAULT_RRF_K, reciprocal_rank_fusion
 from app.services.workspaces import WorkspaceService
+from app.telemetry import metrics
 
 SearchMode = Literal["hybrid", "lexical", "vector"]
 
@@ -75,6 +76,20 @@ class SearchService:
         filters: SearchFilters | None = None,
     ) -> SearchResult:
         await WorkspaceService(self.session).authorize(workspace_id, user)
+        with metrics.SEARCH_DURATION.labels(mode=mode).time():
+            result = await self._search(workspace_id, query, mode, limit, filters)
+        if result.degraded:
+            metrics.SEARCH_DEGRADED.inc()
+        return result
+
+    async def _search(
+        self,
+        workspace_id: uuid.UUID,
+        query: str,
+        mode: SearchMode,
+        limit: int,
+        filters: SearchFilters | None,
+    ) -> SearchResult:
         scope = self._scope(workspace_id, filters or SearchFilters())
         candidates = max(MIN_CANDIDATES, limit * CANDIDATE_MULTIPLIER)
 

@@ -26,6 +26,7 @@ import unicodedata
 from dataclasses import dataclass
 
 from app.domain.citations import split_sentences
+from app.telemetry import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,10 @@ def _render_item(text: str) -> tuple[str, list[str]]:
         else:
             kept.append(neutralize(sentence))
     if not rules and (spanning := scan(text)):  # an instruction split across sentences
+        metrics.EVIDENCE_WITHHELD.inc()
         return WITHHELD, [f.rule for f in spanning]
+    if rules:
+        metrics.EVIDENCE_WITHHELD.inc(sum(1 for part in kept if part == WITHHELD))
     return " ".join(kept)[:MAX_ITEM_CHARS], rules
 
 
@@ -166,7 +170,10 @@ def without_instructions(text: str) -> str:
     sentences = split_sentences(text) or [text]
     kept = [sentence for sentence in sentences if not scan(sentence)]
     if len(kept) == len(sentences) and scan(text):  # an instruction split across sentences
+        metrics.EVIDENCE_WITHHELD.inc()
         return ""
+    if len(kept) != len(sentences):
+        metrics.EVIDENCE_WITHHELD.inc(len(sentences) - len(kept))
     return " ".join(kept)
 
 

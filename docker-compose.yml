@@ -34,6 +34,12 @@ x-app-service: &app-service
     KAFKA_ENABLED: "true"
     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     LOG_FORMAT: json
+    # Tracing is off unless started with OTEL_ENABLED=true (`make obs-up` does that);
+    # Jaeger only runs in the "observability" profile.
+    OTEL_ENABLED: ${OTEL_ENABLED:-false}
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    # Workers serve their own /metrics here (inside the Compose network only).
+    WORKER_METRICS_PORT: "9100"
   read_only: true
   tmpfs:
     - /tmp
@@ -174,5 +180,76 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # ---------------------------------------------------------------------------
+  # Observability (optional): docker compose --profile observability up -d
+  #   Grafana     http://127.0.0.1:3001   dashboards (anonymous viewer, local only)
+  #   Prometheus  http://127.0.0.1:9090   metrics and alert rules
+  #   Jaeger      http://127.0.0.1:16686  traces
+  # ---------------------------------------------------------------------------
+  prometheus:
+    <<: *hardening
+    profiles: ["observability"]
+    image: prom/prometheus:v3.13.4
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9090/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      api:
+        condition: service_healthy
+
+  grafana:
+    <<: *hardening
+    profiles: ["observability"]
+    image: grafana/grafana:13.2.2
+    environment:
+      # Local convenience only: the port is bound to 127.0.0.1. Anyone who can reach
+      # it may look, nobody may change anything without the admin password.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/mirrormarket.json
+    volumes:
+      - ./infrastructure/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3001}:3000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q --spider http://127.0.0.1:3000/api/health || curl -fsS -o /dev/null http://127.0.0.1:3000/api/health
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+  jaeger:
+    <<: *hardening
+    profiles: ["observability"]
+    image: jaegertracing/jaeger:2.20.0
+    environment:
+      # Accept OTLP from the other containers, not only from inside this one.
+      JAEGER_LISTEN_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:${JAEGER_HOST_PORT:-16686}:16686"
+
 volumes:
   postgres-data:
+  prometheus-data:
+  grafana-data:

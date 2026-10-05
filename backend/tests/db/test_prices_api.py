@@ -14,6 +14,9 @@ from tests.db.conftest import ApiUser, register_user
 pytestmark = [pytest.mark.db, pytest.mark.api]
 
 NOW = datetime.now(UTC).replace(microsecond=0)
+# About a quarter of an hour away from "10 days ago", on the same UTC day. Going back in
+# time crosses midnight when the tests run just after 00:00 UTC, so go forward then.
+SAME_DAY_AS_10 = 10.01 if NOW.hour >= 1 else 9.99
 
 
 async def _product(api: httpx.AsyncClient, user: ApiUser) -> str:
@@ -45,7 +48,7 @@ async def test_record_is_idempotent_and_history_is_bucketed(api: httpx.AsyncClie
         "observations": [
             _obs("Shop A", "1499.00", 40),
             _obs("Shop A", "1399.00", 10),
-            _obs("Shop A", "1349.00", 10.01),
+            _obs("Shop A", "1349.00", SAME_DAY_AS_10),
             _obs("Shop B", "1299.00", 1, in_stock=True),
             {**_obs("Shop C", "99.00", 2), "currency": "EUR"},
         ]

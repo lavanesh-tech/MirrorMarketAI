@@ -16,12 +16,13 @@ import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.core.config import Settings
 from app.core.database import SessionFactory
 from app.events.broker import Producer
 from app.models.events import OutboxEvent
+from app.telemetry import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class OutboxRelay:
                     )
                 except Exception as exc:
                     failed += 1
+                    metrics.EVENTS_RELAYED.labels(result="failed").inc()
                     event.attempts += 1
                     event.last_error = f"{type(exc).__name__}: {exc}"[:500]
                     if event.attempts >= settings.outbox_max_attempts:
@@ -90,7 +92,24 @@ class OutboxRelay:
                 event.published_at = datetime.now(UTC)
                 published += 1
             await session.commit()
+        if published:
+            metrics.EVENTS_RELAYED.labels(result="published").inc(published)
         return RelayResult(published, failed)
+
+    async def measure_backlog(self) -> tuple[int, float]:
+        """(events waiting, age of the oldest in seconds), also published as gauges."""
+        async with self._sessions() as session:
+            pending, oldest = (
+                await session.execute(
+                    select(func.count(), func.min(OutboxEvent.created_at)).where(
+                        OutboxEvent.published_at.is_(None), OutboxEvent.failed_at.is_(None)
+                    )
+                )
+            ).one()
+        age = (datetime.now(UTC) - oldest).total_seconds() if pending else 0.0
+        metrics.OUTBOX_PENDING.set(pending)
+        metrics.OUTBOX_OLDEST_SECONDS.set(max(age, 0.0))
+        return pending, age
 
     async def purge(self) -> int:
         """Delete events published longer ago than the retention window."""

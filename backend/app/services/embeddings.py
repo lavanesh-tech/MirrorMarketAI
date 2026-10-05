@@ -22,6 +22,7 @@ from app.models.retrieval import ChunkEmbedding, DocumentChunk, EmbeddingJob, Jo
 from app.models.sources import SourceDocument
 from app.providers.embeddings import EmbeddingProvider
 from app.retrieval.chunking import chunk_text, estimate_tokens
+from app.telemetry import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,7 @@ class EmbeddingService:
             job.embedded_count = embedded
             job.tokens_used += tokens
             job.status = JobStatus.SUCCEEDED.value
+            metrics.EMBEDDING_JOBS.labels(result="succeeded").inc()
             job.finished_at = datetime.now(UTC)
             await self.session.commit()
             logger.info(
@@ -119,6 +121,7 @@ class EmbeddingService:
                 raise
             exhausted = failed.attempts >= self.settings.embedding_job_max_attempts
             failed.status = (JobStatus.FAILED if exhausted else JobStatus.PENDING).value
+            metrics.EMBEDDING_JOBS.labels(result="failed" if exhausted else "retry").inc()
             failed.last_error = f"{type(exc).__name__}: {exc}"[:500]
             failed.finished_at = datetime.now(UTC)
             await self.session.commit()

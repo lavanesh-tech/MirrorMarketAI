@@ -30,6 +30,7 @@ from app.events.broker import Consumer, Message, Producer
 from app.events.envelope import DLQ_SUFFIX, Envelope
 from app.events.relay import backoff_seconds
 from app.models.events import ProcessedEvent
+from app.telemetry import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ class EventConsumer:
                     await self._dead_letter(message, f"{type(exc).__name__}: {exc}", attempt)
                     return
                 self.stats.retries += 1
+                metrics.EVENTS_CONSUMED.labels(consumer=self.name, result="retry").inc()
                 await asyncio.sleep(
                     backoff_seconds(
                         attempt,
@@ -117,6 +119,7 @@ class EventConsumer:
                 )
                 if claimed is None:
                     self.stats.duplicates += 1
+                    metrics.EVENTS_CONSUMED.labels(consumer=self.name, result="duplicate").inc()
                     await session.rollback()
                     return
                 await self._handler(session, envelope)
@@ -125,6 +128,7 @@ class EventConsumer:
                 await session.rollback()
                 raise
         self.stats.handled += 1
+        metrics.EVENTS_CONSUMED.labels(consumer=self.name, result="handled").inc()
 
     async def _dead_letter(self, message: Message, error: str, attempts: int) -> None:
         # If this send fails the exception propagates, the offset is not committed,
@@ -142,6 +146,7 @@ class EventConsumer:
             },
         )
         self.stats.dead_lettered += 1
+        metrics.EVENTS_CONSUMED.labels(consumer=self.name, result="dead_letter").inc()
 
     def _extra(self, envelope: Envelope) -> dict[str, str]:
         return {"consumer": self.name, "event_id": str(envelope.id), "event_type": envelope.type}

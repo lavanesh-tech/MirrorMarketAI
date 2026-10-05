@@ -176,6 +176,20 @@ class Settings(BaseSettings):
     # Price snapshots older than this are ignored by the Value Agent.
     price_max_age_days: int = Field(default=30, ge=1, le=365)
 
+    # --- Observability ---------------------------------------------------------------
+    # /metrics in the Prometheus text format. With a token set, scrapers must send it
+    # as a Bearer token; without one the endpoint relies on not being reachable from
+    # outside (it is only published on 127.0.0.1 by Compose).
+    metrics_enabled: bool = True
+    metrics_token: SecretStr | None = None
+    # Port for the workers' own /metrics (they have no HTTP API). None = off.
+    worker_metrics_port: int | None = Field(default=None, ge=1024, le=65_535)
+    # Traces over OTLP/HTTP. Off unless a collector is there to receive them.
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str = "http://localhost:4318"
+    otel_service_name: str = Field(default="mirrormarket-api", min_length=1, max_length=64)
+    otel_sample_ratio: float = Field(default=1.0, ge=0.0, le=1.0)
+
     # --- Events: outbox + Kafka -----------------------------------------------
     # Outbox rows are always written. They are only published when a worker runs
     # with KAFKA_ENABLED=true (`python -m app.workers.event_worker`).
@@ -208,7 +222,7 @@ class Settings(BaseSettings):
             return [int(p) for p in value.split(",") if p.strip()]
         return value
 
-    @field_validator("redis_url", "jwt_previous_secret_key", mode="before")
+    @field_validator("redis_url", "jwt_previous_secret_key", "metrics_token", mode="before")
     @classmethod
     def _empty_means_unset(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value

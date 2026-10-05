@@ -1,0 +1,140 @@
+# Alert rules. Each one names a symptom a person would act on, with a "for:" long
+# enough that a single slow scrape or one failed request does not page anyone.
+# No Alertmanager is wired up locally: firing alerts are visible in Prometheus
+# (http://127.0.0.1:9090/alerts) and on the Grafana dashboard.
+
+groups:
+  - name: availability
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is not answering scrapes"
+          description: "Prometheus has not been able to scrape {{ $labels.instance }} for 1 minute."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(mm_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(mm_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "More than 5% of API requests are failing"
+          description: "5xx share over the last 5 minutes: {{ $value | humanizePercentage }}."
+
+      - alert: SlowRequests
+        # Agent endpoints legitimately take seconds; they have their own alert below.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(mm_http_request_duration_seconds_bucket{route!~".*/(analyze|ask|research|compare|synthesize|compatibility|value|risk|reviews/analyze)"}[5m]))
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency of ordinary API requests is above 1 second"
+          description: "p95 over the last 5 minutes: {{ $value | humanizeDuration }}."
+
+  - name: agents
+    rules:
+      - alert: AgentRunsFailing
+        expr: |
+          sum(rate(mm_agent_runs_total{status="FAILED"}[10m]))
+            / sum(rate(mm_agent_runs_total[10m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 20% of agent runs are failing"
+
+      - alert: ModelCallsDegraded
+        expr: increase(mm_agent_degraded_total[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.agent }} fell back to the offline engine"
+          description: "Calls to the language model failed; answers are coming from the rule-based engine."
+
+      - alert: SlowAgentRuns
+        expr: |
+          histogram_quantile(0.95, sum by (le, agent) (rate(mm_agent_run_duration_seconds_bucket[10m]))) > 30
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 duration of {{ $labels.agent }} runs is above 30 seconds"
+
+  - name: events
+    rules:
+      - alert: OutboxBacklog
+        expr: mm_outbox_oldest_pending_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Events are waiting more than a minute to be published"
+          description: "{{ $value | humanizeDuration }} behind. The activity feed and anything fed by Kafka is stale."
+
+      - alert: EventsDeadLettered
+        expr: increase(mm_events_consumed_total{result="dead_letter"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.consumer }} gave up on an event"
+          description: "The event is in the dead-letter topic and needs a person to look at it."
+
+      - alert: EmbeddingJobsFailing
+        expr: increase(mm_embedding_jobs_total{result="failed"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "An embedding job failed for good"
+          description: "The document is stored but cannot be found by meaning-based search."
+
+  - name: security
+    rules:
+      - alert: RefreshTokenReuse
+        expr: increase(mm_audit_events_total{action="auth.refresh_reuse_detected"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "A rotated refresh token was presented again"
+          description: "Possible stolen session. The session family has been revoked; see the audit log."
+
+      - alert: LoginFailuresSpike
+        expr: sum(rate(mm_audit_events_total{action="auth.login", outcome="FAILURE"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than one failed login per second for 5 minutes"
+
+      - alert: InstructionsFoundInEvidence
+        expr: increase(mm_evidence_sentences_withheld_total[15m]) > 0
+        labels:
+          severity: info
+        annotations:
+          summary: "Evidence contained text that looks like instructions to an assistant"
+          description: "The sentences were withheld. Someone may be trying to manipulate results through a source."
+
+  - name: saturation
+    rules:
+      - alert: DatabasePoolExhausted
+        expr: mm_db_pool_connections{state="idle"} == 0 and mm_db_pool_connections{state="checked_out"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Every pooled database connection has been in use for 5 minutes"
+
+      - alert: RateLimitingSustained
+        expr: sum by (limit) (rate(mm_rate_limited_total[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Requests are being rejected by the {{ $labels.limit }} rate limit"

@@ -12,6 +12,8 @@ import asyncio
 import uuid
 from dataclasses import dataclass, field
 
+from app.telemetry import metrics
+
 
 @dataclass(eq=False, slots=True)
 class Connection:
@@ -35,13 +37,18 @@ class Hub:
         self._rooms: dict[uuid.UUID, set[Connection]] = {}
 
     def join(self, connection: Connection) -> None:
-        self._rooms.setdefault(connection.workspace_id, set()).add(connection)
+        room = self._rooms.setdefault(connection.workspace_id, set())
+        if connection not in room:
+            room.add(connection)
+            metrics.WS_CONNECTIONS.inc()
 
     def leave(self, connection: Connection) -> None:
         room = self._rooms.get(connection.workspace_id)
         if room is None:
             return
-        room.discard(connection)
+        if connection in room:
+            room.discard(connection)
+            metrics.WS_CONNECTIONS.dec()
         if not room:
             del self._rooms[connection.workspace_id]
 

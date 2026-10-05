@@ -89,6 +89,19 @@ paraphrased instructions can get past the pattern-based detector.
   rejected by every REST endpoint (ADR-046); the access token never reaches page scripts.
 - Errors never contain stack traces or internal details; every response has a request id.
 
+## Metrics and traces
+
+- `/metrics` exposes counts and timings only: no ids, emails, URLs or model names in
+  labels. It has no user authentication; set `METRICS_TOKEN` (bearer token, compared in
+  constant time) or keep the API port private. It is not part of the `/api/v1` surface
+  the web app proxies.
+- Traces never contain request bodies, headers or SQL parameter values; SQL spans hold
+  the parameterised statement text only (tested with a login request).
+- Prometheus, Grafana and Jaeger listen on 127.0.0.1 only. Grafana allows anonymous
+  read-only access for local use; change `GRAFANA_ADMIN_PASSWORD` before exposing it.
+- Security signals with alerts: refresh-token re-use, failed-login spikes, sustained
+  rate limiting, instruction-like text found in evidence (`docs/OBSERVABILITY.md`).
+
 ## Known limits
 
 - The PDF active-content check reads names in the raw file; names hidden inside compressed

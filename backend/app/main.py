@@ -13,11 +13,13 @@ Run locally:
 from __future__ import annotations
 
 import logging
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry.sdk.trace.export import SpanExporter
 
 from app import __version__
 from app.api.v1.router import api_router
@@ -30,7 +32,7 @@ from app.core.database import Database
 from app.core.errors import register_exception_handlers
 from app.core.http_hardening import BodySizeLimitMiddleware, SecurityHeadersMiddleware
 from app.core.logging import configure_logging
-from app.core.middleware import RequestContextMiddleware
+from app.core.middleware import METRICS_PATH, RequestContextMiddleware
 from app.core.redis import create_redis, create_subscriber_redis
 from app.ingestion.safe_fetch import SafeFetcher
 from app.providers.embeddings import create_embedding_provider
@@ -39,6 +41,8 @@ from app.providers.llm import OpenAIChatClient
 from app.realtime.bus import EventBus
 from app.realtime.hub import Hub
 from app.realtime.presence import Presence
+from app.telemetry import metrics
+from app.telemetry.tracing import instrument_clients, setup_tracing, shutdown_tracing
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     database = Database.from_settings(settings)
     app.state.database = database
+    pool = database.engine.pool
+    metrics.watch_pool(
+        lambda: float(getattr(pool, "checkedout", lambda: 0)()),
+        lambda: float(getattr(pool, "checkedin", lambda: 0)()),
+    )
+    tracer_provider = app.state.tracer_provider
+    if tracer_provider is not None:
+        instrument_clients(tracer_provider, database.engine)
     redis = create_redis(settings)  # lazy: connects on first command
     app.state.redis = redis
     app.state.cache = JsonCache(redis, settings.redis_key_prefix, settings.price_cache_ttl_seconds)
@@ -99,10 +111,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if redis is not None:
             await redis.aclose()
         await database.dispose()
+        if tracer_provider is not None:
+            shutdown_tracing(tracer_provider)  # flushes buffered spans
         logger.info("application shutdown")
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+async def metrics_endpoint(request: Request) -> Response:
+    """Prometheus scrape target. Not part of the public API (no auth model of its own)."""
+    settings: Settings = request.app.state.settings
+    token = settings.metrics_token
+    if token is not None:
+        expected = f"Bearer {token.get_secret_value()}"
+        if not secrets.compare_digest(request.headers.get("authorization", ""), expected):
+            return Response(status_code=401, headers={"WWW-Authenticate": "Bearer"})
+    body, content_type = metrics.render()
+    return Response(body, media_type=content_type)
+
+
+def create_app(
+    settings: Settings | None = None, *, span_exporter: SpanExporter | None = None
+) -> FastAPI:
+    """Build the application. `span_exporter` is for tests that inspect traces."""
     settings = settings or get_settings()
     configure_logging(level=settings.log_level, fmt=settings.log_format)
 
@@ -154,7 +183,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
     app.add_middleware(RequestContextMiddleware)
 
+    # Added last, so it is outermost: the span covers everything, and every log line
+    # written while handling the request carries its trace id.
+    app.state.tracer_provider = setup_tracing(app, settings, span_exporter)
+
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+    if settings.metrics_enabled:
+        app.add_api_route(METRICS_PATH, metrics_endpoint, include_in_schema=False)
     openapi.install(app)
     return app

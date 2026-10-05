@@ -75,3 +75,13 @@ refers to something in the dataset. OpenAI configurations
 (`make eval ENGINE=openai EMBEDDER=openai`) cost money and vary between runs; they are not
 part of the test suite.
 
+## Observability checks (Phase 28)
+
+- `tests/api/test_metrics.py`: `/metrics` format, route-template labels, one label for
+  unknown paths, token protection, switch-off; every `mm_*` name in the dashboard and the
+  alert rules must exist in the code; Prometheus targets must be Compose services.
+- `tests/db/test_tracing.py`: spans are collected in memory from a real app and database:
+  request span, SQL child spans, failing statement, `traceparent`, sampling, no
+  credentials in spans, trace ids on log lines, clean shutdown.
+- `make obs-check` (promtool) and `make smoke-observability` need Docker; CI runs both.
+

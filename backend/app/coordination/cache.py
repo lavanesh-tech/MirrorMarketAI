@@ -21,6 +21,8 @@ from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.telemetry import metrics
+
 logger = logging.getLogger(__name__)
 
 M = TypeVar("M", bound=BaseModel)
@@ -60,6 +62,7 @@ class JsonCache:
         """(value, hit). `params` distinguishes query variants of the same entity."""
         if self._redis is None:
             return await loader(), False
+        outcome = metrics.CACHE_REQUESTS.labels
         try:
             version = await self._version(namespace, entity)
             digest = hashlib.sha256(params.encode()).hexdigest()[:24]
@@ -67,12 +70,16 @@ class JsonCache:
             raw = await self._redis.get(key)
         except RedisError:
             logger.warning("cache unavailable; loading", extra={"cache_namespace": namespace})
+            outcome(namespace=namespace, result="bypass").inc()
             return await loader(), False
         if raw is not None:
             try:
-                return model.model_validate_json(raw), True
+                value = model.model_validate_json(raw)
+                outcome(namespace=namespace, result="hit").inc()
+                return value, True
             except ValidationError:
                 logger.warning("cache entry unreadable", extra={"cache_namespace": namespace})
+        outcome(namespace=namespace, result="miss").inc()
         value = await loader()
         try:
             await self._redis.set(key, value.model_dump_json(), ex=self.ttl_seconds)

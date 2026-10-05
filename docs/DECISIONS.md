@@ -673,3 +673,28 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   majority voting between sources (an attacker adds two documents); trusting uploads
   marked "official" (uploads are never official by design).
 
+## ADR-050: Prometheus metrics with route-template labels, OpenTelemetry traces, both optional
+
+- **Status:** Accepted (Phase 28)
+- **Decision:** The API and the workers expose Prometheus metrics from one registry
+  (`app/telemetry/metrics.py`). Labels are small fixed sets: the route as written in the
+  code, an agent name, an outcome; never an id, an email or a URL. Traces use the
+  OpenTelemetry SDK with an OTLP/HTTP exporter (`app/telemetry/tracing.py`), are off by
+  default, and the tracer provider belongs to the application instead of being installed
+  globally. SQL spans come from SQLAlchemy cursor events written in this repo, because
+  the OpenTelemetry SQLAlchemy package does not support SQLAlchemy 2.1. Prometheus,
+  Grafana and Jaeger run in an optional Compose profile; the dashboard, data sources and
+  alert rules are files in `infrastructure/observability`, and a test fails when one of
+  them names a metric the code does not expose.
+- **Why:** ids as label values create one time series per id and eventually take the
+  metrics system down; a global tracer provider makes tests and several apps in one
+  process depend on each other; dashboards that drift from the code show empty panels
+  exactly when they are needed.
+- **What this does not solve:** workers are not traced, so a trace stops at the outbox;
+  there is no Alertmanager, no log aggregation and no frontend telemetry; alert
+  thresholds are not tuned on real traffic.
+- **Alternatives rejected:** OpenTelemetry metrics through a collector (one more moving
+  part for no gain at this size); pinning SQLAlchemy below 2.1 to keep the official
+  instrumentation (a tracing add-on should not hold back the database layer); a hosted
+  service (needs an account and a secret; the project runs offline).
+

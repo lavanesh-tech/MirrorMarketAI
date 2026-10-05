@@ -34,6 +34,7 @@ every factual claim cites its source. Collaborators see the research happen live
 | AI | OpenAI chat + embeddings, LangChain where it helps |
 | API docs | OpenAPI 3.1, endpoint index and Postman collection generated from code and drift-tested; see `docs/API.md` |
 | Security | Rotating refresh tokens, append-only audit log, prompt-injection and upload defences, authorization matrix test; see `docs/SECURITY.md` |
+| Observability | Prometheus metrics, Grafana dashboard, alert rules, OpenTelemetry traces in Jaeger; see `docs/OBSERVABILITY.md` |
 | Realtime | WebSockets (push-only events, Redis pub/sub fan-out, presence); see `docs/REALTIME.md` |
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind; backend-for-frontend with HttpOnly cookie sessions; see `frontend/README.md` |
 | Quality | Ruff, mypy (strict), pytest, Playwright, k6 |
@@ -60,6 +61,7 @@ MirrorMarketAI/
 │   ├── pyproject.toml        dependencies + ruff/mypy/pytest configuration
 │   └── uv.lock               exact, reproducible dependency versions
 ├── infrastructure/docker/    local container init scripts (pgvector extension)
+├── infrastructure/observability/  Prometheus config and alerts, Grafana dashboard (Phase 28)
 ├── benchmarks/results/       recorded benchmark runs (Phase 29)
 ├── docs/                     architecture, decisions, roadmap
 ├── .github/workflows/ci.yml  CI pipeline
@@ -170,4 +172,5 @@ from `A-Z a-z 0-9 . _ -`) to correlate across services; otherwise one is generat
 - [Roadmap](docs/ROADMAP.md)
 - [Data model](docs/DATA_MODEL.md)
 - [Testing](docs/TESTING.md)
+- [Observability](docs/OBSERVABILITY.md): metrics, dashboard, alerts and traces (`make obs-up`)
 - [Evaluation](docs/EVALUATION.md): measured quality, what was fixed, and what still fails

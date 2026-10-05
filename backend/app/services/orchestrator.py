@@ -46,6 +46,7 @@ from app.services.agents import (
     AgentService,
 )
 from app.services.workspaces import WorkspaceService
+from app.telemetry.tracing import span
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +220,10 @@ class Orchestrator:
     ) -> tuple[StepResult, int]:
         step_started = time.perf_counter()
         try:
-            async with self.session.begin_nested():
-                run = await self._step(agent)(workspace_id, user, product_id)
+            # One span per agent step, so a trace shows where an analysis spent its time.
+            with span(f"agent.{agent}", **{"mm.agent": agent, "mm.product_id": str(product_id)}):
+                async with self.session.begin_nested():
+                    run = await self._step(agent)(workspace_id, user, product_id)
         except Exception as exc:
             logger.exception("agent step failed", extra={"agent": agent})
             elapsed = int((time.perf_counter() - step_started) * 1000)

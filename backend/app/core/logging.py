@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.core.request_context import get_request_id
+from app.telemetry.tracing import current_trace_ids
 
 # Attributes every LogRecord has. Anything else on a record came from `extra=`.
 # `color_message` is an ANSI-coloured duplicate uvicorn attaches to its records.
@@ -31,10 +32,14 @@ _RESERVED_RECORD_ATTRS = frozenset(
 
 
 class RequestIdFilter(logging.Filter):
-    """Attach the current request ID (if any) to every record."""
+    """Attach the current request ID and trace IDs (if any) to every record."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = get_request_id()
+        # Inside a traced request, tie the log line to its trace (and back).
+        ids = current_trace_ids()
+        if ids is not None:
+            record.trace_id, record.span_id = ids
         return True
 
 

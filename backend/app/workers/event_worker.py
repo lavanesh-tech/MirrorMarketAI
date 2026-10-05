@@ -25,6 +25,7 @@ from app.events.envelope import DLQ_SUFFIX, TOPIC_EVENTS
 from app.events.handlers import ACTIVITY_CONSUMER, project_activity
 from app.events.kafka import KafkaConsumer, KafkaProducer, ensure_topics
 from app.events.relay import OutboxRelay
+from app.telemetry.metrics import start_metrics_server
 from app.workers.embedding_worker import heartbeat
 
 logger = logging.getLogger("app.workers.events")
@@ -41,6 +42,7 @@ async def relay_loop(relay: OutboxRelay, settings: Settings, stop: asyncio.Event
         pause = settings.outbox_poll_interval_seconds
         try:
             result = await relay.publish_batch()
+            await relay.measure_backlog()
             if result.published == settings.outbox_batch_size:
                 pause = 0.0  # a full batch means there is probably more
             if time.monotonic() - last_purge > PURGE_INTERVAL_SECONDS:
@@ -72,6 +74,8 @@ async def consumer_loop(consumer: EventConsumer, stop: asyncio.Event) -> None:
 async def run_worker(settings: Settings, role: str) -> None:
     if not settings.kafka_enabled:
         raise SystemExit("KAFKA_ENABLED is false: the event worker has nothing to do.")
+    if settings.worker_metrics_port is not None:
+        start_metrics_server(settings.worker_metrics_port)
     database = Database.from_settings(settings)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

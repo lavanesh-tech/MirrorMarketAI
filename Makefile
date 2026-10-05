@@ -178,6 +178,25 @@ api-docs: ## Regenerate docs/api (OpenAPI, endpoint index, Postman collection) f
 	cd $(BACKEND) && $(UV) run python -m tools.api_docs
 	@test -d frontend/node_modules && (cd frontend && npm run --silent api:types) || true
 
+.PHONY: obs-up
+obs-up: ## Start the stack with Prometheus, Grafana (http://127.0.0.1:3001) and Jaeger; tracing on
+	OTEL_ENABLED=true $(COMPOSE) --profile observability up -d --build --wait --wait-timeout 300
+	@echo "Grafana http://127.0.0.1:3001  Prometheus http://127.0.0.1:9090  Jaeger http://127.0.0.1:16686"
+
+.PHONY: obs-down
+obs-down: ## Stop the stack including the observability containers (keeps volumes)
+	$(COMPOSE) --profile observability down
+
+.PHONY: obs-check
+obs-check: ## Validate the Prometheus config and alert rules with promtool (needs Docker)
+	docker run --rm --entrypoint promtool \
+		-v "$(CURDIR)/infrastructure/observability/prometheus:/etc/prometheus:ro" \
+		prom/prometheus:v3.13.4 check config /etc/prometheus/prometheus.yml
+
+.PHONY: smoke-observability
+smoke-observability: ## Check metrics reach Prometheus, the dashboard is in Grafana and traces reach Jaeger
+	@python3 infrastructure/scripts/smoke_observability.py $(API_URL)
+
 .PHONY: smoke-events
 smoke-events: ## End-to-end check: comment -> outbox -> Kafka -> consumer -> activity feed
 	@python3 infrastructure/scripts/smoke_events.py $(API_URL)

@@ -19,6 +19,7 @@ from app.core.database import Database
 from app.core.logging import configure_logging
 from app.providers.embeddings import EmbeddingProvider, create_embedding_provider
 from app.services.embeddings import EmbeddingService
+from app.telemetry.metrics import start_metrics_server
 
 logger = logging.getLogger("app.workers.embedding")
 
@@ -60,6 +61,8 @@ async def drain(
 async def run_worker(
     settings: Settings, *, once: bool, heartbeat_path: Path | None = HEARTBEAT_FILE
 ) -> int:
+    if settings.worker_metrics_port is not None:
+        start_metrics_server(settings.worker_metrics_port)
     database = Database.from_settings(settings)
     provider = create_embedding_provider(settings)
     stop = asyncio.Event()

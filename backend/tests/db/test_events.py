@@ -22,6 +22,7 @@ from app.events.handlers import ACTIVITY_CONSUMER, project_activity
 from app.events.relay import OutboxRelay
 from app.models.events import OutboxEvent, ProcessedEvent, WorkspaceActivity
 from app.models.identity import ComparisonWorkspace, Organization, User
+from app.telemetry import metrics
 from app.workers import event_worker
 from tests.db.conftest import StackFactory, register_user, seed
 
@@ -127,6 +128,42 @@ async def test_relay_publishes_in_order_once(
     assert await pending(db_session) == []
     assert (await relay.publish_batch()).published == 0
     assert len(broker.log(TOPIC_EVENTS)) == 3
+
+
+async def test_backlog_is_measured_for_alerting(
+    db_session: AsyncSession, session_scope: SessionFactory, cfg: Settings
+) -> None:
+    """Pending events and the age of the oldest are what the backlog alert watches."""
+    await db_session.execute(update(OutboxEvent).values(published_at=datetime.now(UTC)))
+    relay = OutboxRelay(session_scope, InMemoryBroker().producer(), cfg)
+    assert await relay.measure_backlog() == (0, 0.0)
+    assert metrics.REGISTRY.get_sample_value("mm_outbox_pending_events") == 0
+
+    for i in range(2):
+        db_session.add(new_event("test.event", {"i": i}, workspace_id=uuid.uuid4()))
+    await db_session.flush()
+    await db_session.execute(
+        update(OutboxEvent)
+        .where(OutboxEvent.published_at.is_(None))
+        .values(created_at=datetime.now(UTC) - timedelta(seconds=90))
+    )
+    pending_count, age = await relay.measure_backlog()
+    assert pending_count == 2
+    assert 90 <= age < 120
+    assert metrics.REGISTRY.get_sample_value("mm_outbox_pending_events") == 2
+    oldest = metrics.REGISTRY.get_sample_value("mm_outbox_oldest_pending_seconds")
+    assert oldest is not None
+    assert 90 <= oldest < 120
+
+    published = metrics.REGISTRY.get_sample_value(
+        "mm_events_relayed_total", {"result": "published"}
+    )
+    await relay.publish_batch()
+    assert await relay.measure_backlog() == (0, 0.0)
+    assert (
+        metrics.REGISTRY.get_sample_value("mm_events_relayed_total", {"result": "published"})
+        == (published or 0) + 2
+    )
 
 
 async def test_relay_retries_with_backoff_and_keeps_order(

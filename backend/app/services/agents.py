@@ -54,6 +54,7 @@ from app.security.prompt_safety import data_view, without_instructions
 from app.services.evidence import EvidenceService
 from app.services.search import SearchFilters, SearchHit, SearchService
 from app.services.workspaces import WorkspaceService
+from app.telemetry import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -549,6 +550,9 @@ class AgentService:
                 product_id=product_id,
             )
         )
+        metrics.observe_agent_run(
+            agent, RULES_ENGINE, run.status, duration_ms / 1000, 0, degraded=False
+        )
         await self._save()
         return run
 
@@ -658,6 +662,14 @@ class AgentService:
                 actor_id=user.id,
                 product_id=product_id,
             )
+        )
+        metrics.observe_agent_run(
+            agent,
+            result.engine,
+            run.status,
+            run.duration_ms / 1000,
+            result.tokens_used,
+            degraded=result.degraded,
         )
         await self._save()
         return run

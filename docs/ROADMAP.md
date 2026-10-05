@@ -331,3 +331,14 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] A test fails when the committed offline result differs from a fresh run
 - [x] OpenAI configurations runnable with `make eval ENGINE=openai EMBEDDER=openai` (not run in the cloud workspace)
 - [x] Verified on the developer Mac and CI green (run 37244986546, commit 86d9c68)
+
+## Phase 28 exit criteria
+
+- [x] Prometheus metrics for HTTP, agents, search, answers, cache, rate limits, WebSockets, audit events, the database pool, embedding jobs and the event pipeline; `/metrics` on the API and on both workers
+- [x] Labels are route templates and fixed names only (no ids, emails or URLs); unknown paths share one label value
+- [x] OpenTelemetry traces (off by default): one trace per request with SQL, outbound HTTP and agent-step spans; incoming `traceparent` continued; trace ids on log lines
+- [x] Prometheus, Grafana (provisioned dashboard and data sources) and Jaeger in an optional Compose profile (`make obs-up`); 14 alert rules
+- [x] Tests fail when the dashboard or an alert names a metric the code does not expose
+- [x] CI validates the Prometheus config with promtool, starts the profile and checks scraping, the dashboard and a received trace
+- [ ] Verified on the developer Mac and CI green
+

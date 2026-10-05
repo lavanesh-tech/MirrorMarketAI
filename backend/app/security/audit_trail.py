@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.request_context import get_client_ip, get_request_id
 from app.models.security import AuditLog
+from app.telemetry import metrics
 
 SUCCESS = "SUCCESS"
 FAILURE = "FAILURE"
@@ -49,6 +50,7 @@ def record(
     target_id: uuid.UUID | str | None = None,
     details: dict[str, Any] | None = None,
 ) -> None:
+    metrics.AUDIT_EVENTS.labels(action=action, outcome=outcome).inc()
     session.add(
         AuditLog(
             action=action,
