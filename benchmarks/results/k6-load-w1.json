@@ -1,0 +1,194 @@
+{
+  "label": "w1",
+  "recorded_at": "2026-10-05T14:20:51+00:00",
+  "commit": "4d348b6",
+  "dirty": false,
+  "tool": "k6 (grafana/k6 image in docker-compose.loadtest.yml)",
+  "environment": {
+    "machine": "arm64, 15 logical CPUs",
+    "os": "Darwin 25.6.0",
+    "docker_cpus": 15,
+    "docker_memory_gb": 7.7,
+    "api": {
+      "WEB_CONCURRENCY": "1",
+      "AGENT_ENGINE": "rules",
+      "REQUIREMENTS_EXTRACTOR": "rules",
+      "EMBEDDING_PROVIDER": "hashing",
+      "RATE_LIMIT_AUTH_PER_MINUTE": "10000",
+      "RATE_LIMIT_AGENTS_PER_MINUTE": "10000",
+      "KAFKA_ENABLED": "true",
+      "OTEL_ENABLED": "false"
+    }
+  },
+  "profile": "load",
+  "config": {
+    "users": 10,
+    "products_per_user": 3,
+    "rate": 30,
+    "steps": [
+      25,
+      50,
+      100,
+      150,
+      200,
+      300
+    ],
+    "step_seconds": 30,
+    "weights": {
+      "workspace_get": 14,
+      "workspace_products": 10,
+      "product_get": 10,
+      "comments_list": 8,
+      "votes_get": 5,
+      "agent_runs_list": 5,
+      "requirements_get": 5,
+      "price_history": 10,
+      "search": 12,
+      "ask": 7,
+      "compare": 5,
+      "comment_create": 5,
+      "vote": 3,
+      "analyze": 1
+    }
+  },
+  "duration_seconds": 125.1,
+  "overall": {
+    "requests": 3601,
+    "failed_rate": 0,
+    "p50_ms": 5.4,
+    "p95_ms": 15.82,
+    "p99_ms": 230.8,
+    "max_ms": 642.86,
+    "dropped": 0
+  },
+  "operations": {
+    "workspace_get": {
+      "requests": 499,
+      "failed_rate": 0,
+      "p50_ms": 3.65,
+      "p95_ms": 6.51,
+      "p99_ms": 20.57,
+      "max_ms": 69.88,
+      "weight": 14
+    },
+    "workspace_products": {
+      "requests": 363,
+      "failed_rate": 0,
+      "p50_ms": 4.06,
+      "p95_ms": 7.73,
+      "p99_ms": 20.16,
+      "max_ms": 75.85,
+      "weight": 10
+    },
+    "product_get": {
+      "requests": 349,
+      "failed_rate": 0,
+      "p50_ms": 4.25,
+      "p95_ms": 8.89,
+      "p99_ms": 14.42,
+      "max_ms": 56.27,
+      "weight": 10
+    },
+    "comments_list": {
+      "requests": 308,
+      "failed_rate": 0,
+      "p50_ms": 4.74,
+      "p95_ms": 9.03,
+      "p99_ms": 16.38,
+      "max_ms": 132.16,
+      "weight": 8
+    },
+    "votes_get": {
+      "requests": 170,
+      "failed_rate": 0,
+      "p50_ms": 4.31,
+      "p95_ms": 7.63,
+      "p99_ms": 9.82,
+      "max_ms": 12.14,
+      "weight": 5
+    },
+    "agent_runs_list": {
+      "requests": 165,
+      "failed_rate": 0,
+      "p50_ms": 6.25,
+      "p95_ms": 12.64,
+      "p99_ms": 28.96,
+      "max_ms": 61.22,
+      "weight": 5
+    },
+    "requirements_get": {
+      "requests": 189,
+      "failed_rate": 0,
+      "p50_ms": 4.48,
+      "p95_ms": 7.91,
+      "p99_ms": 15.54,
+      "max_ms": 18.23,
+      "weight": 5
+    },
+    "price_history": {
+      "requests": 355,
+      "failed_rate": 0,
+      "p50_ms": 3.6,
+      "p95_ms": 7.71,
+      "p99_ms": 21.64,
+      "max_ms": 56.89,
+      "weight": 10
+    },
+    "search": {
+      "requests": 418,
+      "failed_rate": 0,
+      "p50_ms": 6.73,
+      "p95_ms": 11.03,
+      "p99_ms": 14.19,
+      "max_ms": 76.56,
+      "weight": 12
+    },
+    "ask": {
+      "requests": 270,
+      "failed_rate": 0,
+      "p50_ms": 14.1,
+      "p95_ms": 23.38,
+      "p99_ms": 51.8,
+      "max_ms": 91.98,
+      "weight": 7
+    },
+    "compare": {
+      "requests": 189,
+      "failed_rate": 0,
+      "p50_ms": 10.84,
+      "p95_ms": 17.4,
+      "p99_ms": 34.23,
+      "max_ms": 71.3,
+      "weight": 5
+    },
+    "comment_create": {
+      "requests": 172,
+      "failed_rate": 0,
+      "p50_ms": 6.79,
+      "p95_ms": 11.88,
+      "p99_ms": 20.51,
+      "max_ms": 29.15,
+      "weight": 5
+    },
+    "vote": {
+      "requests": 116,
+      "failed_rate": 0,
+      "p50_ms": 7.72,
+      "p95_ms": 12.53,
+      "p99_ms": 21.97,
+      "max_ms": 69.77,
+      "weight": 3
+    },
+    "analyze": {
+      "requests": 38,
+      "failed_rate": 0,
+      "p50_ms": 259.68,
+      "p95_ms": 545.16,
+      "p99_ms": 631.84,
+      "max_ms": 642.86,
+      "weight": 1
+    }
+  },
+  "thresholds_passed": true,
+  "target_rate": 30
+}

@@ -1,0 +1,267 @@
+{
+  "label": "w4",
+  "recorded_at": "2026-10-05T14:29:29+00:00",
+  "commit": "4d348b6",
+  "dirty": false,
+  "tool": "k6 (grafana/k6 image in docker-compose.loadtest.yml)",
+  "environment": {
+    "machine": "arm64, 15 logical CPUs",
+    "os": "Darwin 25.6.0",
+    "docker_cpus": 15,
+    "docker_memory_gb": 7.7,
+    "api": {
+      "WEB_CONCURRENCY": "4",
+      "AGENT_ENGINE": "rules",
+      "REQUIREMENTS_EXTRACTOR": "rules",
+      "EMBEDDING_PROVIDER": "hashing",
+      "RATE_LIMIT_AUTH_PER_MINUTE": "10000",
+      "RATE_LIMIT_AGENTS_PER_MINUTE": "10000",
+      "KAFKA_ENABLED": "true",
+      "OTEL_ENABLED": "false"
+    }
+  },
+  "profile": "capacity",
+  "config": {
+    "users": 10,
+    "products_per_user": 3,
+    "rate": 30,
+    "steps": [
+      50,
+      100,
+      200,
+      300,
+      450,
+      600
+    ],
+    "step_seconds": 30,
+    "weights": {
+      "workspace_get": 14,
+      "workspace_products": 10,
+      "product_get": 10,
+      "comments_list": 8,
+      "votes_get": 5,
+      "agent_runs_list": 5,
+      "requirements_get": 5,
+      "price_history": 10,
+      "search": 12,
+      "ask": 7,
+      "compare": 5,
+      "comment_create": 5,
+      "vote": 3,
+      "analyze": 1
+    }
+  },
+  "duration_seconds": 238.1,
+  "overall": {
+    "requests": 47548,
+    "failed_rate": 0.65853,
+    "p50_ms": 3086.54,
+    "p95_ms": 3908.71,
+    "p99_ms": 4148.22,
+    "max_ms": 16075.1,
+    "dropped": 3454
+  },
+  "operations": {
+    "workspace_get": {
+      "requests": 6719,
+      "failed_rate": 0.65992,
+      "p50_ms": 3082.72,
+      "p95_ms": 3900.61,
+      "p99_ms": 4130.18,
+      "max_ms": 4833.24,
+      "weight": 14
+    },
+    "workspace_products": {
+      "requests": 4687,
+      "failed_rate": 0.66844,
+      "p50_ms": 3087.27,
+      "p95_ms": 3889.25,
+      "p99_ms": 4124.92,
+      "max_ms": 4762.31,
+      "weight": 10
+    },
+    "product_get": {
+      "requests": 4808,
+      "failed_rate": 0.64309,
+      "p50_ms": 3070.97,
+      "p95_ms": 3882.24,
+      "p99_ms": 4130.4,
+      "max_ms": 4824.66,
+      "weight": 10
+    },
+    "comments_list": {
+      "requests": 3732,
+      "failed_rate": 0.66774,
+      "p50_ms": 3086.07,
+      "p95_ms": 3893.16,
+      "p99_ms": 4132.92,
+      "max_ms": 4824.29,
+      "weight": 8
+    },
+    "votes_get": {
+      "requests": 2377,
+      "failed_rate": 0.63946,
+      "p50_ms": 3066.59,
+      "p95_ms": 3886.62,
+      "p99_ms": 4098.38,
+      "max_ms": 4721.61,
+      "weight": 5
+    },
+    "agent_runs_list": {
+      "requests": 2425,
+      "failed_rate": 0.65237,
+      "p50_ms": 3080.33,
+      "p95_ms": 3949.67,
+      "p99_ms": 4233.0,
+      "max_ms": 4826.94,
+      "weight": 5
+    },
+    "requirements_get": {
+      "requests": 2410,
+      "failed_rate": 0.661,
+      "p50_ms": 3079.75,
+      "p95_ms": 3920.85,
+      "p99_ms": 4134.41,
+      "max_ms": 4823.31,
+      "weight": 5
+    },
+    "price_history": {
+      "requests": 4715,
+      "failed_rate": 0.6526,
+      "p50_ms": 3077.09,
+      "p95_ms": 3919.24,
+      "p99_ms": 4145.53,
+      "max_ms": 4835.36,
+      "weight": 10
+    },
+    "search": {
+      "requests": 5658,
+      "failed_rate": 0.65624,
+      "p50_ms": 3088.08,
+      "p95_ms": 3907.16,
+      "p99_ms": 4146.15,
+      "max_ms": 4827.35,
+      "weight": 12
+    },
+    "ask": {
+      "requests": 3352,
+      "failed_rate": 0.66527,
+      "p50_ms": 3113.08,
+      "p95_ms": 3902.45,
+      "p99_ms": 4124.6,
+      "max_ms": 4812.41,
+      "weight": 7
+    },
+    "compare": {
+      "requests": 2294,
+      "failed_rate": 0.67044,
+      "p50_ms": 3113.32,
+      "p95_ms": 3916.69,
+      "p99_ms": 4121.08,
+      "max_ms": 4748.02,
+      "weight": 5
+    },
+    "comment_create": {
+      "requests": 2416,
+      "failed_rate": 0.67881,
+      "p50_ms": 3090.7,
+      "p95_ms": 3916.63,
+      "p99_ms": 4145.56,
+      "max_ms": 4805.18,
+      "weight": 5
+    },
+    "vote": {
+      "requests": 1487,
+      "failed_rate": 0.6456,
+      "p50_ms": 3085.02,
+      "p95_ms": 3910.83,
+      "p99_ms": 4219.43,
+      "max_ms": 4737.53,
+      "weight": 3
+    },
+    "analyze": {
+      "requests": 468,
+      "failed_rate": 0.65812,
+      "p50_ms": 3285.03,
+      "p95_ms": 6089.02,
+      "p99_ms": 13224.46,
+      "max_ms": 16075.1,
+      "weight": 1
+    }
+  },
+  "thresholds_passed": true,
+  "steps": [
+    {
+      "requests": 1501,
+      "failed_rate": 0,
+      "p50_ms": 4.46,
+      "p95_ms": 14.9,
+      "p99_ms": 244.56,
+      "max_ms": 371.07,
+      "target_rate": 50,
+      "achieved_rate": 50.0,
+      "dropped": 0,
+      "sustained": true
+    },
+    {
+      "requests": 3000,
+      "failed_rate": 0,
+      "p50_ms": 5.28,
+      "p95_ms": 51.19,
+      "p99_ms": 186.35,
+      "max_ms": 828.82,
+      "target_rate": 100,
+      "achieved_rate": 100.0,
+      "dropped": 0,
+      "sustained": true
+    },
+    {
+      "requests": 5872,
+      "failed_rate": 0.21866,
+      "p50_ms": 1815.34,
+      "p95_ms": 3053.53,
+      "p99_ms": 3162.73,
+      "max_ms": 4989.97,
+      "target_rate": 200,
+      "achieved_rate": 195.7,
+      "dropped": 129,
+      "sustained": false
+    },
+    {
+      "requests": 8697,
+      "failed_rate": 0.54134,
+      "p50_ms": 3028.72,
+      "p95_ms": 3219.07,
+      "p99_ms": 3311.57,
+      "max_ms": 6566.1,
+      "target_rate": 300,
+      "achieved_rate": 289.9,
+      "dropped": 303,
+      "sustained": false
+    },
+    {
+      "requests": 12848,
+      "failed_rate": 0.85904,
+      "p50_ms": 3138.48,
+      "p95_ms": 3563.74,
+      "p99_ms": 3743.68,
+      "max_ms": 10929.55,
+      "target_rate": 450,
+      "achieved_rate": 428.3,
+      "dropped": 652,
+      "sustained": false
+    },
+    {
+      "requests": 15630,
+      "failed_rate": 0.91382,
+      "p50_ms": 3539.7,
+      "p95_ms": 4073.87,
+      "p99_ms": 4442.81,
+      "max_ms": 16075.1,
+      "target_rate": 600,
+      "achieved_rate": 521.0,
+      "dropped": 2370,
+      "sustained": false
+    }
+  ]
+}

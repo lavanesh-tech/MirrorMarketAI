@@ -22,7 +22,67 @@ Do not edit by hand: run a load test (`make load-test`, `make load-capacity`) in
 
 ## Results
 
-No runs recorded yet.
+### Capacity, w1
+
+- Recorded 2026-10-05T14:24:52+00:00 at commit `4d348b6`.
+- Machine: arm64, 15 logical CPUs, Darwin 25.6.0; Docker has 15 CPUs and 7.7 GB. The load generator, the API, PostgreSQL, Redis and Kafka all share that machine.
+- API: 1 process(es), database pool 5 + 5 overflow per process, pool timeout 3 s; engines `rules` / `hashing` (offline, no model calls).
+- Data: synthetic. 10 users, each with one workspace and 3 products (two documents and 30 prices per product).
+
+| Target req/s | Achieved req/s | Failed | Dropped | p50 ms | p95 ms | p99 ms | Sustained |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| 25 | 25.0 | 0.00% | 0 | 5.8 | 15.0 | 128 | yes |
+| 50 | 50.0 | 0.00% | 0 | 3.9 | 14.5 | 61.5 | yes |
+| 100 | 100.0 | 0.00% | 0 | 6.1 | 80.0 | 307 | yes |
+| 150 | 150.0 | 0.00% | 0 | 24.9 | 299 | 647 | yes |
+| 200 | 196.9 | 13.68% | 94 | 1,545 | 3,027 | 3,119 | no |
+| 300 | 289.0 | 62.88% | 331 | 3,035 | 3,240 | 3,406 | no |
+
+Highest rate sustained: **150 requests/s**.
+
+### Capacity, w4
+
+- Recorded 2026-10-05T14:29:29+00:00 at commit `4d348b6`.
+- Machine: arm64, 15 logical CPUs, Darwin 25.6.0; Docker has 15 CPUs and 7.7 GB. The load generator, the API, PostgreSQL, Redis and Kafka all share that machine.
+- API: 4 process(es), database pool 5 + 5 overflow per process, pool timeout 3 s; engines `rules` / `hashing` (offline, no model calls).
+- Data: synthetic. 10 users, each with one workspace and 3 products (two documents and 30 prices per product).
+
+| Target req/s | Achieved req/s | Failed | Dropped | p50 ms | p95 ms | p99 ms | Sustained |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| 50 | 50.0 | 0.00% | 0 | 4.5 | 14.9 | 245 | yes |
+| 100 | 100.0 | 0.00% | 0 | 5.3 | 51.2 | 186 | yes |
+| 200 | 195.7 | 21.87% | 129 | 1,815 | 3,054 | 3,163 | no |
+| 300 | 289.9 | 54.13% | 303 | 3,029 | 3,219 | 3,312 | no |
+| 450 | 428.3 | 85.90% | 652 | 3,138 | 3,564 | 3,744 | no |
+| 600 | 521.0 | 91.38% | 2,370 | 3,540 | 4,074 | 4,443 | no |
+
+Highest rate sustained: **100 requests/s**.
+
+### Steady load, w1
+
+- Recorded 2026-10-05T14:20:51+00:00 at commit `4d348b6`.
+- Machine: arm64, 15 logical CPUs, Darwin 25.6.0; Docker has 15 CPUs and 7.7 GB. The load generator, the API, PostgreSQL, Redis and Kafka all share that machine.
+- API: 1 process(es), database pool 5 + 5 overflow per process, pool timeout 3 s; engines `rules` / `hashing` (offline, no model calls).
+- Data: synthetic. 10 users, each with one workspace and 3 products (two documents and 30 prices per product).
+- Load: 30 requests/s for 125 s (including setup); 0 requests could not be started in time.
+
+| Request | Share | Requests | Failed | p50 ms | p95 ms | p99 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `workspace_get` | 14% | 499 | 0.00% | 3.6 | 6.5 | 20.6 |
+| `workspace_products` | 10% | 363 | 0.00% | 4.1 | 7.7 | 20.2 |
+| `product_get` | 10% | 349 | 0.00% | 4.2 | 8.9 | 14.4 |
+| `comments_list` | 8% | 308 | 0.00% | 4.7 | 9.0 | 16.4 |
+| `votes_get` | 5% | 170 | 0.00% | 4.3 | 7.6 | 9.8 |
+| `agent_runs_list` | 5% | 165 | 0.00% | 6.2 | 12.6 | 29.0 |
+| `requirements_get` | 5% | 189 | 0.00% | 4.5 | 7.9 | 15.5 |
+| `price_history` | 10% | 355 | 0.00% | 3.6 | 7.7 | 21.6 |
+| `search` | 12% | 418 | 0.00% | 6.7 | 11.0 | 14.2 |
+| `ask` | 7% | 270 | 0.00% | 14.1 | 23.4 | 51.8 |
+| `compare` | 5% | 189 | 0.00% | 10.8 | 17.4 | 34.2 |
+| `comment_create` | 5% | 172 | 0.00% | 6.8 | 11.9 | 20.5 |
+| `vote` | 3% | 116 | 0.00% | 7.7 | 12.5 | 22.0 |
+| `analyze` | 1% | 38 | 0.00% | 260 | 545 | 632 |
+| **all** | 100% | 3,601 | 0.00% | 5.4 | 15.8 | 231 |
 
 ## What the load test found
 
