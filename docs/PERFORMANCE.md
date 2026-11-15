@@ -24,39 +24,47 @@ Do not edit by hand: run a load test (`make load-test`, `make load-capacity`) in
 
 ### Capacity, w1
 
-- Recorded 2026-10-05T14:24:52+00:00 at commit `4d348b6`.
+- Recorded 2026-11-15T23:52:57+00:00 at commit `a185fb4`.
 - Machine: arm64, 15 logical CPUs, Darwin 25.6.0; Docker has 15 CPUs and 7.7 GB. The load generator, the API, PostgreSQL, Redis and Kafka all share that machine.
 - API: 1 process(es), database pool 5 + 5 overflow per process, pool timeout 3 s; engines `rules` / `hashing` (offline, no model calls).
 - Data: synthetic. 10 users, each with one workspace and 3 products (two documents and 30 prices per product).
 
 | Target req/s | Achieved req/s | Failed | Dropped | p50 ms | p95 ms | p99 ms | Sustained |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
-| 25 | 25.0 | 0.00% | 0 | 5.8 | 15.0 | 128 | yes |
-| 50 | 50.0 | 0.00% | 0 | 3.9 | 14.5 | 61.5 | yes |
-| 100 | 100.0 | 0.00% | 0 | 6.1 | 80.0 | 307 | yes |
-| 150 | 150.0 | 0.00% | 0 | 24.9 | 299 | 647 | yes |
-| 200 | 196.9 | 13.68% | 94 | 1,545 | 3,027 | 3,119 | no |
-| 300 | 289.0 | 62.88% | 331 | 3,035 | 3,240 | 3,406 | no |
+| 25 | 25.0 | 0.00% | 0 | 5.5 | 16.8 | 260 | yes |
+| 50 | 50.0 | 0.00% | 0 | 4.7 | 15.6 | 51.3 | yes |
+| 100 | 100.0 | 0.00% | 0 | 7.4 | 113 | 307 | yes |
+| 150 | 149.8 | 4.12% | 6 | 733 | 3,011 | 3,068 | no |
+| 200 | 194.8 | 26.60% | 156 | 2,794 | 3,102 | 3,198 | no |
+| 300 | 289.3 | 72.93% | 321 | 3,052 | 3,274 | 3,347 | no |
 
-Highest rate sustained: **150 requests/s**.
+Highest rate sustained: **100 requests/s**.
+
+At the busiest moment sampled (147 s into the run), CPU per container (100% = one core): API **103%** across 1 process(es), PostgreSQL **24%**, Redis 1%, k6 10%, everything else 176%. PostgreSQL sessions at that moment: 1 running a statement, 10 holding a transaction open while waiting for the API, 0 waiting on a lock (most seen in any sample: 0).
+
+CPU seconds used by each API process over the whole run: 140.6.
 
 ### Capacity, w4
 
-- Recorded 2026-10-05T14:29:29+00:00 at commit `4d348b6`.
+- Recorded 2026-11-15T23:57:33+00:00 at commit `a185fb4`.
 - Machine: arm64, 15 logical CPUs, Darwin 25.6.0; Docker has 15 CPUs and 7.7 GB. The load generator, the API, PostgreSQL, Redis and Kafka all share that machine.
 - API: 4 process(es), database pool 5 + 5 overflow per process, pool timeout 3 s; engines `rules` / `hashing` (offline, no model calls).
 - Data: synthetic. 10 users, each with one workspace and 3 products (two documents and 30 prices per product).
 
 | Target req/s | Achieved req/s | Failed | Dropped | p50 ms | p95 ms | p99 ms | Sustained |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
-| 50 | 50.0 | 0.00% | 0 | 4.5 | 14.9 | 245 | yes |
-| 100 | 100.0 | 0.00% | 0 | 5.3 | 51.2 | 186 | yes |
-| 200 | 195.7 | 21.87% | 129 | 1,815 | 3,054 | 3,163 | no |
-| 300 | 289.9 | 54.13% | 303 | 3,029 | 3,219 | 3,312 | no |
-| 450 | 428.3 | 85.90% | 652 | 3,138 | 3,564 | 3,744 | no |
-| 600 | 521.0 | 91.38% | 2,370 | 3,540 | 4,074 | 4,443 | no |
+| 25 | 25.0 | 0.00% | 0 | 5.7 | 15.6 | 50.7 | yes |
+| 50 | 50.0 | 0.00% | 0 | 5.5 | 20.6 | 261 | yes |
+| 100 | 100.0 | 0.00% | 0 | 12.3 | 137 | 410 | yes |
+| 150 | 150.0 | 0.00% | 0 | 73.1 | 791 | 1,570 | yes |
+| 200 | 194.3 | 26.28% | 172 | 2,782 | 3,104 | 3,189 | no |
+| 300 | 289.6 | 66.98% | 312 | 3,045 | 3,266 | 3,394 | no |
 
-Highest rate sustained: **100 requests/s**.
+Highest rate sustained: **150 requests/s**.
+
+At the busiest moment sampled (197 s into the run), CPU per container (100% = one core): API **103%** across 4 process(es), PostgreSQL **19%**, Redis 2%, k6 82%, everything else 99%. PostgreSQL sessions at that moment: 0 running a statement, 9 holding a transaction open while waiting for the API, 0 waiting on a lock (most seen in any sample: 0).
+
+CPU seconds used by each API process over the whole run: 141.9.
 
 ### Steady load, w1
 
