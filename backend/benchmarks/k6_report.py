@@ -54,6 +54,33 @@ def sustained(step: dict[str, Any]) -> bool:
     )
 
 
+# Containers whose CPU use explains a result; the rest (Kafka, workers) is shown as "other".
+_MAIN = ("api", "postgres", "redis", "k6")
+
+
+def busiest(samples: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The sample with the highest total CPU: the stack at its most loaded moment.
+
+    CPU is per container, 100 = one core. PostgreSQL sessions say what the database was
+    doing at that moment: running a statement (`active`), holding a transaction open while
+    waiting for the API to send the next statement (`idle_in_transaction`), or waiting for
+    a lock held by another session (`waiting_on_lock`).
+    """
+    if not samples:
+        return None
+    peak = max(samples, key=lambda sample: sum(sample["cpu_percent"].values()))
+    cpu = peak["cpu_percent"]
+    shown = {name: round(cpu.get(name, 0.0)) for name in _MAIN}
+    shown["other"] = round(sum(value for name, value in cpu.items() if name not in _MAIN))
+    return {
+        "at_seconds": peak["at_seconds"],
+        "samples": len(samples),
+        "cpu_percent": shown,
+        "postgres_sessions": peak["postgres_sessions"],
+        "max_waiting_on_lock": max(s["postgres_sessions"]["waiting_on_lock"] for s in samples),
+    }
+
+
 def summarise(raw: dict[str, Any]) -> Record:
     """The part of a k6 summary (as written by workload.js) that the report uses."""
     metrics = raw["metrics"]
@@ -129,6 +156,34 @@ def _environment(record: Record) -> list[str]:
     ]
 
 
+def _per_process(record: Record) -> list[str]:
+    used = record.get("api_cpu_seconds_per_process")
+    if not used:
+        return []
+    listed = ", ".join(f"{seconds:g}" for seconds in used)
+    return ["", f"CPU seconds used by each API process over the whole run: {listed}."]
+
+
+def _busiest(record: Record) -> list[str]:
+    peak = record.get("busiest")
+    if not peak:
+        return []
+    cpu = peak["cpu_percent"]
+    sessions = peak["postgres_sessions"]
+    processes = int(record["environment"]["api"].get("WEB_CONCURRENCY", "1"))
+    return [
+        "",
+        f"At the busiest moment sampled ({peak['at_seconds']} s into the run), CPU per "
+        f"container (100% = one core): API **{cpu['api']}%** across {processes} process(es), "
+        f"PostgreSQL **{cpu['postgres']}%**, Redis {cpu['redis']}%, k6 {cpu['k6']}%, "
+        f"everything else {cpu['other']}%. PostgreSQL sessions at that moment: "
+        f"{sessions['active']} running a statement, {sessions['idle_in_transaction']} holding "
+        f"a transaction open while waiting for the API, {sessions['waiting_on_lock']} waiting "
+        f"on a lock (most seen in any sample: {peak['max_waiting_on_lock']}).",
+        *_per_process(record),
+    ]
+
+
 def _operations_table(record: Record) -> list[str]:
     lines = [
         "| Request | Share | Requests | Failed | p50 ms | p95 ms | p99 ms |",
@@ -191,6 +246,7 @@ def _section(record: Record) -> list[str]:
         lines += [
             "",
             _verdict(record),
+            *_busiest(record),
         ]
     else:
         title = "Steady load" if record["profile"] == "load" else "Smoke"
@@ -203,6 +259,7 @@ def _section(record: Record) -> list[str]:
             f"(including setup); {overall['dropped']} requests could not be started in time.",
             "",
             *_operations_table(record),
+            *_busiest(record),
         ]
     return [*lines, ""]
 
@@ -240,11 +297,11 @@ the reason for the changes listed. The tables above are the measurements.
   for each one. Now it waits at most `DB_POOL_TIMEOUT_SECONDS` (default 3), is answered
   `503` with `Retry-After` and the error code `overloaded`, writes one log line, and is
   counted in `mm_db_pool_timeouts_total`.
-- **One API process is limited by one CPU core.** At the rate where requests started to
-  fail, the API process used 100% of one core and doubling the connection pool did not
-  help. The number of API processes is therefore the setting to compare
-  (`make load-up API_WORKERS=4`); runs with different numbers of processes appear above
-  as `w1`, `w4`, ... when they have been recorded.
+- **Requests hold a database connection for their whole duration.** A session is opened
+  per request and its transaction stays open until the response is ready, so whenever
+  the API is slow to get to a request, a connection sits idle in a transaction. When all
+  of them do, new requests are shed. The line under each run above shows which side was
+  busy: API CPU, PostgreSQL CPU, or sessions waiting on locks.
 - **A full analysis is by far the most expensive request.** It runs every agent for every
   product and issues several hundred SQL statements. Batching them is the obvious next
   optimisation and has not been done.

@@ -219,3 +219,50 @@ def test_a_run_that_never_reached_the_limit_does_not_claim_one() -> None:
     report = k6_report.render([_record(raw)])
     assert "Every step was sustained: the limit is above **200 requests/s**." in report
     assert "Highest rate sustained" not in report
+
+
+def _sample(at: int, api: float, postgres: float, locks: int = 0) -> dict[str, Any]:
+    return {
+        "at_seconds": at,
+        "cpu_percent": {"api": api, "postgres": postgres, "redis": 3.0, "k6": 40.0, "kafka": 5.0},
+        "postgres_sessions": {
+            "active": 2,
+            "idle_in_transaction": 9,
+            "waiting_on_lock": locks,
+            "idle": 1,
+        },
+    }
+
+
+def test_the_busiest_sample_is_the_one_with_the_most_cpu_in_total() -> None:
+    peak = k6_report.busiest(
+        [_sample(5, 30.0, 10.0, locks=4), _sample(10, 99.6, 35.2), _sample(15, 60, 20)]
+    )
+    assert peak is not None
+    assert peak["at_seconds"] == 10
+    assert peak["cpu_percent"] == {"api": 100, "postgres": 35, "redis": 3, "k6": 40, "other": 5}
+    assert peak["postgres_sessions"]["idle_in_transaction"] == 9
+    assert peak["max_waiting_on_lock"] == 4
+    assert k6_report.busiest([]) is None
+
+
+def test_report_says_where_the_time_went() -> None:
+    record = _record(_capacity(), "w4") | {
+        "busiest": k6_report.busiest([_sample(10, 99.6, 35.2)]),
+        "api_cpu_seconds_per_process": [41.5, 3.0],
+    }
+    report = k6_report.render([record])
+    assert "API **100%** across 4 process(es), PostgreSQL **35%**" in report
+    assert "9 holding a transaction open while waiting for the API" in report
+    assert "CPU seconds used by each API process over the whole run: 41.5, 3." in report
+
+
+def test_reports_from_before_sampling_still_render() -> None:
+    assert "At the busiest moment" not in k6_report.render([_record(_capacity())])
+
+
+def test_cpu_per_process_ignores_idle_processes() -> None:
+    before = {"1": 2.0, "8": 10.0, "9": 10.0}
+    after = {"1": 2.1, "8": 50.0, "9": 13.5, "77": 0.05}
+    assert k6_run.cpu_per_process(before, after) == [40.0, 3.5]
+    assert k6_run.cpu_per_process({}, {}) == []

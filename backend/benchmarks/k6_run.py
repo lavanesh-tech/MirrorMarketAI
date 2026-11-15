@@ -18,6 +18,8 @@ import os
 import platform
 import subprocess
 import sys
+import threading
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -104,6 +106,98 @@ def machine() -> dict[str, Any]:
     }
 
 
+SAMPLE_SECONDS = 5.0
+_SESSIONS_SQL = (
+    "SELECT CASE WHEN wait_event_type = 'Lock' THEN 'waiting_on_lock' "
+    "WHEN state = 'idle in transaction' THEN 'idle_in_transaction' "
+    "WHEN state = 'active' THEN 'active' ELSE 'idle' END, count(*) "
+    "FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() "
+    "GROUP BY 1"
+)
+
+
+def sample_once() -> dict[str, Any]:
+    """CPU per container (100 = one core) and what PostgreSQL sessions are doing."""
+    stats = _run(
+        ["docker", "stats", "--no-stream", "--format", "{{.Name}} {{.CPUPerc}}"], check=False
+    )
+    cpu: dict[str, float] = {}
+    for line in stats.stdout.splitlines():
+        name, _, percent = line.partition(" ")
+        service = name.removeprefix("mirrormarket-").rsplit("-", 1)[0]
+        if service.startswith("k6-run"):
+            service = "k6"
+        try:
+            cpu[service] = float(percent.rstrip("%"))
+        except ValueError:
+            continue
+    psql = 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "' + _SESSIONS_SQL + '"'
+    sessions = _run([*COMPOSE, "exec", "-T", "postgres", "sh", "-c", psql], check=False)
+    states = {"active": 0, "idle_in_transaction": 0, "waiting_on_lock": 0, "idle": 0}
+    for line in sessions.stdout.splitlines():
+        state, _, count = line.partition("|")
+        if state in states and count.isdigit():
+            states[state] = int(count)
+    return {"cpu_percent": cpu, "postgres_sessions": states}
+
+
+_PROCESS_CPU = (
+    "import os\n"
+    "tick = os.sysconf('SC_CLK_TCK')\n"
+    "for pid in filter(str.isdigit, os.listdir('/proc')):\n"
+    "    try:\n"
+    "        fields = open(f'/proc/{pid}/stat').read().rsplit(')', 1)[1].split()\n"
+    "    except OSError:\n"
+    "        continue\n"
+    "    print(pid, (int(fields[11]) + int(fields[12])) / tick)\n"
+)
+
+
+def api_process_cpu() -> dict[str, float]:
+    """CPU seconds used so far by each process in the API container."""
+    printed = _run([*COMPOSE, "exec", "-T", "api", "python", "-c", _PROCESS_CPU], check=False)
+    used: dict[str, float] = {}
+    for line in printed.stdout.splitlines():
+        pid, _, seconds = line.partition(" ")
+        try:
+            used[pid] = float(seconds)
+        except ValueError:
+            continue
+    return used
+
+
+def cpu_per_process(before: dict[str, float], after: dict[str, float]) -> list[float]:
+    """CPU seconds each API process used during the run, busiest first.
+
+    Shows whether the load was shared between the processes or landed on one of them.
+    Processes that did next to nothing (the supervisor, this probe) are left out.
+    """
+    used = sorted((after[pid] - before.get(pid, 0.0) for pid in after), reverse=True)
+    floor = max(1.0, 0.02 * used[0]) if used else 0.0
+    return [round(seconds, 1) for seconds in used if seconds >= floor]
+
+
+class Sampler(threading.Thread):
+    """Samples the stack while k6 runs, so a result also says where the time went."""
+
+    def __init__(self) -> None:
+        super().__init__(daemon=True)
+        self.samples: list[dict[str, Any]] = []
+        self._stop_requested = threading.Event()
+        self._began = time.monotonic()
+
+    def run(self) -> None:
+        while not self._stop_requested.wait(SAMPLE_SECONDS):
+            sample = sample_once()
+            if sample["cpu_percent"]:
+                self.samples.append({"at_seconds": round(time.monotonic() - self._began)} | sample)
+
+    def stop(self) -> list[dict[str, Any]]:
+        self._stop_requested.set()
+        self.join(timeout=30)
+        return self.samples
+
+
 def run_k6(profile: str) -> int:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     raw = RAW_DIR / f"{profile}.json"
@@ -128,7 +222,12 @@ def main() -> int:
     refuse_paid_engines(settings)
     label = args.label or f"w{settings.get('WEB_CONCURRENCY', '1')}"
 
+    cpu_before = api_process_cpu()
+    sampler = Sampler()
+    sampler.start()
     exit_code = run_k6(args.profile)
+    samples = sampler.stop()
+    per_process = cpu_per_process(cpu_before, api_process_cpu())
     raw = RAW_DIR / f"{args.profile}.json"
     if not raw.exists():
         print(f"k6 wrote no summary (exit code {exit_code}); nothing recorded.", file=sys.stderr)  # noqa: T201
@@ -142,6 +241,8 @@ def main() -> int:
         "dirty": dirty,
         "tool": "k6 (grafana/k6 image in docker-compose.loadtest.yml)",
         "environment": machine() | {"api": settings},
+        "busiest": k6_report.busiest(samples),
+        "api_cpu_seconds_per_process": per_process,
         **k6_report.summarise(json.loads(raw.read_text())),
     }
     target = k6_report.RESULTS_DIR / f"k6-{args.profile}-{label}.json"

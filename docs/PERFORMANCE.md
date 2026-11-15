@@ -94,11 +94,11 @@ the reason for the changes listed. The tables above are the measurements.
   for each one. Now it waits at most `DB_POOL_TIMEOUT_SECONDS` (default 3), is answered
   `503` with `Retry-After` and the error code `overloaded`, writes one log line, and is
   counted in `mm_db_pool_timeouts_total`.
-- **One API process is limited by one CPU core.** At the rate where requests started to
-  fail, the API process used 100% of one core and doubling the connection pool did not
-  help. The number of API processes is therefore the setting to compare
-  (`make load-up API_WORKERS=4`); runs with different numbers of processes appear above
-  as `w1`, `w4`, ... when they have been recorded.
+- **Requests hold a database connection for their whole duration.** A session is opened
+  per request and its transaction stays open until the response is ready, so whenever
+  the API is slow to get to a request, a connection sits idle in a transaction. When all
+  of them do, new requests are shed. The line under each run above shows which side was
+  busy: API CPU, PostgreSQL CPU, or sessions waiting on locks.
 - **A full analysis is by far the most expensive request.** It runs every agent for every
   product and issues several hundred SQL statements. Batching them is the obvious next
   optimisation and has not been done.
