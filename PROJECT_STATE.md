@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-29.
-- Next: **30, Production Docker and CI/CD** (code done; waiting for the Mac run and CI).
-- Last verified: Phase 29, CI #73, commit d730b09 (2026-11-15). CI runners pinned to ubuntu-24.04.
+- Completed: 1-30.
+- Next: **31, Terraform for AWS** (code + terraform validate only; nothing applied). Waiting for the go-ahead.
+- Last verified: Phase 30, CI #76, commit ff274f9 (2026-11-15). Images scanned with Grype and published to GHCR.
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules

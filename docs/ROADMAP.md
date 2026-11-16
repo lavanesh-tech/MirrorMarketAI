@@ -64,8 +64,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | 27 | RAG, agent and citation evaluation | ✅ |
 | 28 | OpenTelemetry, Prometheus, Grafana | ✅ |
 | 29 | Load and performance benchmarks (k6) | ✅ |
-| 30 | Production Docker, CI/CD | 🔜 |
-| 31 | Terraform for AWS (code + validate only; nothing is applied) | ⬜ |
+| 30 | Production Docker, CI/CD | ✅ |
+| 31 | Terraform for AWS (code + validate only; nothing is applied) | 🔜 |
 | 32 | EKS: dropped (no AWS deployment) | ➖ |
 | 33 | Recruiter demo lifecycle on local Docker Compose: start, seed, smoke test, demo, benchmark, destroy, recreate | ⬜ |
 | 34 | README, diagrams, screenshots, demo, benchmark report, resume evidence | ⬜ |
@@ -360,4 +360,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Several API containers behind nginx (`make load-up-scaled API_REPLICAS=3`); runner sums CPU over replicas and records connections per process; CI runs the k6 smoke through the balancer
 - [x] Images job: build, Grype scan (fails on fixable critical), publish to GHCR from main and version tags only; third-party actions pinned to commits; GitHub actions on Node 24 versions
 - [x] Scaled capacity run measured on the developer Mac: 3 API containers sustained every step up to 300 requests/s (one process: 100, four processes in one container: 150)
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (CI #76, commit ff274f9; images scanned and published to GHCR)
