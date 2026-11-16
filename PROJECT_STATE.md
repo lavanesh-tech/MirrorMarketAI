@@ -5,9 +5,9 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-28. Phase 29 (load testing) measured on the Mac (commits a185fb4, f07de90); awaiting the CI result to close it.
+- Completed: 1-29.
 - Next: **30, Production Docker and CI/CD.**
-- Last verified: Phase 28, CI run 37248303018, commit 53c3439 (2026-10-04).
+- Last verified: Phase 29, CI #73, commit d730b09 (2026-11-15). CI runners pinned to ubuntu-24.04.
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
 
 ## Working rules

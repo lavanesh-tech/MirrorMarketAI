@@ -63,8 +63,8 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 | --- | --- | --- |
 | 27 | RAG, agent and citation evaluation | ✅ |
 | 28 | OpenTelemetry, Prometheus, Grafana | ✅ |
-| 29 | Load and performance benchmarks (k6) | 🔜 |
-| 30 | Production Docker, CI/CD | ⬜ |
+| 29 | Load and performance benchmarks (k6) | ✅ |
+| 30 | Production Docker, CI/CD | 🔜 |
 | 31 | Terraform for AWS (code + validate only; nothing is applied) | ⬜ |
 | 32 | EKS: dropped (no AWS deployment) | ➖ |
 | 33 | Recruiter demo lifecycle on local Docker Compose: start, seed, smoke test, demo, benchmark, destroy, recreate | ⬜ |
@@ -350,4 +350,4 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] Fix found by the test: pool exhaustion is answered `503 overloaded` with `Retry-After` after 3 seconds, instead of 500 after 10; counted in `mm_db_pool_timeouts_total`
 - [x] API process count configurable for the comparison (`make load-up API_WORKERS=4`)
 - [x] CI runs the smoke profile against the Docker stack
-- [ ] Verified on the developer Mac and CI green
+- [x] Verified on the developer Mac and CI green (CI #73, commit d730b09)
