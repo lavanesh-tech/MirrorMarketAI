@@ -15,7 +15,7 @@ concurrency:
 jobs:
   backend:
     name: Backend (ruff, mypy, pytest)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -51,7 +51,7 @@ jobs:
 
   frontend:
     name: Frontend (lint, types, tests, build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -89,7 +89,7 @@ jobs:
 
   docker:
     name: Docker (build image, start stack, smoke test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: backend
     steps:
@@ -156,7 +156,7 @@ jobs:
 
   e2e:
     name: End-to-end (Playwright against the Docker stack)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [backend, frontend]
     steps:
