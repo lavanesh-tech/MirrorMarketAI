@@ -116,12 +116,12 @@ infra: ## Start only postgres + redis (then `make migrate` and `make run` on the
 	$(COMPOSE) up -d --wait --wait-timeout 120 postgres redis
 
 .PHONY: down
-down: ## Stop containers (keeps database volume)
-	$(COMPOSE) down
+down: ## Stop containers, the web app and a load balancer included (keeps database volume)
+	$(COMPOSE) --profile web down --remove-orphans
 
 .PHONY: reset-db
 reset-db: ## Stop containers AND delete local database volume
-	$(COMPOSE) down -v
+	$(COMPOSE) --profile web down -v --remove-orphans
 
 .PHONY: ps
 ps: ## Show container status
@@ -158,9 +158,14 @@ web-check: ## Frontend lint, types, format, API-type drift, tests and production
 web-e2e-install: ## One-time: download the browser the end-to-end tests drive
 	cd frontend && npx playwright install chromium
 
+.PHONY: web-up
+web-up: ## Start the stack with the production web app container (http://localhost:3000)
+	$(COMPOSE) --profile web up -d --build --wait --wait-timeout 300
+	@echo "Web app http://localhost:3000"
+
 .PHONY: web-e2e
-web-e2e: ## End-to-end tests in a real browser (start the API first: make up)
-	cd frontend && npm run build && npm run e2e
+web-e2e: web-up ## End-to-end tests in a real browser against the web app container
+	cd frontend && npm run e2e
 
 ENGINE   ?= rules
 EMBEDDER ?= hashing
@@ -220,6 +225,23 @@ load-test: ## Steady load for 2 minutes, recorded in benchmarks/results. RATE=30
 .PHONY: load-capacity
 load-capacity: ## Stepped load to find the highest sustained rate. STEPS=25,50,100,150,200,300
 	cd $(BACKEND) && STEPS=$(STEPS) $(UV) run python -m benchmarks.k6_run capacity
+
+# Several API containers behind nginx (docker-compose.scale.yml). The runner reads the
+# Compose files from COMPOSE_FILE. Back to the normal setup: make down && make load-up
+SCALE_FILES  := docker-compose.yml:docker-compose.loadtest.yml:docker-compose.scale.yml
+API_REPLICAS ?= 3
+
+.PHONY: load-up-scaled
+load-up-scaled: ## Start the load-test stack with API_REPLICAS API containers (default 3) behind nginx
+	COMPOSE_FILE=$(SCALE_FILES) API_REPLICAS=$(API_REPLICAS) $(COMPOSE) up -d --build --wait --wait-timeout 300 --remove-orphans
+
+.PHONY: load-smoke-scaled
+load-smoke-scaled: ## The 30-second smoke through the load balancer (needs: make load-up-scaled)
+	cd $(BACKEND) && COMPOSE_FILE=$(SCALE_FILES) $(UV) run python -m benchmarks.k6_run smoke
+
+.PHONY: load-capacity-scaled
+load-capacity-scaled: ## Stepped load through the load balancer (needs: make load-up-scaled)
+	cd $(BACKEND) && COMPOSE_FILE=$(SCALE_FILES) STEPS=$(STEPS) $(UV) run python -m benchmarks.k6_run capacity
 
 .PHONY: perf-report
 perf-report: ## Rebuild docs/PERFORMANCE.md from the recorded results

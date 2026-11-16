@@ -1,0 +1,56 @@
+# Scale-out overlay (Phase 30): several API containers behind a load balancer.
+# Used on top of docker-compose.yml and docker-compose.loadtest.yml:
+#
+#   make load-up-scaled API_REPLICAS=3      the stack, three API containers behind nginx
+#   make load-capacity-scaled               the same stepped load as `make load-capacity`
+#
+# Why containers and not more processes in one container: Phase 29 found that four
+# uvicorn processes in one container did not share the load (one process did almost all
+# the work). Separate containers behind a balancer that picks a container per request
+# is how the API would scale in production (several tasks behind a load balancer).
+#
+# What it changes:
+# - api: no host port (the balancer owns it), API_REPLICAS containers, and the client
+#   address taken from X-Forwarded-For, which only the balancer can set: the API
+#   containers are reachable inside the Compose network only.
+# - lb: nginx on the API's usual host port, so every client, the web app and the
+#   smoke scripts keep using http://127.0.0.1:${API_HOST_PORT:-8000}.
+# - k6 sends its requests to the balancer.
+
+services:
+  api:
+    ports: !reset []
+    deploy:
+      replicas: ${API_REPLICAS:-3}
+    environment:
+      FORWARDED_ALLOW_IPS: "*"
+
+  lb:
+    image: nginxinc/nginx-unprivileged:1.29-alpine
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    volumes:
+      - ./infrastructure/nginx/api-lb.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8000/nginx-health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      api:
+        condition: service_healthy
+
+  k6:
+    environment:
+      BASE_URL: http://lb:8000
+    depends_on:
+      lb:
+        condition: service_healthy

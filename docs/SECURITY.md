@@ -89,6 +89,37 @@ paraphrased instructions can get past the pattern-based detector.
   rejected by every REST endpoint (ADR-046); the access token never reaches page scripts.
 - Errors never contain stack traces or internal details; every response has a request id.
 
+## Web app (Content-Security-Policy)
+
+- Every page is served with a Content-Security-Policy built per request in
+  `frontend/src/proxy.ts` (`src/lib/csp.ts`): a fresh random nonce, `script-src 'self'
+  'nonce-…' 'strict-dynamic'` and `style-src 'self' 'nonce-…'` (no `unsafe-inline`),
+  `connect-src` limited to the app and the API's WebSocket origin (`PUBLIC_WS_URL`),
+  `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`.
+  `unsafe-eval` is added in development only (React's dev tooling needs it).
+- Nonces only work on pages rendered per request, so the root layout opts every page
+  out of static rendering (`await connection()`). The pages are small; the cost is a
+  render per request.
+- The end-to-end journey fails if the browser reports any CSP violation, and CI checks
+  the header on the production image.
+- The production image (`frontend/Dockerfile`) runs the standalone Next.js server as the
+  unprivileged `node` user with a read-only root filesystem; `.env` files and
+  agent notes are excluded from the build context.
+
+## Supply chain (CI)
+
+- Images are scanned with Grype before they are published; a critical vulnerability
+  with a fix available fails the build. Images go to GitHub Container Registry only
+  from `main` or a version tag, after every other job passed, with the job's own
+  short-lived `GITHUB_TOKEN` (no stored registry secret).
+- Actions outside `actions/*` are pinned to a full commit SHA, because a tag can be
+  moved: in 2026 dozens of `aquasecurity/trivy-action` tags were re-pointed to
+  malicious code (CVE-2026-33634). For that reason the scanner here is Grype, not the
+  Trivy action.
+- No Dependabot version-update pull requests: merged bot commits would add a second
+  contributor to the repository. Dependabot *alerts* (repository settings) report
+  vulnerable dependencies without committing anything; updates are applied by hand.
+
 ## Metrics and traces
 
 - `/metrics` exposes counts and timings only: no ids, emails, URLs or model names in
@@ -109,6 +140,10 @@ paraphrased instructions can get past the pattern-based detector.
 - The refresh leeway (`REFRESH_REUSE_LEEWAY_SECONDS`, default 10) means a stolen refresh token
   used within 10 seconds of the real client is not detected as re-use.
 - No MFA, no email verification, no password-breach check, no OAuth login yet.
-- Rate limits use the socket peer IP; behind a proxy, forwarded headers must be configured
-  (Phase 30).
+- Rate limits use the socket peer IP. Behind the load balancer of the scaled setup
+  (`docker-compose.scale.yml`) the API trusts `X-Forwarded-For` from any address
+  (`FORWARDED_ALLOW_IPS=*`), which is safe only because the API containers there have no
+  published port. A deployment must list the balancer's addresses instead.
+- The CSP still allows `style-src 'self'` stylesheets and `img-src data: blob:`; there is
+  no CSP violation reporting endpoint.
 - Secrets come from environment variables; a secrets manager is part of the deployment phases.

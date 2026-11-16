@@ -71,7 +71,9 @@ def busiest(samples: list[dict[str, Any]]) -> dict[str, Any] | None:
     peak = max(samples, key=lambda sample: sum(sample["cpu_percent"].values()))
     cpu = peak["cpu_percent"]
     shown = {name: round(cpu.get(name, 0.0)) for name in _MAIN}
-    shown["other"] = round(sum(value for name, value in cpu.items() if name not in _MAIN))
+    if "lb" in cpu:  # the scaled setup's load balancer
+        shown["lb"] = round(cpu["lb"])
+    shown["other"] = round(sum(value for name, value in cpu.items() if name not in shown))
     return {
         "at_seconds": peak["at_seconds"],
         "samples": len(samples),
@@ -135,9 +137,21 @@ def _percent(rate: float) -> str:
     return f"{100 * rate:.2f}%"
 
 
+def _api_processes(record: Record) -> int:
+    env = record["environment"]
+    return int(env.get("api_containers", 1)) * int(env["api"].get("WEB_CONCURRENCY", "1"))
+
+
 def _environment(record: Record) -> list[str]:
     env = record["environment"]
     api = env["api"]
+    containers = int(env.get("api_containers", 1))
+    shape = (
+        f"{containers} containers behind an nginx load balancer, "
+        f"{api.get('WEB_CONCURRENCY', '1')} process(es) each"
+        if containers > 1
+        else f"{api.get('WEB_CONCURRENCY', '1')} process(es)"
+    )
     return [
         f"- Recorded {record['recorded_at']} at commit `{record['commit']}`"
         + (" (with uncommitted changes)" if record.get("dirty") else "")
@@ -145,7 +159,7 @@ def _environment(record: Record) -> list[str]:
         f"- Machine: {env['machine']}, {env['os']}; Docker has {env['docker_cpus']} CPUs and "
         f"{env['docker_memory_gb']} GB. The load generator, the API, PostgreSQL, Redis and "
         "Kafka all share that machine.",
-        f"- API: {api.get('WEB_CONCURRENCY', '1')} process(es), database pool "
+        f"- API: {shape}, database pool "
         f"{api.get('DB_POOL_SIZE', '5')} + {api.get('DB_MAX_OVERFLOW', '5')} overflow per "
         f"process, pool timeout {api.get('DB_POOL_TIMEOUT_SECONDS', '3')} s; engines "
         f"`{api.get('AGENT_ENGINE')}` / `{api.get('EMBEDDING_PROVIDER')}` "
@@ -157,6 +171,16 @@ def _environment(record: Record) -> list[str]:
 
 
 def _per_process(record: Record) -> list[str]:
+    rows = record.get("api_processes")
+    if rows:
+        listed = "; ".join(
+            f"{row['cpu_seconds']:g} s, {row['peak_connections']} connection(s)" for row in rows
+        )
+        return [
+            "",
+            "Each API process over the whole run (CPU seconds; most client connections it "
+            f"held at once): {listed}.",
+        ]
     used = record.get("api_cpu_seconds_per_process")
     if not used:
         return []
@@ -170,13 +194,14 @@ def _busiest(record: Record) -> list[str]:
         return []
     cpu = peak["cpu_percent"]
     sessions = peak["postgres_sessions"]
-    processes = int(record["environment"]["api"].get("WEB_CONCURRENCY", "1"))
+    processes = _api_processes(record)
     return [
         "",
         f"At the busiest moment sampled ({peak['at_seconds']} s into the run), CPU per "
         f"container (100% = one core): API **{cpu['api']}%** across {processes} process(es), "
         f"PostgreSQL **{cpu['postgres']}%**, Redis {cpu['redis']}%, k6 {cpu['k6']}%, "
-        f"everything else {cpu['other']}%. PostgreSQL sessions at that moment: "
+        + (f"load balancer {cpu['lb']}%, " if "lb" in cpu else "")
+        + f"everything else {cpu['other']}%. PostgreSQL sessions at that moment: "
         f"{sessions['active']} running a statement, {sessions['idle_in_transaction']} holding "
         f"a transaction open while waiting for the API, {sessions['waiting_on_lock']} waiting "
         f"on a lock (most seen in any sample: {peak['max_waiting_on_lock']}).",
@@ -289,6 +314,15 @@ Do not edit by hand: run a load test (`make load-test`, `make load-capacity`) in
 
 FINDINGS = """## What the load test found
 
+- **Three API containers behind nginx sustained every step tried, up to 300 requests per
+  second.** Recorded on the developer Mac (2026-11-16, Phase 30, `r3w1`): no request
+  failed or was dropped at any step; at 300 per second p50 was 12 ms and p95 243 ms. One
+  API process had sustained 100 per second and four processes in one container 150. The
+  load was spread evenly: the three API processes used 65.2, 65.1 and 64.2 CPU-seconds and
+  held at most 49, 48 and 43 client connections. In the busiest sample the API
+  containers used 284% CPU (about three cores), PostgreSQL 54%, the balancer 5%, and no
+  session waited on a lock. The limit is above 300 per second on this machine and was not
+  reached.
 - **One API process is the limit, not the database.** In the capacity runs recorded on
   the developer Mac (2026-11-15), at the busiest moment the API container used one full
   core (103%) while PostgreSQL used about a fifth of one, no session was waiting on a
@@ -298,9 +332,11 @@ FINDINGS = """## What the load test found
   about 142 CPU-seconds and the other three too little to list. The sustained rate barely
   moved (100 requests per second with one process, 150 with four, a difference within
   run-to-run noise here), and about 26% of requests failed at 200 per second in both runs.
-  Whether the extra uvicorn workers were not started in the
-  container or never received connections has not been established. Phase 30 scales the
-  API by running several containers behind a load balancer instead, and measures again.
+  Why is not established: in a later check on a Linux machine (not the Mac), two uvicorn
+  processes both received connections and shared the work. Runs now record, per API
+  process, the most client connections it held, so a repeat of the four-process run would
+  show whether the idle processes ever had a connection. Scaling by containers (above)
+  sidesteps the question.
 - **Overload used to look like a crash.** When every pooled database connection was busy,
   a request waited 10 seconds and was then answered 500, with a stack trace in the log
   for each one. Now it waits at most `DB_POOL_TIMEOUT_SECONDS` (default 3), is answered

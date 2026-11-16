@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
+import { contentSecurityPolicy, wsOrigin } from "@/lib/csp";
 import { config, proxy } from "@/proxy";
 
 import { request } from "./helpers";
@@ -38,5 +39,59 @@ describe("page access (proxy.ts)", () => {
     for (const path of ["/", "/login", "/workspaces/123"]) {
       expect(pattern.test(path)).toBe(true);
     }
+  });
+});
+
+describe("Content-Security-Policy (proxy.ts, lib/csp.ts)", () => {
+  const policyFor = (path: string, cookies?: Record<string, string>) =>
+    proxy(request(path, { cookies })).headers.get("content-security-policy");
+
+  it("sends a policy with a fresh nonce on every page", () => {
+    const first = policyFor("/login");
+    const second = policyFor("/login");
+    expect(first).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]{24}' 'strict-dynamic'/);
+    expect(first).not.toBe(second);
+    expect(policyFor("/workspaces", { mm_refresh: "r" })).toContain("frame-ancestors 'none'");
+  });
+
+  it("gives the page renderer the same nonce the browser enforces", () => {
+    const response = proxy(request("/login"));
+    const policy = response.headers.get("content-security-policy") ?? "";
+    const forwarded = response.headers.get("x-middleware-request-x-nonce");
+    expect(forwarded).toBeTruthy();
+    expect(policy).toContain(`'nonce-${forwarded}'`);
+  });
+
+  it("allows nothing the app does not use", () => {
+    const policy = contentSecurityPolicy({
+      nonce: "abc",
+      development: false,
+      wsUrl: "ws://api.test:8000/x",
+    });
+    expect(policy).toContain("object-src 'none'");
+    expect(policy).toContain("connect-src 'self' ws://api.test:8000");
+    expect(policy).not.toContain("unsafe-eval");
+    expect(policy).not.toContain("unsafe-inline");
+    expect(policy).not.toContain("*");
+  });
+
+  it("allows eval and dev sockets only in development", () => {
+    const policy = contentSecurityPolicy({
+      nonce: "abc",
+      development: true,
+      wsUrl: "wss://api.test",
+    });
+    expect(policy).toContain("'unsafe-eval'");
+    expect(policy).toContain("connect-src 'self' wss://api.test ws:");
+  });
+
+  it("ignores a WebSocket URL that is not one", () => {
+    expect(wsOrigin("http://api.test")).toBe("");
+    expect(wsOrigin("not a url")).toBe("");
+    expect(wsOrigin("wss://api.test:443/ws")).toBe("wss://api.test");
+  });
+
+  it("does not put a policy on redirects", () => {
+    expect(policyFor("/workspaces")).toBeNull();
   });
 });

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -266,3 +268,116 @@ def test_cpu_per_process_ignores_idle_processes() -> None:
     after = {"1": 2.1, "8": 50.0, "9": 13.5, "77": 0.05}
     assert k6_run.cpu_per_process(before, after) == [40.0, 3.5]
     assert k6_run.cpu_per_process({}, {}) == []
+
+
+# --- Phase 30: several API containers behind a load balancer ---------------------------
+
+
+def test_compose_files_come_from_compose_file_when_set() -> None:
+    assert k6_run.compose_command({}) == [
+        "docker",
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.loadtest.yml",
+        "--profile",
+        "loadtest",
+    ]
+    scaled = {"COMPOSE_FILE": "docker-compose.yml:docker-compose.loadtest.yml:x.yml"}
+    assert k6_run.compose_command(scaled) == ["docker", "compose", "--profile", "loadtest"]
+
+
+@pytest.mark.parametrize(
+    ("container", "service"),
+    [
+        ("mirrormarket-api-1", "api"),
+        ("mirrormarket-api-3", "api"),
+        ("mirrormarket-embedding-worker-1", "embedding-worker"),
+        ("mirrormarket-k6-run-0f3a2b", "k6"),
+        ("mirrormarket-lb-1", "lb"),
+    ],
+)
+def test_replicas_are_counted_as_their_service(container: str, service: str) -> None:
+    assert k6_run.service_of(container) == service
+
+
+@pytest.mark.skipif(not Path("/proc").is_dir(), reason="reads /proc (Linux, as in the container)")
+def test_the_probe_reports_cpu_and_connections_per_process() -> None:
+    printed = subprocess.run(  # noqa: S603
+        [sys.executable, str(k6_run.PROBE), "8000"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    found = k6_run.parse_probe(printed, "0123456789abcdef")
+    assert found, printed
+    assert all(key.startswith("0123456789ab/") for key in found)
+    assert all(cpu >= 0 and connections >= 0 for cpu, connections in found.values())
+    assert k6_run.parse_probe("garbage\n12 x 3\n", "c") == {}
+
+
+def test_each_process_keeps_its_cpu_and_its_connections() -> None:
+    before = {"a/1": 1.0, "a/8": 10.0, "b/8": 0.0}
+    after = {"a/1": 1.2, "a/8": 30.0, "b/8": 45.0}
+    assert k6_run.process_table(before, after, {"a/8": 4, "b/8": 6}) == [
+        {"cpu_seconds": 45.0, "peak_connections": 6},
+        {"cpu_seconds": 20.0, "peak_connections": 4},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("concurrency", "containers", "label"),
+    [("1", 1, "w1"), ("4", 1, "w4"), ("1", 3, "r3w1"), ("2", 2, "r2w2")],
+)
+def test_default_label_names_containers_and_processes(
+    concurrency: str, containers: int, label: str
+) -> None:
+    assert k6_run.default_label({"WEB_CONCURRENCY": concurrency}, containers) == label
+
+
+def test_report_describes_a_scaled_run() -> None:
+    record = _record(_capacity(), "w1") | {
+        "label": "r3w1",
+        "busiest": k6_report.busiest(
+            [
+                _sample(10, 240.0, 50.0)
+                | {"cpu_percent": {"api": 240.0, "postgres": 50.0, "lb": 20.4}}
+            ]
+        ),
+        "api_processes": [
+            {"cpu_seconds": 40.0, "peak_connections": 8},
+            {"cpu_seconds": 38.5, "peak_connections": 7},
+        ],
+    }
+    record["environment"]["api_containers"] = 3
+    report = k6_report.render([record])
+    assert "API: 3 containers behind an nginx load balancer, 1 process(es) each" in report
+    assert "API **240%** across 3 process(es)" in report
+    assert "load balancer 20%, everything else 0%" in report
+    assert "40 s, 8 connection(s); 38.5 s, 7 connection(s)" in report
+
+
+def test_scale_overlay_puts_every_api_container_behind_the_balancer() -> None:
+    text = (ROOT / "docker-compose.scale.yml").read_text()
+    assert "ports: !reset []" in text  # only the balancer publishes the API port
+    overlay = yaml.safe_load(text.replace("!reset ", ""))
+    services = overlay["services"]
+    assert services["api"]["deploy"]["replicas"] == "${API_REPLICAS:-3}"
+    assert services["k6"]["environment"]["BASE_URL"] == "http://lb:8000"
+    lb = services["lb"]
+    assert lb["ports"] == ["127.0.0.1:${API_HOST_PORT:-8000}:8000"]
+    assert lb["read_only"] is True
+    assert lb["cap_drop"] == ["ALL"]
+    conf = (ROOT / "infrastructure" / "nginx" / "api-lb.conf").read_text()
+    assert "least_conn;" in conf
+    assert "server api:8000 resolve;" in conf
+    assert "proxy_set_header X-Forwarded-For" in conf
+
+
+def test_web_app_is_optional_in_compose() -> None:
+    base = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    web = base["services"]["web"]
+    assert web["profiles"] == ["web"]
+    assert web["read_only"] is True
+    assert web["ports"] == ["127.0.0.1:${WEB_HOST_PORT:-3000}:3000"]

@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+    # A version tag (v1.2.3) also publishes the images under that version.
+    tags: ["v*"]
   pull_request:
 
 permissions:
@@ -21,7 +23,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -57,9 +59,9 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -93,7 +95,7 @@ jobs:
     timeout-minutes: 25
     needs: backend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Validate docker-compose.yml
         run: docker compose config --quiet
@@ -124,6 +126,29 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --wait --wait-timeout 300
           cd backend && python3 -m benchmarks.k6_run smoke
 
+      # Phase 30. Two API containers behind the nginx load balancer: the same smoke
+      # through the balancer, then the balancer is removed again for the next steps.
+      - name: Load-test smoke through the load balancer (2 API containers)
+        env:
+          COMPOSE_FILE: docker-compose.yml:docker-compose.loadtest.yml:docker-compose.scale.yml
+          API_REPLICAS: "2"
+        run: |
+          docker compose up -d --wait --wait-timeout 300 --remove-orphans
+          test "$(docker compose ps -q api | wc -l)" -eq 2
+          curl -fsS http://127.0.0.1:8000/nginx-health
+          (cd backend && python3 -m benchmarks.k6_run smoke)
+          docker compose rm -sf lb
+
+      # Phase 30. The production web image: it starts, serves the login page, and every
+      # page carries a nonce-based Content-Security-Policy.
+      - name: Web app image (build, start, Content-Security-Policy)
+        run: |
+          docker compose --profile web up -d --build --wait --wait-timeout 300
+          curl -fsS -o /dev/null -D /tmp/headers.txt http://127.0.0.1:3000/login
+          cat /tmp/headers.txt
+          grep -qi "^content-security-policy: .*script-src 'self' 'nonce-" /tmp/headers.txt
+          grep -qi "^content-security-policy: .*frame-ancestors 'none'" /tmp/headers.txt
+
       # Phase 28. The same stack again with Prometheus, Grafana and Jaeger added and
       # tracing switched on (the api container is recreated with OTEL_ENABLED=true).
       - name: Validate Prometheus config and alert rules (promtool)
@@ -148,11 +173,11 @@ jobs:
 
       - name: Show logs on failure
         if: failure()
-        run: docker compose --profile observability logs --no-color
+        run: docker compose --profile observability --profile web logs --no-color
 
       - name: Tear down
         if: always()
-        run: docker compose --profile observability down -v
+        run: docker compose --profile observability --profile web down -v --remove-orphans
 
   e2e:
     name: End-to-end (Playwright against the Docker stack)
@@ -160,12 +185,13 @@ jobs:
     timeout-minutes: 25
     needs: [backend, frontend]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - name: Build and start the API stack
-        run: docker compose up -d --build --wait --wait-timeout 300
+      # The web app runs as its production container, the same image that is published.
+      - name: Build and start the stack with the web app
+        run: docker compose --profile web up -d --build --wait --wait-timeout 300
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -179,10 +205,6 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
-      - name: Build the web app
-        working-directory: frontend
-        run: npm run build
-
       # A real browser goes through the whole product: account, requirements, products
       # with evidence, comparison, grounded answers and live collaboration.
       - name: Playwright
@@ -191,16 +213,92 @@ jobs:
 
       - name: Keep traces and screenshots on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results
           path: frontend/test-results
           retention-days: 7
 
-      - name: Show API logs on failure
+      - name: Show API and web logs on failure
         if: failure()
-        run: docker compose logs --no-color api
+        run: docker compose --profile web logs --no-color api web
 
       - name: Tear down
         if: always()
-        run: docker compose down -v
+        run: docker compose --profile web down -v
+
+  # Phase 30. Runs after every other job passed. Each image is built once, scanned, and
+  # published to GitHub Container Registry only from main or a version tag (pull
+  # requests are scanned, never published). Actions outside actions/* are pinned to a
+  # commit: a tag can be moved, a commit cannot (see docs/SECURITY.md).
+  images:
+    name: Images (${{ matrix.image }}) - scan and publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: [backend, frontend, docker, e2e]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            context: backend
+          - image: web
+            context: frontend
+    env:
+      PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          load: true
+          tags: mirrormarket-${{ matrix.image }}:scan
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      # Fails the job on any critical vulnerability that has a fix available.
+      - name: Scan the image (Grype)
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: mirrormarket-${{ matrix.image }}:scan
+          fail-build: true
+          severity-cutoff: critical
+          only-fixed: true
+          output-format: table
+
+      - name: Image names and tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/mirrormarket-${{ matrix.image }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
+
+      - name: Log in to GitHub Container Registry
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same build inputs as above, so every layer comes from the cache: the published
+      # image is the one that was scanned.
+      - name: Publish
+        if: env.PUBLISH == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}

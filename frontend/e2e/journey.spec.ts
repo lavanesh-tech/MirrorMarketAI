@@ -24,6 +24,11 @@ test("a buyer goes from a brief to a cited answer", async ({ page, browser }) =>
   const cinder = `Cinder Lite 13 ${stamp}`;
   const consoleErrors: string[] = [];
   page.on("pageerror", (error) => consoleErrors.push(String(error)));
+  // The Content-Security-Policy must never block anything the app itself needs.
+  const blocked: string[] = [];
+  page.on("console", (message) => {
+    if (/Content[ -]Security[ -]Policy/i.test(message.text())) blocked.push(message.text());
+  });
 
   await test.step("create an account and a workspace", async () => {
     await page.goto("/workspaces");
@@ -171,4 +176,5 @@ test("a buyer goes from a brief to a cited answer", async ({ page, browser }) =>
   });
 
   expect(consoleErrors).toEqual([]);
+  expect(blocked).toEqual([]);
 });

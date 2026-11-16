@@ -89,6 +89,13 @@ make verify-pgvector
 
 Interactive API docs: <http://127.0.0.1:8000/api/v1/docs>
 
+The web app runs as its production container in the optional `web` profile:
+
+```bash
+make web-up     # the stack above plus the web app on http://localhost:3000
+make web-e2e    # the same, then the Playwright journey in a real browser
+```
+
 To run the API on your Mac with auto-reload instead of in a container:
 
 ```bash
@@ -102,6 +109,7 @@ Local ports (all bound to `127.0.0.1` only; change them in `.env`):
 | Service | Host port |
 | --- | --- |
 | API | 8000 |
+| Web app (`make web-up`) | 3000 |
 | PostgreSQL | 5433 |
 | Redis | 6380 |
 

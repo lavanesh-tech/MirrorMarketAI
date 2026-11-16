@@ -59,8 +59,9 @@ make check       # ruff + mypy + all tests with coverage (same as CI)
 ## End-to-end (Playwright)
 
 `frontend/e2e/journey.spec.ts` drives Chromium through one complete journey against the
-built web app and the real API. Run it with `make up`, then `make web-e2e` (once:
-`make web-e2e-install`). CI runs it in the `e2e` job against the Docker Compose stack and
+production web app container and the real API. Run it with `make web-e2e`, which starts
+the stack with the web app first (once: `make web-e2e-install`). It also fails on any
+Content-Security-Policy violation. CI runs it in the `e2e` job against the Docker Compose stack and
 keeps traces and screenshots when it fails. The journey expects the offline rules engines
 (the default); with `AGENT_ENGINE=openai` the wording of answers may differ.
 

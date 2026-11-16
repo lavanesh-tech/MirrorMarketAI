@@ -722,3 +722,33 @@ Newest at the bottom. A superseded decision is marked, not deleted.
   test on a developer machine, and k6 gives arrival-rate executors out of the box);
   committing raw k6 output (large, noisy diffs); a latency gate in CI (shared runners make
   absolute numbers meaningless, so CI only checks that every scripted request works).
+
+## ADR-052: Web app as a production container with a nonce CSP; API scaled by containers behind nginx; scanned images published from CI
+
+- **Status:** Accepted (Phase 30)
+- **Decision:** The web app has its own image (`frontend/Dockerfile`: Next.js standalone
+  output, non-root, read-only root filesystem, healthcheck) and a Compose service in the
+  optional `web` profile. Every page carries a per-request nonce Content-Security-Policy
+  set in `src/proxy.ts`, so all pages render dynamically. The API is scaled by running
+  several containers behind nginx (`docker-compose.scale.yml`, `least_conn`, one choice
+  per request) rather than more uvicorn processes in one container; the load-test runner
+  sums CPU over replicas and records, per API process, CPU seconds and the most client
+  connections it held. CI builds both images, scans them with Grype (fails on a fixable
+  critical) and publishes them to GitHub Container Registry from `main` and version tags
+  only, after all other jobs passed; the e2e job tests the web container itself. Actions
+  outside `actions/*` are pinned to commit SHAs.
+- **Why:** the image that is tested should be the image that ships; a CSP without
+  `unsafe-inline` makes an injected script inert; in Phase 29 four processes in one
+  container did not share the load, and a balancer that picks a container per request
+  does not depend on how one container's processes accept connections; a moved tag in a
+  scanning action is a supply-chain attack on the pipeline that is meant to catch them.
+- **What this does not solve:** the balancer is a single nginx with no TLS; images are
+  not signed and have no SBOM attestation; the scan does not gate on high or unfixed
+  vulnerabilities; static rendering is given up for the nonce; no deployment uses the
+  published images yet (Phase 31 is Terraform code only).
+- **Alternatives rejected:** a hash-based CSP with static pages (Next.js inlines scripts
+  whose hashes change every build); `unsafe-inline` (defeats the policy); Trivy's action
+  (its tags were hijacked in 2026, CVE-2026-33634); Dependabot version updates (bot
+  commits would add a second contributor; alerts are used instead); scaling with
+  `--scale api=3` and Docker DNS round robin (clients keep one connection, so DNS picks a
+  container once per client, not per request).

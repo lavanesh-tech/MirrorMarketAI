@@ -1,0 +1,12 @@
+# Keep the build context small and never send secrets or local builds to the daemon.
+node_modules/
+.next/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+AGENTS.md
+CLAUDE.md

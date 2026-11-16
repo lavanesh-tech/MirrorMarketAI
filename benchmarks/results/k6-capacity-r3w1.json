@@ -1,0 +1,306 @@
+{
+  "label": "r3w1",
+  "recorded_at": "2026-11-16T02:12:21+00:00",
+  "commit": "314af52",
+  "dirty": true,
+  "tool": "k6 (grafana/k6 image in docker-compose.loadtest.yml)",
+  "environment": {
+    "machine": "arm64, 15 logical CPUs",
+    "os": "Darwin 25.6.0",
+    "docker_cpus": 15,
+    "docker_memory_gb": 7.7,
+    "api": {
+      "WEB_CONCURRENCY": "1",
+      "AGENT_ENGINE": "rules",
+      "REQUIREMENTS_EXTRACTOR": "rules",
+      "EMBEDDING_PROVIDER": "hashing",
+      "RATE_LIMIT_AUTH_PER_MINUTE": "10000",
+      "RATE_LIMIT_AGENTS_PER_MINUTE": "10000",
+      "KAFKA_ENABLED": "true",
+      "OTEL_ENABLED": "false"
+    },
+    "api_containers": 3
+  },
+  "busiest": {
+    "at_seconds": 238,
+    "samples": 32,
+    "cpu_percent": {
+      "api": 284,
+      "postgres": 54,
+      "redis": 1,
+      "k6": 28,
+      "lb": 5,
+      "other": 132
+    },
+    "postgres_sessions": {
+      "active": 5,
+      "idle_in_transaction": 19,
+      "waiting_on_lock": 0,
+      "idle": 7
+    },
+    "max_waiting_on_lock": 0
+  },
+  "api_cpu_seconds_per_process": [
+    65.2,
+    65.1,
+    64.2
+  ],
+  "api_processes": [
+    {
+      "cpu_seconds": 65.2,
+      "peak_connections": 49
+    },
+    {
+      "cpu_seconds": 65.1,
+      "peak_connections": 48
+    },
+    {
+      "cpu_seconds": 64.2,
+      "peak_connections": 43
+    }
+  ],
+  "profile": "capacity",
+  "config": {
+    "users": 10,
+    "products_per_user": 3,
+    "rate": 30,
+    "steps": [
+      25,
+      50,
+      100,
+      150,
+      200,
+      300
+    ],
+    "step_seconds": 30,
+    "weights": {
+      "workspace_get": 14,
+      "workspace_products": 10,
+      "product_get": 10,
+      "comments_list": 8,
+      "votes_get": 5,
+      "agent_runs_list": 5,
+      "requirements_get": 5,
+      "price_history": 10,
+      "search": 12,
+      "ask": 7,
+      "compare": 5,
+      "comment_create": 5,
+      "vote": 3,
+      "analyze": 1
+    }
+  },
+  "duration_seconds": 236.1,
+  "overall": {
+    "requests": 24753,
+    "failed_rate": 0,
+    "p50_ms": 6.07,
+    "p95_ms": 124.77,
+    "p99_ms": 356.64,
+    "max_ms": 2814.67,
+    "dropped": 0
+  },
+  "operations": {
+    "workspace_get": {
+      "requests": 3458,
+      "failed_rate": 0,
+      "p50_ms": 3.44,
+      "p95_ms": 60.52,
+      "p99_ms": 222.27,
+      "max_ms": 748.97,
+      "weight": 14
+    },
+    "workspace_products": {
+      "requests": 2504,
+      "failed_rate": 0,
+      "p50_ms": 3.97,
+      "p95_ms": 69.8,
+      "p99_ms": 243.93,
+      "max_ms": 581.02,
+      "weight": 10
+    },
+    "product_get": {
+      "requests": 2464,
+      "failed_rate": 0,
+      "p50_ms": 4.16,
+      "p95_ms": 91.33,
+      "p99_ms": 254.15,
+      "max_ms": 709.29,
+      "weight": 10
+    },
+    "comments_list": {
+      "requests": 1987,
+      "failed_rate": 0,
+      "p50_ms": 5.21,
+      "p95_ms": 83.23,
+      "p99_ms": 248.14,
+      "max_ms": 469.45,
+      "weight": 8
+    },
+    "votes_get": {
+      "requests": 1273,
+      "failed_rate": 0,
+      "p50_ms": 4.22,
+      "p95_ms": 58.15,
+      "p99_ms": 173.45,
+      "max_ms": 453.47,
+      "weight": 5
+    },
+    "agent_runs_list": {
+      "requests": 1241,
+      "failed_rate": 0,
+      "p50_ms": 6.23,
+      "p95_ms": 100.68,
+      "p99_ms": 285.23,
+      "max_ms": 517.32,
+      "weight": 5
+    },
+    "requirements_get": {
+      "requests": 1220,
+      "failed_rate": 0,
+      "p50_ms": 4.46,
+      "p95_ms": 84.58,
+      "p99_ms": 264.45,
+      "max_ms": 813.08,
+      "weight": 5
+    },
+    "price_history": {
+      "requests": 2380,
+      "failed_rate": 0,
+      "p50_ms": 3.25,
+      "p95_ms": 76.12,
+      "p99_ms": 209.91,
+      "max_ms": 713.19,
+      "weight": 10
+    },
+    "search": {
+      "requests": 3048,
+      "failed_rate": 0,
+      "p50_ms": 7.66,
+      "p95_ms": 108.48,
+      "p99_ms": 281.69,
+      "max_ms": 695.4,
+      "weight": 12
+    },
+    "ask": {
+      "requests": 1753,
+      "failed_rate": 0,
+      "p50_ms": 14.72,
+      "p95_ms": 240.11,
+      "p99_ms": 416.25,
+      "max_ms": 637.87,
+      "weight": 7
+    },
+    "compare": {
+      "requests": 1189,
+      "failed_rate": 0,
+      "p50_ms": 11.13,
+      "p95_ms": 164.38,
+      "p99_ms": 365.24,
+      "max_ms": 505.38,
+      "weight": 5
+    },
+    "comment_create": {
+      "requests": 1233,
+      "failed_rate": 0,
+      "p50_ms": 6.51,
+      "p95_ms": 117.79,
+      "p99_ms": 289.31,
+      "max_ms": 580.45,
+      "weight": 5
+    },
+    "vote": {
+      "requests": 750,
+      "failed_rate": 0,
+      "p50_ms": 7.61,
+      "p95_ms": 157.77,
+      "p99_ms": 314.55,
+      "max_ms": 595.97,
+      "weight": 3
+    },
+    "analyze": {
+      "requests": 253,
+      "failed_rate": 0,
+      "p50_ms": 325.86,
+      "p95_ms": 2057.05,
+      "p99_ms": 2688.72,
+      "max_ms": 2814.67,
+      "weight": 1
+    }
+  },
+  "thresholds_passed": true,
+  "steps": [
+    {
+      "requests": 750,
+      "failed_rate": 0,
+      "p50_ms": 5.36,
+      "p95_ms": 14.83,
+      "p99_ms": 145.13,
+      "max_ms": 335.77,
+      "target_rate": 25,
+      "achieved_rate": 25.0,
+      "dropped": 0,
+      "sustained": true
+    },
+    {
+      "requests": 1500,
+      "failed_rate": 0,
+      "p50_ms": 4.43,
+      "p95_ms": 13.06,
+      "p99_ms": 73.52,
+      "max_ms": 313.17,
+      "target_rate": 50,
+      "achieved_rate": 50.0,
+      "dropped": 0,
+      "sustained": true
+    },
+    {
+      "requests": 3001,
+      "failed_rate": 0,
+      "p50_ms": 4.68,
+      "p95_ms": 14.06,
+      "p99_ms": 89.95,
+      "max_ms": 436.32,
+      "target_rate": 100,
+      "achieved_rate": 100.0,
+      "dropped": 0,
+      "sustained": true
+    },
+    {
+      "requests": 4501,
+      "failed_rate": 0,
+      "p50_ms": 4.7,
+      "p95_ms": 13.83,
+      "p99_ms": 120.8,
+      "max_ms": 432.9,
+      "target_rate": 150,
+      "achieved_rate": 150.0,
+      "dropped": 0,
+      "sustained": true
+    },
+    {
+      "requests": 6000,
+      "failed_rate": 0,
+      "p50_ms": 5.2,
+      "p95_ms": 17.09,
+      "p99_ms": 257.16,
+      "max_ms": 574.45,
+      "target_rate": 200,
+      "achieved_rate": 200.0,
+      "dropped": 0,
+      "sustained": true
+    },
+    {
+      "requests": 9001,
+      "failed_rate": 0,
+      "p50_ms": 12.15,
+      "p95_ms": 243.0,
+      "p99_ms": 501.06,
+      "max_ms": 2814.67,
+      "target_rate": 300,
+      "achieved_rate": 300.0,
+      "dropped": 0,
+      "sustained": true
+    }
+  ]
+}

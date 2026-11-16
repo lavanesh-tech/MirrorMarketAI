@@ -351,3 +351,13 @@ Legend: ✅ done · 🔜 next · ⬜ planned
 - [x] API process count configurable for the comparison (`make load-up API_WORKERS=4`)
 - [x] CI runs the smoke profile against the Docker stack
 - [x] Verified on the developer Mac and CI green (CI #73, commit d730b09)
+
+## Phase 30 exit criteria
+
+- [x] Production web image (standalone Next.js, non-root, read-only, healthcheck) and a `web` Compose profile (`make web-up`)
+- [x] Nonce-based Content-Security-Policy on every page; the e2e journey fails on any CSP violation; CI checks the header on the image
+- [x] e2e job runs against the web container instead of a host build
+- [x] Several API containers behind nginx (`make load-up-scaled API_REPLICAS=3`); runner sums CPU over replicas and records connections per process; CI runs the k6 smoke through the balancer
+- [x] Images job: build, Grype scan (fails on fixable critical), publish to GHCR from main and version tags only; third-party actions pinned to commits; GitHub actions on Node 24 versions
+- [x] Scaled capacity run measured on the developer Mac: 3 API containers sustained every step up to 300 requests/s (one process: 100, four processes in one container: 150)
+- [ ] Verified on the developer Mac and CI green

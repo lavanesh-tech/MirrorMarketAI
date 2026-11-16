@@ -22,6 +22,28 @@ Do not edit by hand: run a load test (`make load-test`, `make load-capacity`) in
 
 ## Results
 
+### Capacity, r3w1
+
+- Recorded 2026-11-16T02:12:21+00:00 at commit `314af52` (with uncommitted changes).
+- Machine: arm64, 15 logical CPUs, Darwin 25.6.0; Docker has 15 CPUs and 7.7 GB. The load generator, the API, PostgreSQL, Redis and Kafka all share that machine.
+- API: 3 containers behind an nginx load balancer, 1 process(es) each, database pool 5 + 5 overflow per process, pool timeout 3 s; engines `rules` / `hashing` (offline, no model calls).
+- Data: synthetic. 10 users, each with one workspace and 3 products (two documents and 30 prices per product).
+
+| Target req/s | Achieved req/s | Failed | Dropped | p50 ms | p95 ms | p99 ms | Sustained |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| 25 | 25.0 | 0.00% | 0 | 5.4 | 14.8 | 145 | yes |
+| 50 | 50.0 | 0.00% | 0 | 4.4 | 13.1 | 73.5 | yes |
+| 100 | 100.0 | 0.00% | 0 | 4.7 | 14.1 | 90.0 | yes |
+| 150 | 150.0 | 0.00% | 0 | 4.7 | 13.8 | 121 | yes |
+| 200 | 200.0 | 0.00% | 0 | 5.2 | 17.1 | 257 | yes |
+| 300 | 300.0 | 0.00% | 0 | 12.2 | 243 | 501 | yes |
+
+Every step was sustained: the limit is above **300 requests/s**.
+
+At the busiest moment sampled (238 s into the run), CPU per container (100% = one core): API **284%** across 3 process(es), PostgreSQL **54%**, Redis 1%, k6 28%, load balancer 5%, everything else 132%. PostgreSQL sessions at that moment: 5 running a statement, 19 holding a transaction open while waiting for the API, 0 waiting on a lock (most seen in any sample: 0).
+
+Each API process over the whole run (CPU seconds; most client connections it held at once): 65.2 s, 49 connection(s); 65.1 s, 48 connection(s); 64.2 s, 43 connection(s).
+
 ### Capacity, w1
 
 - Recorded 2026-11-15T23:52:57+00:00 at commit `a185fb4`.
@@ -94,6 +116,15 @@ CPU seconds used by each API process over the whole run: 141.9.
 
 ## What the load test found
 
+- **Three API containers behind nginx sustained every step tried, up to 300 requests per
+  second.** Recorded on the developer Mac (2026-11-16, Phase 30, `r3w1`): no request
+  failed or was dropped at any step; at 300 per second p50 was 12 ms and p95 243 ms. One
+  API process had sustained 100 per second and four processes in one container 150. The
+  load was spread evenly: the three API processes used 65.2, 65.1 and 64.2 CPU-seconds and
+  held at most 49, 48 and 43 client connections. In the busiest sample the API
+  containers used 284% CPU (about three cores), PostgreSQL 54%, the balancer 5%, and no
+  session waited on a lock. The limit is above 300 per second on this machine and was not
+  reached.
 - **One API process is the limit, not the database.** In the capacity runs recorded on
   the developer Mac (2026-11-15), at the busiest moment the API container used one full
   core (103%) while PostgreSQL used about a fifth of one, no session was waiting on a
@@ -103,9 +134,11 @@ CPU seconds used by each API process over the whole run: 141.9.
   about 142 CPU-seconds and the other three too little to list. The sustained rate barely
   moved (100 requests per second with one process, 150 with four, a difference within
   run-to-run noise here), and about 26% of requests failed at 200 per second in both runs.
-  Whether the extra uvicorn workers were not started in the
-  container or never received connections has not been established. Phase 30 scales the
-  API by running several containers behind a load balancer instead, and measures again.
+  Why is not established: in a later check on a Linux machine (not the Mac), two uvicorn
+  processes both received connections and shared the work. Runs now record, per API
+  process, the most client connections it held, so a repeat of the four-process run would
+  show whether the idle processes ever had a connection. Scaling by containers (above)
+  sidesteps the question.
 - **Overload used to look like a crash.** When every pooled database connection was busy,
   a request waited 10 seconds and was then answered 500, with a stack trace in the log
   for each one. Now it waits at most `DB_POOL_TIMEOUT_SECONDS` (default 3), is answered

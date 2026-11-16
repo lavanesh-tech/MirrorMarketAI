@@ -7,7 +7,12 @@
 
 Writes `benchmarks/results/k6-<profile>-<label>.json` (commit, hardware, configuration
 and the measured numbers) and regenerates `docs/PERFORMANCE.md`. The label defaults to
-the number of API processes (`w1`, `w4`).
+the number of API processes per container (`w1`, `w4`), prefixed with the number of API
+containers when there are several (`r3w1`: three containers behind the load balancer).
+
+The Compose files come from COMPOSE_FILE when it is set (the scaled setup sets it to
+the three files, see `make load-up-scaled`); otherwise the base file plus the load-test
+overlay.
 """
 
 from __future__ import annotations
@@ -20,23 +25,26 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from benchmarks import k6_report
 
 ROOT = k6_report.ROOT
 RAW_DIR = k6_report.RESULTS_DIR / "raw"
-COMPOSE = [
-    "docker",
-    "compose",
-    "-f",
-    "docker-compose.yml",
-    "-f",
-    "docker-compose.loadtest.yml",
-    "--profile",
-    "loadtest",
-]
+DEFAULT_FILES = ("docker-compose.yml", "docker-compose.loadtest.yml")
+PROBE = Path(__file__).with_name("process_probe.py")
+
+
+def compose_command(environ: Mapping[str, str]) -> list[str]:
+    """`docker compose` with the load-test files; COMPOSE_FILE, when set, picks them."""
+    files = [] if environ.get("COMPOSE_FILE") else [arg for f in DEFAULT_FILES for arg in ("-f", f)]
+    return ["docker", "compose", *files, "--profile", "loadtest"]
+
+
+COMPOSE = compose_command(os.environ)
 # Passed through to the k6 script when set.
 TUNABLES = ("RATE", "DURATION", "STEPS", "STEP_SECONDS", "USERS", "PRODUCTS")
 # Recorded with the result. Never secrets.
@@ -116,6 +124,12 @@ _SESSIONS_SQL = (
 )
 
 
+def service_of(container: str) -> str:
+    """Compose service of a container name: `mirrormarket-api-2` -> `api`."""
+    service = container.removeprefix("mirrormarket-").rsplit("-", 1)[0]
+    return "k6" if service.startswith("k6-run") else service
+
+
 def sample_once() -> dict[str, Any]:
     """CPU per container (100 = one core) and what PostgreSQL sessions are doing."""
     stats = _run(
@@ -124,13 +138,12 @@ def sample_once() -> dict[str, Any]:
     cpu: dict[str, float] = {}
     for line in stats.stdout.splitlines():
         name, _, percent = line.partition(" ")
-        service = name.removeprefix("mirrormarket-").rsplit("-", 1)[0]
-        if service.startswith("k6-run"):
-            service = "k6"
         try:
-            cpu[service] = float(percent.rstrip("%"))
+            used = float(percent.rstrip("%"))
         except ValueError:
             continue
+        service = service_of(name)
+        cpu[service] = round(cpu.get(service, 0.0) + used, 2)  # replicas add up
     psql = 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "' + _SESSIONS_SQL + '"'
     sessions = _run([*COMPOSE, "exec", "-T", "postgres", "sh", "-c", psql], check=False)
     states = {"active": 0, "idle_in_transaction": 0, "waiting_on_lock": 0, "idle": 0}
@@ -141,29 +154,38 @@ def sample_once() -> dict[str, Any]:
     return {"cpu_percent": cpu, "postgres_sessions": states}
 
 
-_PROCESS_CPU = (
-    "import os\n"
-    "tick = os.sysconf('SC_CLK_TCK')\n"
-    "for pid in filter(str.isdigit, os.listdir('/proc')):\n"
-    "    try:\n"
-    "        fields = open(f'/proc/{pid}/stat').read().rsplit(')', 1)[1].split()\n"
-    "    except OSError:\n"
-    "        continue\n"
-    "    print(pid, (int(fields[11]) + int(fields[12])) / tick)\n"
-)
+def api_containers() -> list[str]:
+    """IDs of the running API containers (one, or API_REPLICAS in the scaled setup)."""
+    return sorted(_run([*COMPOSE, "ps", "-q", "api"], check=False).stdout.split())
 
 
-def api_process_cpu() -> dict[str, float]:
-    """CPU seconds used so far by each process in the API container."""
-    printed = _run([*COMPOSE, "exec", "-T", "api", "python", "-c", _PROCESS_CPU], check=False)
-    used: dict[str, float] = {}
-    for line in printed.stdout.splitlines():
-        pid, _, seconds = line.partition(" ")
+def parse_probe(printed: str, container: str) -> dict[str, tuple[float, int]]:
+    """`process_probe` output -> {"<container>/<pid>": (CPU seconds, connections)}."""
+    found: dict[str, tuple[float, int]] = {}
+    for line in printed.splitlines():
+        parts = line.split()
+        if len(parts) != 3:  # noqa: PLR2004
+            continue
         try:
-            used[pid] = float(seconds)
+            found[f"{container[:12]}/{parts[0]}"] = (float(parts[1]), int(parts[2]))
         except ValueError:
             continue
-    return used
+    return found
+
+
+def api_processes(containers: list[str]) -> dict[str, tuple[float, int]]:
+    """CPU seconds used so far and open client connections, per process in every API container."""
+    found: dict[str, tuple[float, int]] = {}
+    for container in containers:
+        printed = subprocess.run(  # noqa: S603
+            ["docker", "exec", "-i", container, "python", "-"],  # noqa: S607
+            input=PROBE.read_text(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        found |= parse_probe(printed.stdout, container)
+    return found
 
 
 def cpu_per_process(before: dict[str, float], after: dict[str, float]) -> list[float]:
@@ -172,17 +194,41 @@ def cpu_per_process(before: dict[str, float], after: dict[str, float]) -> list[f
     Shows whether the load was shared between the processes or landed on one of them.
     Processes that did next to nothing (the supervisor, this probe) are left out.
     """
-    used = sorted((after[pid] - before.get(pid, 0.0) for pid in after), reverse=True)
-    floor = max(1.0, 0.02 * used[0]) if used else 0.0
-    return [round(seconds, 1) for seconds in used if seconds >= floor]
+    return [row["cpu_seconds"] for row in process_table(before, after, {})]
+
+
+def process_table(
+    before: dict[str, float], after: dict[str, float], connections: dict[str, int]
+) -> list[dict[str, float | int]]:
+    """Per API process: CPU seconds used during the run and the most client connections
+    it held in any sample, busiest first. Idle processes (supervisor, probe) are left out.
+    """
+    used = {key: after[key] - before.get(key, 0.0) for key in after}
+    top = max(used.values(), default=0.0)
+    floor = max(1.0, 0.02 * top)
+    rows = [
+        {"cpu_seconds": round(seconds, 1), "peak_connections": connections.get(key, 0)}
+        for key, seconds in used.items()
+        if seconds >= floor
+    ]
+    return sorted(rows, key=lambda row: row["cpu_seconds"], reverse=True)
+
+
+def default_label(settings: dict[str, str], containers: int) -> str:
+    """`w4` for one container with four processes; `r3w1` for three containers of one."""
+    processes = f"w{settings.get('WEB_CONCURRENCY', '1')}"
+    return f"r{containers}{processes}" if containers > 1 else processes
 
 
 class Sampler(threading.Thread):
     """Samples the stack while k6 runs, so a result also says where the time went."""
 
-    def __init__(self) -> None:
+    def __init__(self, containers: list[str]) -> None:
         super().__init__(daemon=True)
         self.samples: list[dict[str, Any]] = []
+        # Most client connections each API process held in any sample.
+        self.peak_connections: dict[str, int] = {}
+        self._containers = containers
         self._stop_requested = threading.Event()
         self._began = time.monotonic()
 
@@ -191,6 +237,8 @@ class Sampler(threading.Thread):
             sample = sample_once()
             if sample["cpu_percent"]:
                 self.samples.append({"at_seconds": round(time.monotonic() - self._began)} | sample)
+            for key, (_, held) in api_processes(self._containers).items():
+                self.peak_connections[key] = max(held, self.peak_connections.get(key, 0))
 
     def stop(self) -> list[dict[str, Any]]:
         self._stop_requested.set()
@@ -220,14 +268,16 @@ def main() -> int:
 
     settings = api_settings()
     refuse_paid_engines(settings)
-    label = args.label or f"w{settings.get('WEB_CONCURRENCY', '1')}"
+    containers = api_containers()
+    label = args.label or default_label(settings, len(containers))
 
-    cpu_before = api_process_cpu()
-    sampler = Sampler()
+    cpu_before = {key: cpu for key, (cpu, _) in api_processes(containers).items()}
+    sampler = Sampler(containers)
     sampler.start()
     exit_code = run_k6(args.profile)
     samples = sampler.stop()
-    per_process = cpu_per_process(cpu_before, api_process_cpu())
+    cpu_after = {key: cpu for key, (cpu, _) in api_processes(containers).items()}
+    processes = process_table(cpu_before, cpu_after, sampler.peak_connections)
     raw = RAW_DIR / f"{args.profile}.json"
     if not raw.exists():
         print(f"k6 wrote no summary (exit code {exit_code}); nothing recorded.", file=sys.stderr)  # noqa: T201
@@ -240,9 +290,10 @@ def main() -> int:
         "commit": commit,
         "dirty": dirty,
         "tool": "k6 (grafana/k6 image in docker-compose.loadtest.yml)",
-        "environment": machine() | {"api": settings},
+        "environment": machine() | {"api": settings, "api_containers": len(containers)},
         "busiest": k6_report.busiest(samples),
-        "api_cpu_seconds_per_process": per_process,
+        "api_cpu_seconds_per_process": [row["cpu_seconds"] for row in processes],
+        "api_processes": processes,
         **k6_report.summarise(json.loads(raw.read_text())),
     }
     target = k6_report.RESULTS_DIR / f"k6-{args.profile}-{label}.json"
