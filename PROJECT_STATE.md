@@ -5,7 +5,7 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 
 ## Current phase
 
-- Completed: 1-28. Phase 29 (load testing) built, awaiting verification on the Mac and CI.
+- Completed: 1-28. Phase 29 (load testing) measured on the Mac (commits a185fb4, f07de90); awaiting the CI result to close it.
 - Next: **30, Production Docker and CI/CD.**
 - Last verified: Phase 28, CI run 37248303018, commit 53c3439 (2026-10-04).
 - Scope (owner decision 2026-10-01): no AWS deployment. Phase 31 is Terraform code + validate only, Phase 32 (EKS) is dropped, Phase 33 runs on local Docker Compose.
@@ -160,6 +160,8 @@ Source of truth for progress. Paste this into a new conversation to resume. Deta
 - Events: no dead-letter replay tool, no schema registry; Kafka data is not persisted across `make down` (the outbox is the source).
 - Realtime: at-most-once, no replay (clients refetch on reconnect); membership is checked only at connect.
 - Rate limits key on the socket peer IP; behind a proxy, uvicorn `--forwarded-allow-ips` is needed (Phase 29).
+- Load test (Mac, 2026-11-15): one API process saturates one core at about 100-150 req/s; PostgreSQL ~20% CPU, no lock waits. With `API_WORKERS=4` only one uvicorn process did measurable work (cause not established). Phase 30: scale with several API containers behind a load balancer and measure again.
+- Port clashes on the Mac: other projects use 5433/6380/9094 (GridPulse) and 8000 (a FastAPI practice app). Run with `API_HOST_PORT=8001` and stop GridPulse first.
 - Before Phase 30: pin the CI runner (ubuntu-latest moves to 26 on 2026-10-19).
 - New vector migrations need `from pgvector.sqlalchemy import Vector` added by hand.
 

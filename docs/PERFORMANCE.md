@@ -94,22 +94,30 @@ CPU seconds used by each API process over the whole run: 141.9.
 
 ## What the load test found
 
-These observations were made while building the test, on a 2-CPU Linux workspace, and are
-the reason for the changes listed. The tables above are the measurements.
-
+- **One API process is the limit, not the database.** In the capacity runs recorded on
+  the developer Mac (2026-11-15), at the busiest moment the API container used one full
+  core (103%) while PostgreSQL used about a fifth of one, no session was waiting on a
+  lock, and 9 to 10 sessions sat idle in a transaction waiting for the API. The database
+  was waiting for Python, not the other way round.
+- **Four API processes did not spread the load.** With `API_WORKERS=4`, one process used
+  about 142 CPU-seconds and the other three too little to list. The sustained rate barely
+  moved (100 requests per second with one process, 150 with four, a difference within
+  run-to-run noise here), and about 26% of requests failed at 200 per second in both runs.
+  Whether the extra uvicorn workers were not started in the
+  container or never received connections has not been established. Phase 30 scales the
+  API by running several containers behind a load balancer instead, and measures again.
 - **Overload used to look like a crash.** When every pooled database connection was busy,
   a request waited 10 seconds and was then answered 500, with a stack trace in the log
   for each one. Now it waits at most `DB_POOL_TIMEOUT_SECONDS` (default 3), is answered
   `503` with `Retry-After` and the error code `overloaded`, writes one log line, and is
   counted in `mm_db_pool_timeouts_total`.
 - **Requests hold a database connection for their whole duration.** A session is opened
-  per request and its transaction stays open until the response is ready, so whenever
-  the API is slow to get to a request, a connection sits idle in a transaction. When all
-  of them do, new requests are shed. The line under each run above shows which side was
-  busy: API CPU, PostgreSQL CPU, or sessions waiting on locks.
+  per request and its transaction stays open until the response is ready, so when the
+  API process is busy, connections sit idle in a transaction until the pool runs out and
+  new requests are shed.
 - **A full analysis is by far the most expensive request.** It runs every agent for every
-  product and issues several hundred SQL statements. Batching them is the obvious next
-  optimisation and has not been done.
+  product and issues several hundred SQL statements (p50 about 0.26 s at light load).
+  Batching them is the obvious next optimisation and has not been done.
 
 ## Limits of these numbers
 
