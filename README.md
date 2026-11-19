@@ -8,12 +8,39 @@ the request into structured requirements, gathers evidence about candidate produ
 runs specialised AI agents over that evidence, and returns comparisons in which
 every factual claim cites its source. Collaborators see the research happen live.
 
-> **Status: Phase 6 of 35 complete.** Done so far: the backend foundation, async
-> PostgreSQL + pgvector, migrations, readiness checks, JWT auth, role-based
-> comparison workspaces, a product catalog, and evidence sources: SSRF-safe URL
-> ingestion and PDF/HTML/text uploads, turned into versioned snapshots and
-> normalized documents, then chunked and embedded into pgvector by a background
-> worker. There is no retrieval API, no agents and no UI yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: phases 1-30 of 35 complete** (verified on the developer Mac and in CI).
+> The backend, the AI agents, the web app, realtime collaboration, events, security,
+> observability, load testing and production images are done. Still to come:
+> Terraform for AWS (code and `terraform validate` only, nothing is deployed), a
+> scripted local demo, and the final report. See [docs/ROADMAP.md](docs/ROADMAP.md).
+
+## What it does
+
+1. **Requirements:** a free-text brief becomes versioned, structured requirements
+   (must-haves, nice-to-haves, budget).
+2. **Evidence:** spec sheets, reviews and manuals are ingested (URL or upload),
+   chunked, embedded into pgvector and searched with hybrid full-text + vector search.
+3. **Agents:** research, reviews, compatibility, value, risk and synthesis agents work
+   only from frozen evidence packs; every claim must cite an item the code can check.
+4. **Compare and ask:** a weighted comparison matrix with hard constraints and
+   sensitivity analysis, and grounded answers that cite their sources or abstain.
+5. **Together, live:** comments, votes, presence and agent results arrive over
+   WebSockets for everyone in the workspace.
+
+## Measured results
+
+All numbers are recorded with the commit, data and hardware behind them; the
+datasets are synthetic and labelled by the author, which the linked reports say.
+
+- **Tests:** 760 backend tests (pytest, real PostgreSQL), 96 frontend tests (Vitest),
+  and a Playwright journey from sign-up to a cited answer against the production
+  containers; CI runs all of them, scans both images and publishes them to GHCR.
+- **Load** ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)): one API process sustained
+  100 requests/s; three API containers behind nginx sustained every step tried up
+  to 300 requests/s with no failed requests (developer Mac, offline engines).
+- **Quality** ([docs/EVALUATION.md](docs/EVALUATION.md)): end-to-end evaluation of
+  retrieval, extraction, decisions, grounded answers and poisoned sources, with a
+  held-out set and the remaining failures listed.
 
 ## Principles
 
@@ -23,7 +50,7 @@ every factual claim cites its source. Collaborators see the research happen live
 - **Evidence-backed answers:** LLM claims must cite evidence the application can validate.
 - **No invented data or metrics:** benchmarks record the commit, dataset, hardware and config behind every number.
 
-## Tech stack (target)
+## Tech stack
 
 | Area | Choice |
 | --- | --- |
@@ -38,7 +65,7 @@ every factual claim cites its source. Collaborators see the research happen live
 | Realtime | WebSockets (push-only events, Redis pub/sub fan-out, presence); see `docs/REALTIME.md` |
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind; backend-for-frontend with HttpOnly cookie sessions; see `frontend/README.md` |
 | Quality | Ruff, mypy (strict), pytest, Playwright, k6 |
-| Ops | Docker, GitHub Actions, Terraform, AWS (ECS Fargate, RDS, ElastiCache, S3) |
+| Ops | Docker (non-root, read-only images), GitHub Actions, GHCR, Grype image scan; Terraform for AWS planned (Phase 31, code only) |
 
 ## Repository layout
 
@@ -52,7 +79,7 @@ MirrorMarketAI/
 │   │   ├── schemas/          Pydantic request/response models
 │   │   └── ...               domain, models, repositories, services, ingestion,
 │   │                         retrieval, agents, providers, events, workers,
-│   │                         realtime, security, telemetry (filled in later phases)
+│   │                         realtime, security, telemetry
 │   ├── migrations/           Alembic environment + versioned migrations
 │   ├── tests/                unit/, api/ and db/ (real PostgreSQL) tests
 │   ├── evaluation/           end-to-end quality evaluation (`make eval`)
@@ -60,13 +87,15 @@ MirrorMarketAI/
 │   ├── Dockerfile
 │   ├── pyproject.toml        dependencies + ruff/mypy/pytest configuration
 │   └── uv.lock               exact, reproducible dependency versions
+├── frontend/                 Next.js web app (own Dockerfile, Vitest + Playwright tests)
 ├── infrastructure/docker/    local container init scripts (pgvector extension)
+├── infrastructure/nginx/     load balancer for the scaled load test (Phase 30)
 ├── infrastructure/observability/  Prometheus config and alerts, Grafana dashboard (Phase 28)
 ├── benchmarks/k6/            k6 load-test scripts (Phase 29)
 ├── benchmarks/results/       recorded load-test runs
 ├── docs/                     architecture, decisions, roadmap
 ├── .github/workflows/ci.yml  CI pipeline
-├── docker-compose.yml        postgres+pgvector, redis, kafka, api, workers
+├── docker-compose.yml        postgres+pgvector, redis, kafka, api, workers, web (profile)
 ├── Makefile                  developer commands
 └── .env.example              configuration template (copy to .env)
 ```
@@ -89,11 +118,25 @@ make verify-pgvector
 
 Interactive API docs: <http://127.0.0.1:8000/api/v1/docs>
 
-The web app runs as its production container in the optional `web` profile:
+### Try the app locally
+
+The whole product (web app, API, workers, PostgreSQL, Redis, Kafka) runs on your
+machine with Docker Compose. No API keys are needed: offline rule-based engines and a
+local embedder are the defaults.
 
 ```bash
-make web-up     # the stack above plus the web app on http://localhost:3000
-make web-e2e    # the same, then the Playwright journey in a real browser
+make env
+make web-up     # everything above plus the web app on http://localhost:3000
+```
+
+Open <http://localhost:3000>, create an account and a workspace, write a brief under
+Requirements, add two products with a source each under Products, then press
+"Research and compare" under Compare and ask a question under Ask. Open the
+workspace in a second window to see comments and votes arrive live.
+
+```bash
+make web-e2e    # the same journey, automated in a real browser
+make down       # stop everything (keeps the database volume)
 ```
 
 To run the API on your Mac with auto-reload instead of in a container:
@@ -115,7 +158,7 @@ Local ports (all bound to `127.0.0.1` only; change them in `.env`):
 
 Run `make help` for every command.
 
-## API (so far)
+## API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -166,10 +209,12 @@ Run `make help` for every command.
 | POST/GET | `/api/v1/products/{id}/prices` | Record price observations (idempotent) / bucketed history + stats 🔒 |
 | POST | `/api/v1/workspaces/{id}/search` | Hybrid search (full-text + vector, RRF) over the workspace's evidence, with filters 🔒 |
 
-🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape
-`{"error": {"code", "message", "request_id"}}`.
 | GET | `/api/v1/openapi.json` | OpenAPI schema |
 | GET | `/api/v1/docs` | Swagger UI |
+
+🔒 = requires `Authorization: Bearer <token>`. Errors always have the shape
+`{"error": {"code", "message", "request_id"}}`. The full list of endpoints, generated
+from the code, is in [docs/api/ENDPOINTS.md](docs/api/ENDPOINTS.md).
 
 Every response carries an `X-Request-ID` header. Send your own (8-128 characters
 from `A-Z a-z 0-9 . _ -`) to correlate across services; otherwise one is generated.
@@ -184,3 +229,4 @@ from `A-Z a-z 0-9 . _ -`) to correlate across services; otherwise one is generat
 - [Observability](docs/OBSERVABILITY.md): metrics, dashboard, alerts and traces (`make obs-up`)
 - [Performance](docs/PERFORMANCE.md): load-test results and what they found (`make load-up`, `make load-capacity`)
 - [Evaluation](docs/EVALUATION.md): measured quality, what was fixed, and what still fails
+- [Security](docs/SECURITY.md) · [Events](docs/EVENTS.md) · [Realtime](docs/REALTIME.md) · [API](docs/API.md)
